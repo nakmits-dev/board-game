@@ -15,7 +15,7 @@ export const monsterData: Record<MonsterType, {
     attack: 1,
     defense: 0,
     actions: 2,
-    baseImage: 'https://4.bp.blogspot.com/-dRVrh_RYQiE/VCOJAzf5WYI/AAAAAAAAm3s/h7nk6NbYZhE/s800/animal_ookami.png',
+    baseImage: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%82%A6%E3%83%AB%E3%83%95.png?alt=media&token=15418287-edda-486e-9815-1ebb4b2da203',
     evolution: 'star-wolf'
   },
   'golem': {
