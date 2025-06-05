@@ -1,0 +1,244 @@
+import React from 'react';
+import { useGame } from '../context/GameContext';
+import { Position } from '../types/gameTypes';
+import { Sword, Shield, Sparkle, Heart } from 'lucide-react';
+import CharacterModal from './CharacterModal';
+
+interface BoardCellProps {
+  position: Position;
+}
+
+const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
+  const { state, dispatch, isValidMove, isValidAttack, isValidSkillTarget, getCharacterAt } = useGame();
+  const { selectedCharacter, currentTeam, gamePhase, animationTarget, selectedAction, selectedSkill, playerCrystals, enemyCrystals } = state;
+  const [showModal, setShowModal] = React.useState(false);
+  const [isDragOver, setIsDragOver] = React.useState(false);
+  const [isDragging, setIsDragging] = React.useState(false);
+  const character = getCharacterAt(position);
+  const isSelected = selectedCharacter?.id === character?.id;
+  const isActionable = gamePhase === 'action' && character?.team === currentTeam && character.remainingActions > 0;
+  const canMoveTo = selectedCharacter && gamePhase === 'action' && !character && isValidMove(position) && selectedAction !== 'skill';
+  const canAttack = selectedCharacter && gamePhase === 'action' && character && isValidAttack(character.id) && selectedAction !== 'skill';
+  const canUseSkill = selectedCharacter && gamePhase === 'action' && character && selectedAction === 'skill' && isValidSkillTarget(character.id);
+
+  const handleDragStart = (e: React.DragEvent) => {
+    if (character && character.team === currentTeam && character.remainingActions > 0) {
+      e.dataTransfer.setData('text/plain', character.id);
+      e.dataTransfer.effectAllowed = 'move';
+      setIsDragging(true);
+      dispatch({ type: 'SELECT_CHARACTER', character });
+    }
+  };
+
+  const handleDragEnd = () => {
+    setIsDragging(false);
+    setIsDragOver(false);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!selectedCharacter || selectedAction === 'skill' || isDragging) return;
+    
+    const isValidTarget = (!character && isValidMove(position)) || (character && isValidAttack(character.id));
+    if (isValidTarget) {
+      e.dataTransfer.dropEffect = 'move';
+      setIsDragOver(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    
+    if (selectedAction === 'skill' || isDragging) return;
+    
+    const draggedCharacterId = e.dataTransfer.getData('text/plain');
+    if (!draggedCharacterId || !selectedCharacter) return;
+
+    if (!character && isValidMove(position)) {
+      dispatch({
+        type: 'SET_PENDING_ACTION',
+        action: { type: 'move', position }
+      });
+      dispatch({ type: 'CONFIRM_ACTION' });
+    } else if (character && isValidAttack(character.id)) {
+      dispatch({
+        type: 'SET_PENDING_ACTION',
+        action: { type: 'attack', targetId: character.id }
+      });
+      dispatch({ type: 'CONFIRM_ACTION' });
+    }
+  };
+
+  const handleClick = () => {
+    if (character) {
+      if (selectedCharacter && selectedAction === 'attack' && isValidAttack(character.id)) {
+        dispatch({
+          type: 'SET_PENDING_ACTION',
+          action: { type: 'attack', targetId: character.id }
+        });
+        dispatch({ type: 'CONFIRM_ACTION' });
+      } else if (selectedCharacter && selectedAction === 'skill' && isValidSkillTarget(character.id)) {
+        dispatch({ type: 'USE_SKILL', targetId: character.id });
+      } else {
+        dispatch({ type: 'SELECT_CHARACTER', character });
+        if (window.innerWidth < 1024) {
+          setShowModal(true);
+        }
+      }
+    } else if (selectedCharacter && canMoveTo) {
+      dispatch({
+        type: 'SET_PENDING_ACTION',
+        action: { type: 'move', position }
+      });
+      dispatch({ type: 'CONFIRM_ACTION' });
+    } else if (!character && !canMoveTo && !canAttack && !canUseSkill) {
+      dispatch({ type: 'SELECT_CHARACTER', character: null });
+    }
+  };
+
+  let cellClassName = "w-20 h-20 flex items-center justify-center relative border transition-all duration-200";
+  
+  if (character) {
+    cellClassName += character.team === 'player' 
+      ? " border-blue-100" 
+      : " border-red-100";
+  } else {
+    cellClassName += " border-slate-100";
+  }
+
+  if (gamePhase === 'action' && selectedCharacter) {
+    if (isSelected) {
+      cellClassName += " ring-2 ring-yellow-300 bg-yellow-50/30";
+    }
+    
+    if (selectedCharacter.team === currentTeam && selectedCharacter.remainingActions > 0) {
+      if (selectedAction === 'skill') {
+        if (canUseSkill) {
+          cellClassName += " ring-1 ring-purple-400/50 bg-purple-400/10 cursor-pointer hover:bg-purple-400/20";
+          if (isDragOver) {
+            cellClassName += " ring-2 ring-purple-500 bg-purple-400/30 scale-105 shadow-lg";
+          }
+        }
+      } else {
+        if (canMoveTo) {
+          cellClassName += " ring-1 ring-green-400/50 bg-green-400/10 cursor-pointer hover:bg-green-400/20";
+          if (isDragOver) {
+            cellClassName += " ring-2 ring-green-500 bg-green-400/30 scale-105 shadow-lg";
+          }
+        }
+        if (canAttack) {
+          cellClassName += " ring-1 ring-red-400/50 bg-red-400/10 cursor-pointer hover:bg-red-400/20";
+          if (isDragOver) {
+            cellClassName += " ring-2 ring-red-500 bg-red-400/30 scale-105 shadow-lg";
+          }
+        }
+      }
+    }
+  }
+
+  if (isActionable && selectedAction !== 'skill') {
+    cellClassName += " cursor-grab active:cursor-grabbing";
+    if (isDragging) {
+      cellClassName += " opacity-50";
+    }
+  }
+
+  return (
+    <>
+      <div 
+        className={`${cellClassName} ${animationTarget?.id === character?.id && animationTarget?.type ? `character-${animationTarget.type}` : ''} ${isActionable ? 'character-actionable' : ''}`}
+        onClick={handleClick}
+        draggable={isActionable && selectedAction !== 'skill'}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {character && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <div className={`relative w-16 h-16 rounded-lg overflow-hidden ${
+              character.team === 'player' 
+                ? 'ring-1 ring-blue-400 shadow-md shadow-blue-400/30' 
+                : 'ring-1 ring-red-400 shadow-md shadow-red-400/30'
+            }`}>
+              <img 
+                src={character.image} 
+                alt={character.name} 
+                className="w-full h-full object-cover"
+                draggable={false}
+              />
+              <div className={`absolute inset-0 ${
+                character.team === 'player' ? 'bg-blue-500' : 'bg-red-500'
+              } bg-opacity-10`}></div>
+              
+              <div className="absolute bottom-0 inset-x-0 flex justify-center gap-0.5 p-0.5">
+                {character.attack >= 2 && (
+                  <div className="w-4 h-4 bg-red-500/80 rounded flex items-center justify-center">
+                    <Sword size={10} className="text-white" />
+                  </div>
+                )}
+                {character.defense >= 1 && (
+                  <div className="w-4 h-4 bg-blue-500/80 rounded flex items-center justify-center">
+                    <Shield size={10} className="text-white" />
+                  </div>
+                )}
+                {character.actions >= 2 && (
+                  <div className="w-4 h-4 bg-yellow-500/80 rounded flex items-center justify-center">
+                    <Sparkle size={10} className="text-white" />
+                  </div>
+                )}
+              </div>
+              
+              {gamePhase === 'action' && character.team === currentTeam && character.remainingActions > 0 && (
+                <div className="absolute top-0 right-0 w-5 h-5 bg-green-500/90 rounded flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                  {character.remainingActions}
+                </div>
+              )}
+            </div>
+            
+            <div className="flex gap-0.5 mt-1">
+              {Array.from({ length: character.maxHp }, (_, i) => (
+                <div
+                  key={i}
+                  className={`w-3 h-3 flex items-center justify-center ${
+                    i < character.hp 
+                      ? character.team === 'player'
+                        ? 'text-blue-500/90'
+                        : 'text-red-500/90'
+                      : 'text-gray-300/50'
+                  }`}
+                >
+                  <Heart size={12} fill="currentColor" />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {showModal && character && (
+        <CharacterModal
+          character={character}
+          onClose={() => setShowModal(false)}
+          playerCrystals={playerCrystals}
+          enemyCrystals={enemyCrystals}
+          currentTeam={currentTeam}
+          onSkillSelect={(skill) => {
+            dispatch({ type: 'SELECT_CHARACTER', character });
+            dispatch({ type: 'SELECT_SKILL', skill });
+            setShowModal(false);
+          }}
+        />
+      )}
+    </>
+  );
+};
+
+export default BoardCell;

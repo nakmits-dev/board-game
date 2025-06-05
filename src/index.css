@@ -1,0 +1,146 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+/* 行動可能なキャラクターのアニメーション */
+.character-actionable {
+  animation: actionable 1s ease-in-out infinite;
+}
+
+@keyframes actionable {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+/* 移動アニメーション */
+.character-move {
+  animation: move 0.3s ease-out;
+}
+
+@keyframes move {
+  0% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0); }
+}
+
+/* 攻撃アニメーション */
+.character-attack {
+  animation: attack 0.2s ease-in-out;
+}
+
+@keyframes attack {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+/* ダメージアニメーション */
+.character-damage {
+  animation: damage 0.3s ease-in-out;
+}
+
+@keyframes damage {
+  0% { transform: translateX(0); filter: brightness(1); }
+  25% { transform: translateX(-5px); filter: brightness(1.5); }
+  75% { transform: translateX(5px); filter: brightness(1.5); }
+  100% { transform: translateX(0); filter: brightness(1); }
+}
+
+/* 回復アニメーション */
+.character-heal {
+  animation: heal 0.6s ease-in-out;
+}
+
+@keyframes heal {
+  0% { filter: brightness(1) drop-shadow(0 0 0 rgba(74, 222, 128, 0)); }
+  50% { filter: brightness(1.5) drop-shadow(0 0 10px rgba(74, 222, 128, 0.8)); }
+  100% { filter: brightness(1) drop-shadow(0 0 0 rgba(74, 222, 128, 0)); }
+}
+
+/* 気絶アニメーション */
+.character-ko {
+  animation: ko 0.4s ease-in-out forwards;
+}
+
+@keyframes ko {
+  0% { transform: scale(1) rotate(0); opacity: 1; }
+  100% { transform: scale(0) rotate(180deg); opacity: 0; }
+}
+
+/* クリスタル獲得アニメーション */
+.crystal-gain {
+  animation: crystal-gain 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: center;
+}
+
+@keyframes crystal-gain {
+  0% {
+    transform: scale(1) rotate(0deg);
+    filter: brightness(1) drop-shadow(0 0 0 rgba(255, 255, 255, 0));
+  }
+  20% {
+    transform: scale(1.5) rotate(-15deg);
+    filter: brightness(1.8) drop-shadow(0 0 10px rgba(255, 255, 255, 0.8));
+  }
+  40% {
+    transform: scale(1.8) rotate(15deg);
+    filter: brightness(2) drop-shadow(0 0 20px rgba(255, 255, 255, 1));
+  }
+  60% {
+    transform: scale(1.5) rotate(-5deg);
+    filter: brightness(1.8) drop-shadow(0 0 15px rgba(255, 255, 255, 0.8));
+  }
+  80% {
+    transform: scale(1.2) rotate(5deg);
+    filter: brightness(1.5) drop-shadow(0 0 10px rgba(255, 255, 255, 0.6));
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    filter: brightness(1) drop-shadow(0 0 0 rgba(255, 255, 255, 0));
+  }
+}
+
+/* 進化アニメーション */
+.character-evolve {
+  animation: evolve 1s ease-in-out;
+}
+
+@keyframes evolve {
+  0% {
+    transform: scale(1);
+    filter: brightness(1) saturate(100%);
+  }
+  50% {
+    transform: scale(1.5);
+    filter: brightness(2) saturate(200%);
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1) saturate(100%);
+  }
+}
+
+/* ターン開始アニメーション */
+.character-turn-start {
+  animation: turn-start 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes turn-start {
+  0% {
+    transform: scale(1);
+    filter: brightness(1) drop-shadow(0 0 0 rgba(255, 255, 255, 0));
+  }
+  50% {
+    transform: scale(1.1);
+    filter: brightness(1.5) drop-shadow(0 0 15px rgba(255, 255, 255, 0.8));
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1) drop-shadow(0 0 0 rgba(255, 255, 255, 0));
+  }
+}
