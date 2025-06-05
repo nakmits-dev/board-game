@@ -32,6 +32,7 @@ const GameContext = createContext<GameContextType | undefined>(undefined);
 
 const MAX_CRYSTALS = 7;
 const ANIMATION_DURATION = 300;
+const GAME_START_TIMEOUT = 30000; // 30 seconds timeout
 
 const checkMasterStatus = (characters: Character[]): { playerMasterAlive: boolean; enemyMasterAlive: boolean } => {
   const playerMaster = characters.find(char => char.team === 'player' && char.type === 'master');
@@ -446,6 +447,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(gameReducer, createInitialGameState());
 
+  // Handle animations
   useEffect(() => {
     if (state.pendingAnimations.length > 0) {
       const playAnimations = async () => {
@@ -468,6 +470,17 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       playAnimations();
     }
   }, [state.pendingAnimations]);
+
+  // Add game start timeout
+  useEffect(() => {
+    if (state.gamePhase === 'preparation') {
+      const timer = setTimeout(() => {
+        dispatch({ type: 'RESET_GAME' });
+      }, GAME_START_TIMEOUT);
+
+      return () => clearTimeout(timer);
+    }
+  }, [state.gamePhase]);
 
   const isValidMove = (position: Position): boolean => {
     if (!state.selectedCharacter || state.selectedCharacter.remainingActions <= 0) return false;
