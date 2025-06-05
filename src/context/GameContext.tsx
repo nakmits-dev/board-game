@@ -204,16 +204,12 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       const evolvedStats = monsterData[evolvedType];
       const updatedCharacters = state.characters.map(char => {
         if (char.id === action.characterId) {
-          const currentHpPercentage = char.hp / char.maxHp;
-          const newMaxHp = evolvedStats.hp;
-          const newCurrentHp = Math.ceil(newMaxHp * currentHpPercentage);
-          
           return {
             ...char,
             name: evolvedStats.name,
             monsterType: evolvedType,
-            maxHp: newMaxHp,
-            hp: newCurrentHp,
+            maxHp: evolvedStats.hp,
+            hp: char.hp, // 現在のHPをそのまま引き継ぐ
             attack: evolvedStats.attack,
             defense: evolvedStats.defense,
             actions: evolvedStats.actions,
