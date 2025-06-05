@@ -32,7 +32,7 @@ const GameContext = createContext<GameContextType | undefined>(undefined);
 
 const MAX_CRYSTALS = 7;
 const ANIMATION_DURATION = 300;
-const GAME_START_TIMEOUT = 30000; // 30 seconds timeout
+const GAME_START_TIMEOUT = 30000; // 30秒のタイムアウト
 
 const checkMasterStatus = (characters: Character[]): { playerMasterAlive: boolean; enemyMasterAlive: boolean } => {
   const playerMaster = characters.find(char => char.team === 'player' && char.type === 'master');
@@ -447,7 +447,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(gameReducer, createInitialGameState());
 
-  // Handle animations
+  // アニメーションの処理
   useEffect(() => {
     if (state.pendingAnimations.length > 0) {
       const playAnimations = async () => {
@@ -471,7 +471,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [state.pendingAnimations]);
 
-  // Add game start timeout
+  // ゲーム開始タイムアウトの追加
   useEffect(() => {
     if (state.gamePhase === 'preparation') {
       const timer = setTimeout(() => {
