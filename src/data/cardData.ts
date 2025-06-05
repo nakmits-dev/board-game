@@ -24,7 +24,7 @@ export const monsterData: Record<MonsterType, {
     attack: 1,
     defense: 1,
     actions: 1,
-    baseImage: 'https://2.bp.blogspot.com/-u7NQvEkCv6s/VCOJBdPyWEI/AAAAAAAAm4E/AQf_2vH0YWc/s800/character_golem.png',
+    baseImage: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%82%B3%E3%82%99%E3%83%BC%E3%83%AC%E3%83%A0.png?alt=media&token=868ad28d-288a-4041-999b-4efde6460400',
     evolution: 'iron-golem'
   },
   'bear': {
@@ -42,7 +42,7 @@ export const monsterData: Record<MonsterType, {
     attack: 2,
     defense: 0,
     actions: 2,
-    baseImage: 'https://3.bp.blogspot.com/-QGn6UqH_vgg/VCOJBODwGPI/AAAAAAAAm38/HNAaR19jFCo/s800/character_wolf.png'
+    baseImage: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%82%B9%E3%82%BF%E3%83%BC%E3%82%A6%E3%83%AB%E3%83%95.png?alt=media&token=222f5b7e-49a5-489b-86f8-3d529e9cd0fa'
   },
   'iron-golem': {
     name: 'アイアンゴーレム',
@@ -50,7 +50,7 @@ export const monsterData: Record<MonsterType, {
     attack: 2,
     defense: 1,
     actions: 1,
-    baseImage: 'https://4.bp.blogspot.com/-ELwPVkEzN_Q/VCOJBcL3pSI/AAAAAAAAm4I/wLJ_CYp3EFI/s800/character_iron_golem.png'
+    baseImage: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%82%A2%E3%82%A4%E3%82%A2%E3%83%B3%E3%82%B3%E3%82%99%E3%83%BC%E3%83%AC%E3%83%A0.png?alt=media&token=5117d52b-3b4d-48fa-8cfa-a650e0a930e0'
   },
   'white-bear': {
     name: 'ホワイトベアー',
