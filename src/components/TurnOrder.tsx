@@ -14,6 +14,7 @@ const TurnOrder: React.FC = () => {
   const isEndingTurn = useRef(false);
   
   useEffect(() => {
+    // ゲームフェーズが'action'の時のみタイマーを動作させる
     if (gamePhase !== 'action' || isPaused) {
       return;
     }
@@ -23,7 +24,6 @@ const TurnOrder: React.FC = () => {
         if (prev <= 1 && !isEndingTurn.current) {
           clearInterval(timer);
           isEndingTurn.current = true;
-          // 非同期でターン終了を実行
           setTimeout(() => {
             endTurnButtonRef.current?.click();
             isEndingTurn.current = false;
@@ -38,9 +38,12 @@ const TurnOrder: React.FC = () => {
   }, [gamePhase, currentTeam, dispatch, isPaused]);
 
   useEffect(() => {
-    setTimeLeft(TURN_DURATION);
-    setShowSurrenderConfirm(false); // Reset surrender confirmation when turn changes
-  }, [currentTeam]);
+    // ターンが変わった時のみタイマーをリセット
+    if (gamePhase === 'action') {
+      setTimeLeft(TURN_DURATION);
+      setShowSurrenderConfirm(false);
+    }
+  }, [currentTeam, gamePhase]);
   
   if (gamePhase === 'preparation' || gamePhase === 'result') return null;
 
