@@ -118,7 +118,7 @@ export const monsterData: Record<string, MonsterCard> = {
   },
   'blue-dragon': {
     name: 'ブルードラゴン',
-    hp: 3,
+    hp: 2,
     attack: 1,
     defense: 1,
     actions: 1,
@@ -161,7 +161,7 @@ export const monsterData: Record<string, MonsterCard> = {
     hp: 3,
     attack: 1,
     defense: 0,
-    actions: 2,
+    actions: 1,
     image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%96%E3%83%A9%E3%83%83%E3%82%AF%E3%83%89%E3%83%A9%E3%82%B4%E3%83%B3.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
     skillId: 'curse',
     cost: 3
