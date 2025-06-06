@@ -79,12 +79,12 @@ export const masterData = {
     }]
   },
   enemy: {
-    name: 'てきマスター',
+    name: 'レッドマスター',
     hp: 3,
     attack: 1,
     defense: 1,
     actions: 1,
-    image: 'https://4.bp.blogspot.com/-6t-gBJZyKj8/VCOJAjK_XXI/AAAAAAAAm3w/WS5XxT9frSE/s800/animal_owl.png',
+    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%AC%E3%83%83%E3%83%88%E3%82%99%E3%83%9E%E3%82%B9%E3%82%BF%E3%83%BC.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
     skills: [{
       name: 'いかりのいちげき',
       description: 'ちかくのてきにこうげき（+1）をあたえる',
