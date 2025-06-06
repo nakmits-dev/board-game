@@ -389,23 +389,6 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
     }, 0);
   };
 
-  // カード選択エリアの高さを動的に計算
-  const getCardSelectionHeight = () => {
-    if (!selectedPosition || !selectedAssignment) return 'auto';
-    
-    const filteredCards = selectedAssignment.type === 'master' 
-      ? getFilteredCards('master')
-      : getFilteredCards('monster');
-    
-    const cardsPerRow = window.innerWidth >= 1024 ? 3 : window.innerWidth >= 640 ? 2 : 1;
-    const rows = Math.ceil(filteredCards.length / cardsPerRow);
-    const cardHeight = 400; // CharacterCardの高さ
-    const gap = 16; // gap-4
-    const totalHeight = rows * cardHeight + (rows - 1) * gap;
-    
-    return `${Math.min(totalHeight, window.innerHeight * 0.6)}px`;
-  };
-
   return (
     <div className="min-h-screen bg-blue-50 p-2 sm:p-4">
       <div className="max-w-6xl mx-auto">
@@ -579,8 +562,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
             
             <div 
               ref={cardSelectionRef}
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-              style={{ height: getCardSelectionHeight() }}
+              className="bg-gray-50 rounded-lg p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
             >
               {selectedAssignment.type === 'master' 
                 ? getFilteredCards('master').map(([id, data]) => {
