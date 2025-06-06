@@ -23,7 +23,7 @@ export const skillData: Record<string, Skill> = {
     description: 'ぼうぎょをむしして1ダメージをあたえる',
     damage: 1,
     range: 999,
-    crystalCost: 4,
+    crystalCost: 1,
     ignoreDefense: true
   },
   'evolve': {

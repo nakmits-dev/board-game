@@ -180,7 +180,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
     return (
       <div
         key={`${position.x}-${position.y}`}
-        className={`w-20 h-20 border-2 rounded-lg flex items-center justify-center transition-all duration-200 ${
+        className={`w-20 h-20 border-2 rounded-lg flex items-center justify-center transition-all duration-200 relative ${
           isCurrentTeam 
             ? 'cursor-pointer' 
             : 'cursor-default opacity-75'
@@ -204,22 +204,24 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
               alt={cardData.name}
               className="w-full h-full object-cover rounded"
             />
-            <div className={`absolute top-0 right-0 w-4 h-4 rounded-full flex items-center justify-center text-xs ${
+            {/* タイプマークを左上に移動 */}
+            <div className={`absolute top-0 left-0 w-4 h-4 rounded-full flex items-center justify-center text-xs ${
               assignment.type === 'master' 
                 ? 'bg-amber-500 text-amber-950' 
                 : 'bg-slate-500 text-white'
             }`}>
               {assignment.type === 'master' ? <Crown size={8} /> : <GitLab size={8} />}
             </div>
+            {/* バツボタンを右上に配置 */}
             {isCurrentTeam && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   removeCard(position);
                 }}
-                className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center"
+                className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg z-10"
               >
-                <X size={8} />
+                <X size={10} />
               </button>
             )}
           </div>
@@ -256,7 +258,9 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
         key={id}
         className={`relative bg-slate-800/95 rounded-xl overflow-hidden shadow-lg border transition-all duration-200 cursor-pointer transform hover:scale-105 ${
           canSelect && !isAssigned
-            ? 'border-slate-600 hover:border-slate-400' 
+            ? selectedPosition 
+              ? 'border-blue-400 ring-2 ring-blue-400/50 hover:border-blue-300' 
+              : 'border-slate-600 hover:border-slate-400'
             : 'border-slate-700 opacity-50 cursor-not-allowed'
         }`}
         onClick={() => canSelect && !isAssigned ? assignCard(id, type) : undefined}
