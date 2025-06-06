@@ -145,9 +145,8 @@ const CharacterCard: React.FC<CharacterCardProps> = ({
                       <Diamond 
                         key={i} 
                         size={8} 
-                        className={`inline drop-shadow ${
-                          i < availableCrystals ? 'text-purple-400' : 'text-purple-800'
-                        }`} 
+                        className="text-purple-400 drop-shadow" 
+                        fill="currentColor"
                       />
                     ))}
                   </span>
