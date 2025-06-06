@@ -31,7 +31,6 @@ const createMonster = (type: MonsterType, position: Position, team: Team): Chara
 };
 
 const getRandomMasterType = () => {
-  // 基本マスターとドラゴン系から選択
   const types = Object.keys(masterData) as Array<keyof typeof masterData>;
   const randomIndex = Math.floor(Math.random() * types.length);
   return types[randomIndex];

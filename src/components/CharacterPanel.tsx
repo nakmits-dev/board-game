@@ -1,6 +1,7 @@
 import React from 'react';
 import { useGame } from '../context/GameContext';
 import { Skill } from '../types/gameTypes';
+import { skillData } from '../data/skillData';
 import CharacterCard from './CharacterCard';
 
 const CharacterPanel: React.FC = () => {

@@ -94,23 +94,8 @@ export const monsterData: Record<string, MonsterCard> = {
     image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%82%AD%E3%83%B3%E3%82%B0%E3%83%9B%E3%82%A8%E3%83%BC%E3%83%AB.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
     skillId: '',
     cost: 2
-  }
-};
-
-export const masterData: Record<string, MasterCard> = {
-  'master': {
-    type: 'master',
-    name: 'マスター',
-    hp: 3,
-    attack: 1,
-    defense: 0,
-    actions: 1,
-    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%9E%E3%82%B9%E3%82%BF%E3%83%BC.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
-    skillId: '',
-    cost: 1
   },
   'red-dragon': {
-    type: 'red-dragon',
     name: 'レッドドラゴン',
     hp: 3,
     attack: 2,
@@ -121,7 +106,6 @@ export const masterData: Record<string, MasterCard> = {
     cost: 3
   },
   'blue-dragon': {
-    type: 'blue-dragon',
     name: 'ブルードラゴン',
     hp: 3,
     attack: 1,
@@ -132,7 +116,6 @@ export const masterData: Record<string, MasterCard> = {
     cost: 3
   },
   'yellow-dragon': {
-    type: 'yellow-dragon',
     name: 'イエロードラゴン',
     hp: 3,
     attack: 1,
@@ -143,7 +126,6 @@ export const masterData: Record<string, MasterCard> = {
     cost: 3
   },
   'green-dragon': {
-    type: 'green-dragon',
     name: 'グリーンドラゴン',
     hp: 3,
     attack: 1,
@@ -154,7 +136,6 @@ export const masterData: Record<string, MasterCard> = {
     cost: 3
   },
   'white-dragon': {
-    type: 'white-dragon',
     name: 'ホワイトドラゴン',
     hp: 3,
     attack: 1,
@@ -165,7 +146,6 @@ export const masterData: Record<string, MasterCard> = {
     cost: 3
   },
   'black-dragon': {
-    type: 'black-dragon',
     name: 'ブラックドラゴン',
     hp: 3,
     attack: 1,
@@ -174,5 +154,74 @@ export const masterData: Record<string, MasterCard> = {
     image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%96%E3%83%A9%E3%83%83%E3%82%AF%E3%83%89%E3%83%A9%E3%82%B4%E3%83%B3.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
     skillId: 'curse',
     cost: 3
+  }
+};
+
+export const masterData: Record<string, MasterCard> = {
+  'red': {
+    type: 'red',
+    name: 'レッドマスター',
+    hp: 3,
+    attack: 2,
+    defense: 0,
+    actions: 1,
+    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%AC%E3%83%83%E3%83%89%E3%83%9E%E3%82%B9%E3%82%BF%E3%83%BC.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
+    skillId: 'rage-strike',
+    cost: 1
+  },
+  'blue': {
+    type: 'blue',
+    name: 'ブルーマスター',
+    hp: 3,
+    attack: 1,
+    defense: 1,
+    actions: 1,
+    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%96%E3%83%AB%E3%83%BC%E3%83%9E%E3%82%B9%E3%82%BF%E3%83%BC.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
+    skillId: 'rage-strike',
+    cost: 1
+  },
+  'green': {
+    type: 'green',
+    name: 'グリーンマスター',
+    hp: 3,
+    attack: 1,
+    defense: 0,
+    actions: 1,
+    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%82%B0%E3%83%AA%E3%83%BC%E3%83%B3%E3%83%9E%E3%82%B9%E3%82%BF%E3%83%BC.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
+    skillId: 'heal',
+    cost: 1
+  },
+  'yellow': {
+    type: 'yellow',
+    name: 'イエローマスター',
+    hp: 3,
+    attack: 1,
+    defense: 0,
+    actions: 2,
+    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%82%A4%E3%82%A8%E3%83%AD%E3%83%BC%E3%83%9E%E3%82%B9%E3%82%BF%E3%83%BC.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
+    skillId: 'rage-strike',
+    cost: 1
+  },
+  'black': {
+    type: 'black',
+    name: 'ブラックマスター',
+    hp: 3,
+    attack: 1,
+    defense: 0,
+    actions: 1,
+    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%96%E3%83%A9%E3%83%83%E3%82%AF%E3%83%9E%E3%82%B9%E3%82%BF%E3%83%BC.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
+    skillId: 'curse',
+    cost: 1
+  },
+  'white': {
+    type: 'white',
+    name: 'ホワイトマスター',
+    hp: 3,
+    attack: 1,
+    defense: 0,
+    actions: 1,
+    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%9B%E3%83%AF%E3%82%A4%E3%83%88%E3%83%9E%E3%82%B9%E3%82%BF%E3%83%BC.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
+    skillId: 'evolve',
+    cost: 1
   }
 };

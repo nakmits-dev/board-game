@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { Character, Skill } from '../types/gameTypes';
+import { skillData } from '../data/skillData';
 import CharacterCard from './CharacterCard';
 
 interface CharacterModalProps {

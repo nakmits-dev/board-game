@@ -1,6 +1,6 @@
 export type CharacterType = 'monster' | 'master';
 export type Team = 'player' | 'enemy';
-export type MonsterType = 'wolf' | 'golem' | 'bear' | 'star-wolf' | 'iron-golem' | 'white-bear' | 'slime' | 'whale' | 'king-whale';
+export type MonsterType = 'wolf' | 'golem' | 'bear' | 'star-wolf' | 'iron-golem' | 'white-bear' | 'slime' | 'whale' | 'king-whale' | 'red-dragon' | 'blue-dragon' | 'yellow-dragon' | 'green-dragon' | 'white-dragon' | 'black-dragon';
 
 export interface Position {
   x: number;
@@ -40,7 +40,7 @@ export interface MonsterCard extends Card {
 }
 
 export interface MasterCard extends Card {
-  type: 'master' | 'red-dragon' | 'blue-dragon' | 'yellow-dragon' | 'green-dragon' | 'white-dragon' | 'black-dragon';
+  type: 'red' | 'blue' | 'green' | 'yellow' | 'black' | 'white';
 }
 
 export interface BaseCharacter {
