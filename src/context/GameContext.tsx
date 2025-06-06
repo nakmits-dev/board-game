@@ -357,10 +357,13 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       let enemyCrystals = state.enemyCrystals;
 
       if (defeatedCharacter) {
+        // 倒されたキャラクターのコスト分のクリスタルを獲得
+        const crystalGain = defeatedCharacter.cost;
+        
         if (defeatedCharacter.team === 'player') {
-          playerCrystals = Math.min(MAX_CRYSTALS, playerCrystals + 1);
+          enemyCrystals = Math.min(MAX_CRYSTALS, enemyCrystals + crystalGain);
         } else {
-          enemyCrystals = Math.min(MAX_CRYSTALS, enemyCrystals + 1);
+          playerCrystals = Math.min(MAX_CRYSTALS, playerCrystals + crystalGain);
         }
       }
 
