@@ -40,7 +40,7 @@ export interface MonsterCard extends Card {
 }
 
 export interface MasterCard extends Card {
-  type: 'red' | 'blue' | 'green' | 'yellow' | 'black' | 'white';
+  type: 'normal' | 'red' | 'blue' | 'green' | 'yellow' | 'black' | 'white';
 }
 
 export interface BaseCharacter {
