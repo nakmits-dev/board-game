@@ -42,8 +42,8 @@ const CharacterCard: React.FC<CharacterCardProps> = ({
   const TypeIcon = character.type === 'master' ? Crown : GitLab;
   const availableCrystals = character.team === 'player' ? playerCrystals : enemyCrystals;
 
-  // Get the skill for this character
-  const skill = character.skillId ? skillData.get(character.skillId) : undefined;
+  // Get the skill for this character - Changed from .get() to bracket notation
+  const skill = character.skillId ? skillData[character.skillId] : undefined;
 
   return (
     <div className="w-[360px] h-[520px] bg-slate-800/95 rounded-2xl overflow-hidden shadow-xl border border-slate-700/50 backdrop-blur-sm flex flex-col">
