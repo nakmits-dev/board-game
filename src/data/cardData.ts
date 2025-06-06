@@ -33,7 +33,7 @@ export const monsterData: Record<MonsterType, {
     attack: 2,
     defense: 0,
     actions: 1,
-    baseImage: 'https://2.bp.blogspot.com/-UXxdKOzEzqE/VCOJAEDQn9I/AAAAAAAAm3k/wLHDAlq_q_4/s800/animal_kuma.png',
+    baseImage: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%98%E3%82%99%E3%82%A2%E3%83%BC.png?alt=media&token=d186d7fc-8c38-4b3d-bc86-0eb1f2932cc8',
     evolution: 'white-bear'
   },
   'star-wolf': {
@@ -58,7 +58,7 @@ export const monsterData: Record<MonsterType, {
     attack: 3,
     defense: 0,
     actions: 1,
-    baseImage: 'https://1.bp.blogspot.com/-LFh4mfdjPSQ/VCOJBBhPGEI/AAAAAAAAm4A/d4K5d2rRJUE/s800/character_shirokuma.png'
+    baseImage: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%9B%E3%83%AF%E3%82%A4%E3%83%88%E3%83%98%E3%82%99%E3%82%A2%E3%83%BC.png?alt=media&token=ac221df6-cffa-43b0-9ef5-1e41d920c280'
   }
 };
 
