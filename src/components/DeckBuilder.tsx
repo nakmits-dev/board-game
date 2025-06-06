@@ -177,53 +177,98 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
         : monsterData[assignment.id as MonsterType]
       : null;
 
+    // 対戦ボードと同じスタイリングを適用
+    let cellClassName = "w-20 h-20 flex items-center justify-center relative border transition-all duration-200";
+    
+    if (hasCard) {
+      cellClassName += isCurrentTeam === (position.y >= 2) 
+        ? " border-blue-100" 
+        : " border-red-100";
+    } else {
+      cellClassName += " border-slate-100";
+    }
+
+    if (isSelected) {
+      cellClassName += " ring-2 ring-yellow-300 bg-yellow-50/30";
+    }
+
+    if (isCurrentTeam && !hasCard) {
+      cellClassName += " ring-1 ring-green-400/50 bg-green-400/10 cursor-pointer hover:bg-green-400/20";
+    } else if (isCurrentTeam && hasCard) {
+      cellClassName += " cursor-pointer hover:bg-blue-50/30";
+    }
+
     return (
       <div
         key={`${position.x}-${position.y}`}
-        className={`w-20 h-20 border-2 rounded-lg flex items-center justify-center transition-all duration-200 relative ${
-          isCurrentTeam 
-            ? 'cursor-pointer' 
-            : 'cursor-default opacity-75'
-        } ${
-          isSelected 
-            ? 'border-blue-400 bg-blue-50 ring-2 ring-blue-400/50' 
-            : hasCard
-            ? isCurrentTeam
-              ? 'border-slate-300 bg-white hover:border-slate-400'
-              : 'border-slate-300 bg-white'
-            : isCurrentTeam
-            ? 'border-dashed border-gray-400 bg-gray-50 hover:border-gray-500'
-            : 'border-dashed border-gray-300 bg-gray-100'
-        }`}
+        className={cellClassName}
         onClick={() => isCurrentTeam ? setSelectedPosition(position) : undefined}
       >
         {hasCard && cardData ? (
-          <div className="relative w-full h-full">
-            <img 
-              src={cardData.image} 
-              alt={cardData.name}
-              className="w-full h-full object-cover rounded"
-            />
-            {/* タイプマークを左上に移動 */}
-            <div className={`absolute top-0 left-0 w-4 h-4 rounded-full flex items-center justify-center text-xs ${
-              assignment.type === 'master' 
-                ? 'bg-amber-500 text-amber-950' 
-                : 'bg-slate-500 text-white'
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <div className={`relative w-16 h-16 rounded-lg overflow-hidden ${
+              isCurrentTeam === (position.y >= 2)
+                ? 'ring-1 ring-blue-400 shadow-md shadow-blue-400/30' 
+                : 'ring-1 ring-red-400 shadow-md shadow-red-400/30'
             }`}>
-              {assignment.type === 'master' ? <Crown size={8} /> : <GitLab size={8} />}
+              <img 
+                src={cardData.image} 
+                alt={cardData.name} 
+                className="w-full h-full object-cover"
+                draggable={false}
+              />
+              <div className={`absolute inset-0 ${
+                isCurrentTeam === (position.y >= 2) ? 'bg-blue-500' : 'bg-red-500'
+              } bg-opacity-10`}></div>
+              
+              {/* Stats overlay - 対戦ボードと同じ */}
+              <div className="absolute bottom-0 inset-x-0 flex justify-center gap-0.5 p-0.5">
+                {cardData.attack >= 2 && (
+                  <div className="w-4 h-4 bg-red-500/80 rounded flex items-center justify-center">
+                    <Sword size={10} className="text-white" />
+                  </div>
+                )}
+                {cardData.defense >= 1 && (
+                  <div className="w-4 h-4 bg-blue-500/80 rounded flex items-center justify-center">
+                    <Shield size={10} className="text-white" />
+                  </div>
+                )}
+                {cardData.actions >= 2 && (
+                  <div className="w-4 h-4 bg-yellow-500/80 rounded flex items-center justify-center">
+                    <Sparkle size={10} className="text-white" />
+                  </div>
+                )}
+              </div>
+
+              {/* バツボタン */}
+              {isCurrentTeam && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeCard(position);
+                  }}
+                  className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg z-10"
+                >
+                  <X size={10} />
+                </button>
+              )}
             </div>
-            {/* バツボタンを右上に配置 */}
-            {isCurrentTeam && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  removeCard(position);
-                }}
-                className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg z-10"
-              >
-                <X size={10} />
-              </button>
-            )}
+            
+            {/* HP表示 - 対戦ボードと同じ */}
+            <div className="flex gap-0.5 mt-1">
+              {Array.from({ length: cardData.hp }, (_, i) => (
+                <div
+                  key={i}
+                  className={`w-3 h-3 flex items-center justify-center ${
+                    isCurrentTeam === (position.y >= 2)
+                      ? 'text-blue-500/90'
+                      : 'text-red-500/90'
+                  }`}
+                >
+                  <Heart size={12} fill="currentColor" />
+                </div>
+              ))}
+            </div>
           </div>
         ) : (
           <div className="text-center">
@@ -436,27 +481,27 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
             {currentTeam === 'player' ? 'プレイヤーチーム' : '敵チーム'}編成
           </h2>
           <div className="flex justify-center">
-            <div className="bg-slate-100 rounded-xl p-4">
-              <div className="grid grid-rows-4 gap-2">
+            <div className="bg-white rounded-xl p-4 border border-blue-100">
+              <div className="grid grid-rows-4 gap-1">
                 {/* Enemy area */}
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-3 gap-1">
                   {[0, 1, 2].map(x => 
                     renderBoardCell({ x, y: 0 }, enemyAssignments, currentTeam === 'enemy')
                   )}
                 </div>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-3 gap-1">
                   <div className="w-20 h-20"></div>
                   {renderBoardCell({ x: 1, y: 1 }, enemyAssignments, currentTeam === 'enemy')}
                   <div className="w-20 h-20"></div>
                 </div>
                 
                 {/* Player area */}
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-3 gap-1">
                   <div className="w-20 h-20"></div>
                   {renderBoardCell({ x: 1, y: 2 }, playerAssignments, currentTeam === 'player')}
                   <div className="w-20 h-20"></div>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-3 gap-1">
                   {[0, 1, 2].map(x => 
                     renderBoardCell({ x, y: 3 }, playerAssignments, currentTeam === 'player')
                   )}
