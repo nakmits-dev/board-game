@@ -14,7 +14,7 @@ export const skillData: Record<string, Skill> = {
     name: 'かいふく',
     description: 'みかたいちたいのHPを2かいふくする',
     healing: 2,
-    range: 1,
+    range: 999,
     crystalCost: 2
   },
   'curse': {
@@ -22,7 +22,7 @@ export const skillData: Record<string, Skill> = {
     name: 'のろい',
     description: 'ぼうぎょをむしして1ダメージをあたえる',
     damage: 1,
-    range: 1,
+    range: 999,
     crystalCost: 4,
     ignoreDefense: true
   },
