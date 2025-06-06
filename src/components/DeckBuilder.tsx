@@ -25,7 +25,6 @@ interface PositionAssignment {
 const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
   const [costFilter, setCostFilter] = useState<number | null>(null);
-  const cardSelectionRef = useRef<HTMLDivElement>(null);
   
   // 初期状態でランダムチームを生成
   const initialPlayerTeam = generateTeamWithCost8();
@@ -376,22 +375,9 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
     }
   };
 
-  // フィルタ変更時にスクロール位置を保持
-  const handleFilterChange = (newFilter: number | null) => {
-    const currentScrollTop = cardSelectionRef.current?.scrollTop || 0;
-    setCostFilter(newFilter);
-    
-    // フィルタ変更後にスクロール位置を復元
-    setTimeout(() => {
-      if (cardSelectionRef.current) {
-        cardSelectionRef.current.scrollTop = currentScrollTop;
-      }
-    }, 0);
-  };
-
   return (
     <div className="min-h-screen bg-blue-50 p-2 sm:p-4">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-4 sm:mb-6">
           <div className="flex items-center justify-between mb-4">
             <button
@@ -532,7 +518,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
                 <span className="text-sm text-gray-600">コスト:</span>
                 <div className="flex gap-1">
                   <button
-                    onClick={() => handleFilterChange(null)}
+                    onClick={() => setCostFilter(null)}
                     className={`px-2 py-1 text-xs rounded ${
                       costFilter === null 
                         ? 'bg-blue-500 text-white' 
@@ -544,7 +530,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
                   {getAvailableCosts(selectedAssignment.type).map(cost => (
                     <button
                       key={cost}
-                      onClick={() => handleFilterChange(cost)}
+                      onClick={() => setCostFilter(cost)}
                       className={`px-2 py-1 text-xs rounded flex items-center gap-1 ${
                         costFilter === cost 
                           ? 'bg-blue-500 text-white' 
@@ -560,12 +546,10 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
               </div>
             </div>
             
-            <div 
-              ref={cardSelectionRef}
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto"
-            >
+            {/* カード選択エリア - スクロールなしで固定高さ */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 h-[500px]">
               {selectedAssignment.type === 'master' 
-                ? getFilteredCards('master').map(([id, data]) => {
+                ? getFilteredCards('master').slice(0, 10).map(([id, data]) => {
                     const character = createCharacterForCard('master', id, data);
                     const playerAssigned = playerAssignments.some(a => a.id === id);
                     const enemyAssigned = enemyAssignments.some(a => a.id === id);
@@ -575,20 +559,22 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
                     return (
                       <div
                         key={id}
-                        className={`relative transition-all duration-200 cursor-pointer ${
+                        className={`relative transition-all duration-200 cursor-pointer transform hover:scale-105 ${
                           canSelect
                             ? 'opacity-100'
                             : 'opacity-50 cursor-not-allowed'
                         }`}
                         onClick={() => canSelect ? assignCard(id, 'master') : undefined}
                       >
-                        <CharacterCard
-                          character={character}
-                          currentTeam="player"
-                          playerCrystals={0}
-                          enemyCrystals={0}
-                          variant="panel"
-                        />
+                        <div className="scale-75 origin-top-left">
+                          <CharacterCard
+                            character={character}
+                            currentTeam="player"
+                            playerCrystals={0}
+                            enemyCrystals={0}
+                            variant="panel"
+                          />
+                        </div>
                         
                         {/* Status indicators */}
                         {isAssigned && (
@@ -601,7 +587,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
                       </div>
                     );
                   })
-                : getFilteredCards('monster').map(monster => {
+                : getFilteredCards('monster').slice(0, 10).map(monster => {
                     const data = monsterData[monster];
                     const character = createCharacterForCard('monster', monster, data);
                     const playerAssigned = playerAssignments.some(a => a.id === monster);
@@ -612,20 +598,22 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
                     return (
                       <div
                         key={monster}
-                        className={`relative transition-all duration-200 cursor-pointer ${
+                        className={`relative transition-all duration-200 cursor-pointer transform hover:scale-105 ${
                           canSelect
                             ? 'opacity-100'
                             : 'opacity-50 cursor-not-allowed'
                         }`}
                         onClick={() => canSelect ? assignCard(monster, 'monster') : undefined}
                       >
-                        <CharacterCard
-                          character={character}
-                          currentTeam="player"
-                          playerCrystals={0}
-                          enemyCrystals={0}
-                          variant="panel"
-                        />
+                        <div className="scale-75 origin-top-left">
+                          <CharacterCard
+                            character={character}
+                            currentTeam="player"
+                            playerCrystals={0}
+                            enemyCrystals={0}
+                            variant="panel"
+                          />
+                        </div>
                         
                         {/* Status indicators */}
                         {isAssigned && (

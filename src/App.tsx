@@ -66,8 +66,9 @@ const GameContent = () => {
       </header>
       
       <main className="container mx-auto p-4 max-w-7xl">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+          {/* メインゲームエリア */}
+          <div className="xl:col-span-3">
             {(gamePhase === 'preparation' || gamePhase === 'result') ? (
               <div className="flex justify-center gap-4 mb-4">
                 <button
@@ -99,8 +100,11 @@ const GameContent = () => {
             </div>
           </div>
           
-          <div className="hidden lg:block">
-            <CharacterPanel />
+          {/* キャラクターパネル */}
+          <div className="xl:col-span-1">
+            <div className="sticky top-4">
+              <CharacterPanel />
+            </div>
           </div>
         </div>
       </main>
