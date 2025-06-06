@@ -53,6 +53,11 @@ const GameContent = () => {
     setShowDeckBuilder(false);
   };
 
+  // 対戦開始ボタンの活性化条件をチェック
+  const canStartGame = () => {
+    return !!(currentDecks.player && currentDecks.enemy);
+  };
+
   if (showDeckBuilder) {
     return (
       <DeckBuilder 
@@ -84,8 +89,13 @@ const GameContent = () => {
                   チーム編成
                 </button>
                 <button
-                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-lg transform transition hover:scale-105"
-                  onClick={() => handleStartGame()}
+                  className={`px-6 py-3 font-bold rounded-lg shadow-lg transform transition ${
+                    canStartGame()
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white hover:scale-105'
+                      : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                  }`}
+                  onClick={() => canStartGame() && handleStartGame()}
+                  disabled={!canStartGame()}
                 >
                   {gamePhase === 'preparation' ? '対戦開始' : 'もう一度プレイ'}
                 </button>

@@ -183,13 +183,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     const playerMaster = playerAssignments.find(a => a.type === 'master')?.id;
     const enemyMaster = enemyAssignments.find(a => a.type === 'master')?.id;
     
-    if (!playerMaster || !enemyMaster) return false;
-    
-    // コストが8以下かチェック
-    const playerCost = getTotalCost(playerAssignments);
-    const enemyCost = getTotalCost(enemyAssignments);
-    
-    return playerCost <= 8 && enemyCost <= 8;
+    return !!playerMaster && !!enemyMaster;
   };
 
   const handleComplete = () => {
