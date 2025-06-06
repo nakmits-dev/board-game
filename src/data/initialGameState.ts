@@ -125,36 +125,34 @@ export const createInitialGameState = (
   playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] },
   enemyDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }
 ): GameState => {
-  // プレイヤーチームの生成（指定されていない場合はランダム）
-  const playerTeam = playerDeck || generateTeamWithCost8();
-  // 敵チームの生成（指定されていない場合はランダム）
-  const enemyTeam = enemyDeck || generateTeamWithCost8();
-
   const characters: Character[] = [];
 
-  // プレイヤーチーム
-  // マスターを中央前に配置
-  characters.push(createMaster(playerTeam.master, { x: 1, y: 3 }, 'player'));
+  // デッキが指定されている場合のみキャラクターを配置
+  if (playerDeck && enemyDeck) {
+    // プレイヤーチーム
+    // マスターを中央前に配置
+    characters.push(createMaster(playerDeck.master, { x: 1, y: 3 }, 'player'));
 
-  // モンスターを配置（最大3体）
-  const availablePlayerPositions = [{ x: 0, y: 3 }, { x: 2, y: 3 }, { x: 1, y: 2 }];
-  playerTeam.monsters.forEach((monster, index) => {
-    if (index < availablePlayerPositions.length) {
-      characters.push(createMonster(monster, availablePlayerPositions[index], 'player'));
-    }
-  });
+    // モンスターを配置（最大3体）
+    const availablePlayerPositions = [{ x: 0, y: 3 }, { x: 2, y: 3 }, { x: 1, y: 2 }];
+    playerDeck.monsters.forEach((monster, index) => {
+      if (index < availablePlayerPositions.length) {
+        characters.push(createMonster(monster, availablePlayerPositions[index], 'player'));
+      }
+    });
 
-  // 敵チーム
-  // マスターを中央前に配置
-  characters.push(createMaster(enemyTeam.master, { x: 1, y: 0 }, 'enemy'));
+    // 敵チーム
+    // マスターを中央前に配置
+    characters.push(createMaster(enemyDeck.master, { x: 1, y: 0 }, 'enemy'));
 
-  // モンスターを配置（最大3体）
-  const availableEnemyPositions = [{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 1, y: 1 }];
-  enemyTeam.monsters.forEach((monster, index) => {
-    if (index < availableEnemyPositions.length) {
-      characters.push(createMonster(monster, availableEnemyPositions[index], 'enemy'));
-    }
-  });
+    // モンスターを配置（最大3体）
+    const availableEnemyPositions = [{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 1, y: 1 }];
+    enemyDeck.monsters.forEach((monster, index) => {
+      if (index < availableEnemyPositions.length) {
+        characters.push(createMonster(monster, availableEnemyPositions[index], 'enemy'));
+      }
+    });
+  }
 
   return {
     characters,
