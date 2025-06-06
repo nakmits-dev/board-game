@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { MonsterType, MasterCard, Position } from '../types/gameTypes';
 import { monsterData, masterData } from '../data/cardData';
 import { skillData } from '../data/skillData';
-import { Shield, Sword, Sparkle, Heart, Crown, Gitlab as GitLab, Play, X, Filter, Star } from 'lucide-react';
+import { Shield, Sword, Sparkle, Heart, Crown, Gitlab as GitLab, Play, X, Filter, Star, Shuffle } from 'lucide-react';
 import CharacterCard from './CharacterCard';
 
 interface DeckBuilderProps {
@@ -158,6 +158,96 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
     );
   };
 
+  // ランダム選択機能
+  const generateRandomTeam = (): { master: keyof typeof masterData; monsters: MonsterType[] } => {
+    const MAX_COST = 8;
+    const MAX_ATTEMPTS = 1000;
+    
+    const availableMasters = Object.keys(masterData) as Array<keyof typeof masterData>;
+    const availableMonsters = getBaseMonsters();
+    
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      const masterType = availableMasters[Math.floor(Math.random() * availableMasters.length)];
+      const masterCost = masterData[masterType].cost;
+      const remainingCost = MAX_COST - masterCost;
+      
+      const monsters: MonsterType[] = [];
+      let currentCost = masterCost;
+      
+      for (let i = 0; i < 3; i++) {
+        const validMonsters = availableMonsters.filter(monster => 
+          monsterData[monster].cost <= remainingCost - (currentCost - masterCost) &&
+          !monsters.includes(monster)
+        );
+        
+        if (validMonsters.length === 0) break;
+        
+        if (Math.random() < 0.8) {
+          const selectedMonster = validMonsters[Math.floor(Math.random() * validMonsters.length)];
+          const monsterCost = monsterData[selectedMonster].cost;
+          
+          if (currentCost + monsterCost <= MAX_COST) {
+            monsters.push(selectedMonster);
+            currentCost += monsterCost;
+          }
+        }
+      }
+      
+      if (currentCost <= MAX_COST) {
+        return { master: masterType, monsters };
+      }
+    }
+    
+    return {
+      master: 'normal',
+      monsters: ['slime', 'slime']
+    };
+  };
+
+  const handleRandomSelection = () => {
+    const playerTeam = generateRandomTeam();
+    const enemyTeam = generateRandomTeam();
+    
+    // プレイヤーチーム設定
+    const newPlayerAssignments = playerAssignments.map(assignment => {
+      if (assignment.type === 'master') {
+        return { ...assignment, id: playerTeam.master };
+      } else {
+        const monsterIndex = playerAssignments.filter(a => 
+          a.type === 'monster' && 
+          (a.position.x < assignment.position.x || 
+           (a.position.x === assignment.position.x && a.position.y < assignment.position.y))
+        ).length;
+        
+        return { 
+          ...assignment, 
+          id: playerTeam.monsters[monsterIndex] || undefined 
+        };
+      }
+    });
+    
+    // 敵チーム設定
+    const newEnemyAssignments = enemyAssignments.map(assignment => {
+      if (assignment.type === 'master') {
+        return { ...assignment, id: enemyTeam.master };
+      } else {
+        const monsterIndex = enemyAssignments.filter(a => 
+          a.type === 'monster' && 
+          (a.position.x < assignment.position.x || 
+           (a.position.x === assignment.position.x && a.position.y < assignment.position.y))
+        ).length;
+        
+        return { 
+          ...assignment, 
+          id: enemyTeam.monsters[monsterIndex] || undefined 
+        };
+      }
+    });
+    
+    setPlayerAssignments(newPlayerAssignments);
+    setEnemyAssignments(newEnemyAssignments);
+  };
+
   // 進化前のモンスターのみを取得
   const getBaseMonsters = (): MonsterType[] => {
     const evolutionTargets = new Set(
@@ -199,6 +289,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
       cellClassName += " border-slate-100";
     }
 
+    // 選択状態の枠色を統一（青チームも赤チームも黄色）
     if (isSelected) {
       cellClassName += " ring-2 ring-yellow-300 bg-yellow-50/30";
     }
@@ -256,25 +347,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
                 )}
               </div>
 
-              {/* バツボタン - タイプマークと重ならないよう上部に配置 */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  removeCard(position);
-                }}
-                className="absolute -top-1 -left-1 w-4 h-4 sm:w-5 sm:h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg z-10"
-              >
-                <X size={8} className="sm:w-[10px] sm:h-[10px]" />
-              </button>
-
-              {/* タイプマーク - 右上に配置 */}
-              <div className={`absolute -top-1 -right-1 w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center shadow-lg z-10 ${
-                assignment.type === 'master' 
-                  ? 'bg-amber-500 text-amber-950' 
-                  : 'bg-slate-500 text-slate-200'
-              }`}>
-                {assignment.type === 'master' ? <Crown size={8} className="sm:w-[10px] sm:h-[10px]" /> : <GitLab size={8} className="sm:w-[10px] sm:h-[10px]" />}
-              </div>
+              {/* バツボタンを削除 */}
             </div>
             
             {/* HP表示 - 対戦ボードと同じ */}
@@ -421,13 +494,23 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
               </div>
             </div>
             
+            {/* ランダム選択ボタン */}
+            <button
+              onClick={handleRandomSelection}
+              className="px-4 sm:px-6 py-2 sm:py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg shadow-lg transform transition hover:scale-105 flex items-center gap-2"
+            >
+              <Shuffle size={16} className="sm:w-5 sm:h-5" />
+              ランダム選択
+            </button>
+            
+            {/* 完了ボタン */}
             {canStartGame() && (
               <button
                 onClick={handleStartGame}
                 className="px-4 sm:px-6 py-2 sm:py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow-lg transform transition hover:scale-105 flex items-center gap-2"
               >
                 <Play size={16} className="sm:w-5 sm:h-5" />
-                ゲーム開始
+                完了
               </button>
             )}
           </div>
@@ -555,13 +638,6 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
                             <span className="text-white text-xs font-bold">✓</span>
                           </div>
                         )}
-                        
-                        {/* Cost display */}
-                        <div className="absolute top-2 left-2 flex items-center gap-1 bg-black/60 rounded px-2 py-1">
-                          {Array(data.cost).fill('').map((_, i) => (
-                            <Star key={i} size={10} className="text-yellow-400" fill="currentColor" />
-                          ))}
-                        </div>
                       </div>
                     );
                   })
@@ -599,13 +675,6 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
                             <span className="text-white text-xs font-bold">✓</span>
                           </div>
                         )}
-                        
-                        {/* Cost display */}
-                        <div className="absolute top-2 left-2 flex items-center gap-1 bg-black/60 rounded px-2 py-1">
-                          {Array(data.cost).fill('').map((_, i) => (
-                            <Star key={i} size={10} className="text-yellow-400" fill="currentColor" />
-                          ))}
-                        </div>
                       </div>
                     );
                   })
