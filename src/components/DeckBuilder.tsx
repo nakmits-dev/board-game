@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { MonsterType, MasterCard, Position } from '../types/gameTypes';
 import { monsterData, masterData } from '../data/cardData';
 import { skillData } from '../data/skillData';
-import { Shield, Sword, Sparkle, Heart, Crown, Gitlab as GitLab, Diamond, Play, X, Filter } from 'lucide-react';
+import { Shield, Sword, Sparkle, Heart, Crown, Gitlab as GitLab, Play, X, Filter, Star } from 'lucide-react';
+import CharacterCard from './CharacterCard';
 
 interface DeckBuilderProps {
   onStartGame: (
@@ -20,6 +21,7 @@ interface PositionAssignment {
 const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
   const [costFilter, setCostFilter] = useState<number | null>(null);
+  const cardSelectionRef = useRef<HTMLDivElement>(null);
   
   const [playerAssignments, setPlayerAssignments] = useState<PositionAssignment[]>([
     { position: { x: 0, y: 3 }, type: 'monster' },
@@ -309,106 +311,33 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
     );
   };
 
-  const renderCard = (
-    type: 'master' | 'monster',
-    id: string,
-    data: any,
-    canSelect: boolean
-  ) => {
+  const createCharacterForCard = (type: 'master' | 'monster', id: string, data: any) => {
     const skill = data.skillId ? skillData[data.skillId] : undefined;
-    const playerAssigned = playerAssignments.some(a => a.id === id);
-    const enemyAssigned = enemyAssignments.some(a => a.id === id);
-    const isAssigned = playerAssigned || enemyAssigned;
     
-    return (
-      <div
-        key={id}
-        className={`relative bg-slate-800/95 rounded-xl overflow-hidden shadow-lg border transition-all duration-200 cursor-pointer transform hover:scale-105 ${
-          canSelect && !isAssigned
-            ? selectedPosition 
-              ? 'border-blue-400 ring-2 ring-blue-400/50 hover:border-blue-300' 
-              : 'border-slate-600 hover:border-slate-400'
-            : 'border-slate-700 opacity-50 cursor-not-allowed'
-        }`}
-        onClick={() => canSelect && !isAssigned ? assignCard(id, type) : undefined}
-      >
-        <div className="p-2 sm:p-3">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <div className={`p-1 rounded-full ${
-                type === 'master'
-                  ? 'bg-gradient-to-br from-amber-400 to-amber-500 text-amber-950'
-                  : 'bg-gradient-to-br from-slate-500 to-slate-600 text-slate-200'
-              }`}>
-                {type === 'master' ? <Crown size={10} className="sm:w-3 sm:h-3" /> : <GitLab size={10} className="sm:w-3 sm:h-3" />}
-              </div>
-              <span className="text-xs sm:text-sm font-bold text-white">{data.name}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              {Array(data.cost).fill('').map((_, i) => (
-                <Diamond key={i} size={8} className="text-yellow-400 sm:w-[10px] sm:h-[10px]" />
-              ))}
-            </div>
-          </div>
-
-          {/* Image */}
-          <div className="relative w-full h-16 sm:h-24 mb-2 rounded-lg overflow-hidden border border-slate-600">
-            <img 
-              src={data.image} 
-              alt={data.name}
-              className="w-full h-full object-cover"
-            />
-          </div>
-
-          {/* Stats */}
-          <div className="flex justify-between items-center mb-2">
-            <div className="flex gap-1 sm:gap-2">
-              <div className="flex items-center gap-1">
-                <Heart size={10} className="text-green-400 sm:w-3 sm:h-3" fill="currentColor" />
-                <span className="text-xs font-bold text-green-400">{data.hp}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Sword size={10} className="text-red-400 sm:w-3 sm:h-3" />
-                <span className="text-xs font-bold text-red-400">{data.attack}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Shield size={10} className="text-blue-400 sm:w-3 sm:h-3" />
-                <span className="text-xs font-bold text-blue-400">{data.defense}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Sparkle size={10} className="text-amber-400 sm:w-3 sm:h-3" />
-                <span className="text-xs font-bold text-amber-400">{data.actions}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Skill */}
-          {skill && (
-            <div className="bg-purple-900/50 rounded p-1 sm:p-2">
-              <div className="flex items-center gap-1 mb-1">
-                <span className="text-xs font-bold text-purple-200">{skill.name}</span>
-                <span className="flex items-center gap-0.5">
-                  {Array(skill.crystalCost).fill('').map((_, i) => (
-                    <Diamond key={i} size={6} className="text-purple-400 sm:w-2 sm:h-2" />
-                  ))}
-                </span>
-              </div>
-              <p className="text-xs text-purple-300 leading-tight">{skill.description}</p>
-            </div>
-          )}
-
-          {/* Status indicators */}
-          {isAssigned && (
-            <div className={`absolute top-2 right-2 w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center ${
-              playerAssigned ? 'bg-blue-500' : 'bg-red-500'
-            }`}>
-              <span className="text-white text-xs font-bold">✓</span>
-            </div>
-          )}
-        </div>
-      </div>
-    );
+    return {
+      id: id,
+      name: data.name,
+      type: type,
+      team: 'player' as const,
+      position: { x: 0, y: 0 },
+      hp: data.hp,
+      maxHp: data.hp,
+      attack: data.attack,
+      defense: data.defense,
+      actions: data.actions,
+      remainingActions: 0,
+      skillId: data.skillId,
+      image: data.image,
+      cost: data.cost,
+      ...(type === 'monster' && {
+        monsterType: id as MonsterType,
+        canEvolve: !!data.evolution,
+        isEvolved: false
+      }),
+      ...(type === 'master' && {
+        masterType: data.type
+      })
+    };
   };
 
   const selectedAssignment = selectedPosition ? getAssignmentAt(selectedPosition, getAssignmentsForPosition(selectedPosition)) : null;
@@ -436,6 +365,19 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
     }
   };
 
+  // フィルタ変更時にスクロール位置を保持
+  const handleFilterChange = (newFilter: number | null) => {
+    const currentScrollTop = cardSelectionRef.current?.scrollTop || 0;
+    setCostFilter(newFilter);
+    
+    // フィルタ変更後にスクロール位置を復元
+    setTimeout(() => {
+      if (cardSelectionRef.current) {
+        cardSelectionRef.current.scrollTop = currentScrollTop;
+      }
+    }, 0);
+  };
+
   return (
     <div className="min-h-screen bg-blue-50 p-2 sm:p-4">
       <div className="max-w-6xl mx-auto">
@@ -453,10 +395,11 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
               </span>
               <div className="flex items-center gap-1 mt-1">
                 {Array(8).fill('').map((_, i) => (
-                  <Diamond 
+                  <Star 
                     key={i} 
                     size={10} 
                     className={`sm:w-3 sm:h-3 ${i < getTotalCost(playerAssignments) ? 'text-blue-500' : 'text-gray-300'}`} 
+                    fill={i < getTotalCost(playerAssignments) ? 'currentColor' : 'none'}
                   />
                 ))}
               </div>
@@ -468,10 +411,11 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
               </span>
               <div className="flex items-center gap-1 mt-1">
                 {Array(8).fill('').map((_, i) => (
-                  <Diamond 
+                  <Star 
                     key={i} 
                     size={10} 
                     className={`sm:w-3 sm:h-3 ${i < getTotalCost(enemyAssignments) ? 'text-red-500' : 'text-gray-300'}`} 
+                    fill={i < getTotalCost(enemyAssignments) ? 'currentColor' : 'none'}
                   />
                 ))}
               </div>
@@ -533,7 +477,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
 
         {/* Card Selection */}
         {selectedPosition && selectedAssignment && (
-          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6" ref={cardSelectionRef}>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
               <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-2 sm:mb-0">
                 {selectedAssignment.type === 'master' ? 'マスター' : 'モンスター'}選択
@@ -548,7 +492,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
                 <span className="text-sm text-gray-600">コスト:</span>
                 <div className="flex gap-1">
                   <button
-                    onClick={() => setCostFilter(null)}
+                    onClick={() => handleFilterChange(null)}
                     className={`px-2 py-1 text-xs rounded ${
                       costFilter === null 
                         ? 'bg-blue-500 text-white' 
@@ -560,7 +504,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
                   {getAvailableCosts(selectedAssignment.type).map(cost => (
                     <button
                       key={cost}
-                      onClick={() => setCostFilter(cost)}
+                      onClick={() => handleFilterChange(cost)}
                       className={`px-2 py-1 text-xs rounded flex items-center gap-1 ${
                         costFilter === cost 
                           ? 'bg-blue-500 text-white' 
@@ -568,7 +512,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
                       }`}
                     >
                       {Array(cost).fill('').map((_, i) => (
-                        <Diamond key={i} size={8} className="text-yellow-500" />
+                        <Star key={i} size={8} className="text-yellow-500" fill="currentColor" />
                       ))}
                     </button>
                   ))}
@@ -576,14 +520,95 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
               </div>
             </div>
             
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {selectedAssignment.type === 'master' 
-                ? getFilteredCards('master').map(([id, data]) => 
-                    renderCard('master', id, data, canAssign(id, 'master'))
-                  )
-                : getFilteredCards('monster').map(monster => 
-                    renderCard('monster', monster, monsterData[monster], canAssign(monster, 'monster'))
-                  )
+                ? getFilteredCards('master').map(([id, data]) => {
+                    const character = createCharacterForCard('master', id, data);
+                    const playerAssigned = playerAssignments.some(a => a.id === id);
+                    const enemyAssigned = enemyAssignments.some(a => a.id === id);
+                    const isAssigned = playerAssigned || enemyAssigned;
+                    const canSelect = canAssign(id, 'master') && !isAssigned;
+                    
+                    return (
+                      <div
+                        key={id}
+                        className={`relative transition-all duration-200 cursor-pointer transform hover:scale-105 ${
+                          canSelect
+                            ? 'opacity-100'
+                            : 'opacity-50 cursor-not-allowed'
+                        }`}
+                        onClick={() => canSelect ? assignCard(id, 'master') : undefined}
+                      >
+                        <CharacterCard
+                          character={character}
+                          currentTeam="player"
+                          playerCrystals={0}
+                          enemyCrystals={0}
+                          variant="panel"
+                        />
+                        
+                        {/* Status indicators */}
+                        {isAssigned && (
+                          <div className={`absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center ${
+                            playerAssigned ? 'bg-blue-500' : 'bg-red-500'
+                          }`}>
+                            <span className="text-white text-xs font-bold">✓</span>
+                          </div>
+                        )}
+                        
+                        {/* Cost display */}
+                        <div className="absolute top-2 left-2 flex items-center gap-1 bg-black/60 rounded px-2 py-1">
+                          {Array(data.cost).fill('').map((_, i) => (
+                            <Star key={i} size={10} className="text-yellow-400" fill="currentColor" />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })
+                : getFilteredCards('monster').map(monster => {
+                    const data = monsterData[monster];
+                    const character = createCharacterForCard('monster', monster, data);
+                    const playerAssigned = playerAssignments.some(a => a.id === monster);
+                    const enemyAssigned = enemyAssignments.some(a => a.id === monster);
+                    const isAssigned = playerAssigned || enemyAssigned;
+                    const canSelect = canAssign(monster, 'monster') && !isAssigned;
+                    
+                    return (
+                      <div
+                        key={monster}
+                        className={`relative transition-all duration-200 cursor-pointer transform hover:scale-105 ${
+                          canSelect
+                            ? 'opacity-100'
+                            : 'opacity-50 cursor-not-allowed'
+                        }`}
+                        onClick={() => canSelect ? assignCard(monster, 'monster') : undefined}
+                      >
+                        <CharacterCard
+                          character={character}
+                          currentTeam="player"
+                          playerCrystals={0}
+                          enemyCrystals={0}
+                          variant="panel"
+                        />
+                        
+                        {/* Status indicators */}
+                        {isAssigned && (
+                          <div className={`absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center ${
+                            playerAssigned ? 'bg-blue-500' : 'bg-red-500'
+                          }`}>
+                            <span className="text-white text-xs font-bold">✓</span>
+                          </div>
+                        )}
+                        
+                        {/* Cost display */}
+                        <div className="absolute top-2 left-2 flex items-center gap-1 bg-black/60 rounded px-2 py-1">
+                          {Array(data.cost).fill('').map((_, i) => (
+                            <Star key={i} size={10} className="text-yellow-400" fill="currentColor" />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })
               }
             </div>
           </div>
