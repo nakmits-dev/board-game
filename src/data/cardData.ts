@@ -63,6 +63,37 @@ export const monsterData: Record<string, MonsterCard> = {
     image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%9B%E3%83%AF%E3%82%A4%E3%83%88%E3%83%98%E3%82%99%E3%82%A2%E3%83%BC.png?alt=media&token=ac221df6-cffa-43b0-9ef5-1e41d920c280',
     skillId: '',
     cost: 2
+  },
+  'slime': {
+    name: 'スライム',
+    hp: 3,
+    attack: 1,
+    defense: 0,
+    actions: 1,
+    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%82%B9%E3%83%A9%E3%82%A4%E3%83%A0.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
+    skillId: '',
+    cost: 1
+  },
+  'whale': {
+    name: 'ホエール',
+    hp: 5,
+    attack: 1,
+    defense: 0,
+    actions: 1,
+    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%9B%E3%82%A8%E3%83%BC%E3%83%AB.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
+    evolution: 'king-whale',
+    skillId: '',
+    cost: 2
+  },
+  'king-whale': {
+    name: 'キングホエール',
+    hp: 5,
+    attack: 2,
+    defense: 0,
+    actions: 1,
+    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%82%AD%E3%83%B3%E3%82%B0%E3%83%9B%E3%82%A8%E3%83%BC%E3%83%AB.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
+    skillId: '',
+    cost: 2
   }
 };
 

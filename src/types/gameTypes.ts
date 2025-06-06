@@ -1,6 +1,6 @@
 export type CharacterType = 'monster' | 'master';
 export type Team = 'player' | 'enemy';
-export type MonsterType = 'wolf' | 'golem' | 'bear' | 'star-wolf' | 'iron-golem' | 'white-bear';
+export type MonsterType = 'wolf' | 'golem' | 'bear' | 'star-wolf' | 'iron-golem' | 'white-bear' | 'slime' | 'whale' | 'king-whale';
 
 export interface Position {
   x: number;
