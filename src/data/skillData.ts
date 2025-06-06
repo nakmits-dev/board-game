@@ -12,7 +12,7 @@ export const skillData: Record<string, Skill> = {
   'heal': {
     id: 'heal',
     name: 'かいふく',
-    description: 'みかたいちたいのHPを2かいふくする',
+    description: 'みかたのたいりょくを2かいふくする',
     healing: 2,
     range: 999,
     crystalCost: 2
@@ -20,7 +20,7 @@ export const skillData: Record<string, Skill> = {
   'curse': {
     id: 'curse',
     name: 'のろい',
-    description: 'ぼうぎょをむしして1ダメージをあたえる',
+    description: 'てきのたいりょくを１へらす',
     damage: 1,
     range: 999,
     crystalCost: 1,
