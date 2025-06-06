@@ -71,6 +71,17 @@ export const monsterData: Record<string, MonsterCard> = {
     defense: 0,
     actions: 1,
     image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%82%B9%E3%83%A9%E3%82%A4%E3%83%A0.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
+    evolution: 'red-slime',
+    skillId: '',
+    cost: 1
+  },
+  'red-slime': {
+    name: 'レッドスライム',
+    hp: 3,
+    attack: 2,
+    defense: 0,
+    actions: 1,
+    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%AC%E3%83%83%E3%83%89%E3%82%B9%E3%83%A9%E3%82%A4%E3%83%A0.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
     skillId: '',
     cost: 1
   },

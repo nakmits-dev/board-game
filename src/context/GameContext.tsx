@@ -156,10 +156,13 @@ function gameReducer(state: GameState, action: GameAction): GameState {
               { id: target.team, type: 'crystal-gain' }
             );
 
-            // 進化条件を満たしているか確認
+            // 進化条件を満たしているか確認（進化先があるモンスターのみ）
             const attacker = state.selectedCharacter;
             if (attacker.type === 'monster' && !attacker.isEvolved && attacker.monsterType) {
-              animations.push({ id: attacker.id, type: 'evolve' });
+              const evolvedType = getEvolvedMonsterType(attacker.monsterType);
+              if (evolvedType) {
+                animations.push({ id: attacker.id, type: 'evolve' });
+              }
             }
           }
 
@@ -311,7 +314,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
       if (state.selectedSkill.effects?.some(effect => effect.type === 'evolve')) {
         if (target.type === 'monster' && !target.isEvolved && target.monsterType) {
-          animations.push({ id: target.id, type: 'evolve' });
+          const evolvedType = getEvolvedMonsterType(target.monsterType);
+          if (evolvedType) {
+            animations.push({ id: target.id, type: 'evolve' });
+          }
         }
       }
 
@@ -530,6 +536,11 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (state.selectedSkill.effects?.some(effect => effect.type === 'evolve')) {
       if (target.team !== state.selectedCharacter.team) return false;
       if (target.type !== 'monster' || target.isEvolved) return false;
+      // 進化先があるかチェック
+      if (target.type === 'monster' && target.monsterType) {
+        const evolvedType = getEvolvedMonsterType(target.monsterType);
+        if (!evolvedType) return false;
+      }
     }
 
     return distance <= state.selectedSkill.range;
