@@ -1,22 +1,35 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { GameProvider } from './context/GameContext';
 import GameBoard from './components/GameBoard';
 import CharacterPanel from './components/CharacterPanel';
 import ActionControls from './components/ActionControls';
 import TurnOrder from './components/TurnOrder';
 import CrystalDisplay from './components/CrystalDisplay';
+import DeckBuilder from './components/DeckBuilder';
 import { useGame } from './context/GameContext';
+import { MonsterType } from './types/gameTypes';
+import { masterData } from './data/cardData';
 
 const GameContent = () => {
   const { state, dispatch } = useGame();
   const { gamePhase } = state;
+  const [showDeckBuilder, setShowDeckBuilder] = useState(false);
 
-  const handleStartGame = () => {
+  const handleStartGame = (playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }) => {
     if (gamePhase === 'result') {
       dispatch({ type: 'RESET_GAME' });
     }
-    dispatch({ type: 'START_GAME' });
+    dispatch({ type: 'START_GAME', playerDeck });
+    setShowDeckBuilder(false);
   };
+
+  const handleShowDeckBuilder = () => {
+    setShowDeckBuilder(true);
+  };
+
+  if (showDeckBuilder) {
+    return <DeckBuilder onStartGame={handleStartGame} />;
+  }
 
   return (
     <div className="min-h-screen bg-blue-50 text-gray-900">
@@ -30,12 +43,18 @@ const GameContent = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
             {(gamePhase === 'preparation' || gamePhase === 'result') ? (
-              <div className="flex justify-center mb-4">
+              <div className="flex justify-center gap-4 mb-4">
+                <button
+                  className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow-lg transform transition hover:scale-105"
+                  onClick={handleShowDeckBuilder}
+                >
+                  デッキ編成
+                </button>
                 <button
                   className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-lg transform transition hover:scale-105"
-                  onClick={handleStartGame}
+                  onClick={() => handleStartGame()}
                 >
-                  {gamePhase === 'preparation' ? 'ゲーム開始' : 'もう一度プレイ'}
+                  {gamePhase === 'preparation' ? 'ランダムで開始' : 'もう一度プレイ'}
                 </button>
               </div>
             ) : (

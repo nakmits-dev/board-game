@@ -2,6 +2,7 @@ import React, { createContext, useContext, useReducer, ReactNode, useEffect } fr
 import { GameState, Character, Position, ActionType, Skill, Team, AnimationSequence, MonsterType } from '../types/gameTypes';
 import { createInitialGameState, getEvolvedMonsterType, monsterData } from '../data/initialGameState';
 import { skillData } from '../data/skillData';
+import { masterData } from '../data/cardData';
 
 type GameAction =
   | { type: 'SELECT_CHARACTER'; character: Character | null }
@@ -12,7 +13,7 @@ type GameAction =
   | { type: 'SELECT_SKILL'; skill: Skill }
   | { type: 'USE_SKILL'; targetId: string }
   | { type: 'END_TURN' }
-  | { type: 'START_GAME' }
+  | { type: 'START_GAME'; playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] } }
   | { type: 'RESET_GAME' }
   | { type: 'ADD_CRYSTAL'; team: Team }
   | { type: 'SET_ANIMATION_TARGET'; target: { id: string; type: 'move' | 'attack' | 'damage' | 'heal' | 'ko' | 'crystal-gain' | 'turn-start' | 'evolve' } | null }
@@ -431,11 +432,13 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
     case 'START_GAME': {
       const startingTeam: Team = Math.random() < 0.5 ? 'player' : 'enemy';
+      const newState = createInitialGameState(action.playerDeck);
+      
       return {
-        ...state,
+        ...newState,
         gamePhase: 'action',
         currentTeam: startingTeam,
-        characters: state.characters.map(char => ({
+        characters: newState.characters.map(char => ({
           ...char,
           remainingActions: char.team === startingTeam ? char.actions : 0,
         })),

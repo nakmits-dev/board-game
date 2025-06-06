@@ -120,11 +120,14 @@ const generateTeamWithCost8 = (): { master: keyof typeof masterData; monsters: M
 
 export { createMonster, createMaster, getEvolvedMonsterType, monsterData };
 
-export const createInitialGameState = (): GameState => {
-  // プレイヤーチームの生成（コスト8）
-  const playerTeam = generateTeamWithCost8();
-  // 敵チームの生成（コスト8）
-  const enemyTeam = generateTeamWithCost8();
+export const createInitialGameState = (
+  playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] },
+  enemyDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }
+): GameState => {
+  // プレイヤーチームの生成（指定されていない場合はランダム）
+  const playerTeam = playerDeck || generateTeamWithCost8();
+  // 敵チームの生成（指定されていない場合はランダム）
+  const enemyTeam = enemyDeck || generateTeamWithCost8();
 
   const characters: Character[] = [
     // プレイヤーチーム
