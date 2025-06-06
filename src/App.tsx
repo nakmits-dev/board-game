@@ -46,6 +46,9 @@ const GameContent = () => {
     // 編成内容を保存
     if (playerDeck && enemyDeck) {
       setCurrentDecks({ player: playerDeck, enemy: enemyDeck });
+      
+      // 準備画面でのプレビューを更新
+      dispatch({ type: 'UPDATE_PREVIEW', playerDeck, enemyDeck });
     }
     setShowDeckBuilder(false);
   };

@@ -15,6 +15,7 @@ type GameAction =
   | { type: 'END_TURN' }
   | { type: 'START_GAME'; playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }; enemyDeck?: { master: keyof typeof masterData; monsters: MonsterType[] } }
   | { type: 'RESET_GAME' }
+  | { type: 'UPDATE_PREVIEW'; playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }; enemyDeck?: { master: keyof typeof masterData; monsters: MonsterType[] } }
   | { type: 'ADD_CRYSTAL'; team: Team }
   | { type: 'SET_ANIMATION_TARGET'; target: { id: string; type: 'move' | 'attack' | 'damage' | 'heal' | 'ko' | 'crystal-gain' | 'turn-start' | 'evolve' } | null }
   | { type: 'SET_PENDING_ANIMATIONS'; animations: AnimationSequence[] }
@@ -445,6 +446,18 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           remainingActions: char.team === startingTeam ? char.actions : 0,
         })),
         pendingAnimations: [{ id: startingTeam, type: 'turn-start' }],
+      };
+    }
+
+    case 'UPDATE_PREVIEW': {
+      // 準備画面でのプレビュー更新
+      if (state.gamePhase !== 'preparation') return state;
+      
+      const newState = createInitialGameState(action.playerDeck, action.enemyDeck);
+      
+      return {
+        ...state,
+        characters: newState.characters,
       };
     }
 
