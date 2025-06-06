@@ -402,8 +402,9 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
     const cardHeight = 400; // CharacterCardの高さ
     const gap = 16; // gap-4
     const totalHeight = rows * cardHeight + (rows - 1) * gap;
+    const padding = 48; // p-6の上下パディング
     
-    return `${Math.min(totalHeight, window.innerHeight * 0.6)}px`;
+    return `${Math.min(totalHeight + padding, window.innerHeight * 0.6)}px`;
   };
 
   return (
@@ -534,7 +535,10 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
 
         {/* Card Selection */}
         {selectedPosition && selectedAssignment && (
-          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
+          <div 
+            className="bg-white rounded-xl shadow-lg p-4 sm:p-6"
+            style={{ minHeight: getCardSelectionHeight() }}
+          >
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
               <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-2 sm:mb-0">
                 {selectedAssignment.type === 'master' ? 'マスター' : 'モンスター'}選択
@@ -580,7 +584,6 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
             <div 
               ref={cardSelectionRef}
               className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-              style={{ height: getCardSelectionHeight() }}
             >
               {selectedAssignment.type === 'master' 
                 ? getFilteredCards('master').map(([id, data]) => {

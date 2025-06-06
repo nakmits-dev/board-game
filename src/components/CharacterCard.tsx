@@ -47,7 +47,7 @@ const CharacterCard: React.FC<CharacterCardProps> = ({
   return (
     <div className="w-[280px] h-[400px] bg-slate-800/95 rounded-2xl overflow-hidden shadow-xl border border-slate-700/50 backdrop-blur-sm flex flex-col relative">
       {/* Cost Display - 右上に配置 */}
-      <div className="absolute top-2 right-2 z-10">
+      <div className="absolute top-3 right-3 z-10">
         <div className="relative">
           <Star 
             size={24} 
