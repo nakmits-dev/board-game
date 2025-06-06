@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, ReactNode, useEffect } from 'react';
 import { GameState, Character, Position, ActionType, Skill, Team, AnimationSequence, MonsterType } from '../types/gameTypes';
 import { createInitialGameState, getEvolvedMonsterType, monsterData } from '../data/initialGameState';
+import { skillData } from '../data/skillData';
 
 type GameAction =
   | { type: 'SELECT_CHARACTER'; character: Character | null }
@@ -209,11 +210,12 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             name: evolvedStats.name,
             monsterType: evolvedType,
             maxHp: evolvedStats.hp,
-            hp: char.hp, // 現在のHPをそのまま引き継ぐ
+            hp: char.hp,
             attack: evolvedStats.attack,
             defense: evolvedStats.defense,
             actions: evolvedStats.actions,
-            image: evolvedStats.image, // baseImageではなくimageを使用
+            image: evolvedStats.image,
+            skillId: evolvedStats.skillId,
             isEvolved: true,
           };
         }
@@ -294,11 +296,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             { id: target.id, type: 'ko' },
             { id: target.team, type: 'crystal-gain' }
           );
-
-          // 進化条件を満たしているか確認
-          if (state.selectedCharacter.type === 'monster' && !state.selectedCharacter.isEvolved && state.selectedCharacter.monsterType) {
-            animations.push({ id: state.selectedCharacter.id, type: 'evolve' });
-          }
         }
 
         updatedCharacters = updatedCharacters.map(character => {
@@ -310,6 +307,12 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           }
           return character;
         });
+      }
+
+      if (state.selectedSkill.effects?.some(effect => effect.type === 'evolve')) {
+        if (target.type === 'monster' && !target.isEvolved && target.monsterType) {
+          animations.push({ id: target.id, type: 'evolve' });
+        }
       }
 
       updatedCharacters = updatedCharacters.map(character => {
@@ -524,6 +527,10 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     if (state.selectedSkill.healing && target.team !== state.selectedCharacter.team) return false;
     if (state.selectedSkill.damage && target.team === state.selectedCharacter.team) return false;
+    if (state.selectedSkill.effects?.some(effect => effect.type === 'evolve')) {
+      if (target.team !== state.selectedCharacter.team) return false;
+      if (target.type !== 'monster' || target.isEvolved) return false;
+    }
 
     return distance <= state.selectedSkill.range;
   };
