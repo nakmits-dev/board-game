@@ -69,9 +69,9 @@ const getBaseMonsters = (): MonsterType[] => {
   ) as MonsterType[];
 };
 
-// コスト8以下でチーム編成を行う関数（マスター必須、モンスター任意）
-const generateTeamWithMaxCost8 = (): { master: keyof typeof masterData; monsters: MonsterType[] } => {
-  const MAX_COST = 8;
+// コスト8でチーム編成を行う関数（マスター必須、モンスター3体必須）
+const generateTeamWithCost8 = (): { master: keyof typeof masterData; monsters: MonsterType[] } => {
+  const TARGET_COST = 8;
   const MAX_ATTEMPTS = 1000;
   
   // 利用可能なマスターと進化前のモンスターのみのリスト
@@ -82,43 +82,37 @@ const generateTeamWithMaxCost8 = (): { master: keyof typeof masterData; monsters
     // ランダムにマスターを選択
     const masterType = availableMasters[Math.floor(Math.random() * availableMasters.length)];
     const masterCost = masterData[masterType].cost;
-    const remainingCost = MAX_COST - masterCost;
+    const remainingCost = TARGET_COST - masterCost;
     
-    // 残りコストでモンスターを選択（0〜3体）
-    const monsters: MonsterType[] = [];
-    let currentCost = masterCost;
-    
-    // 最大3体のモンスターを選択（コストが許す限り）
-    for (let i = 0; i < 3; i++) {
-      const validMonsters = availableMonsters.filter(monster => 
-        monsterData[monster].cost <= remainingCost - (currentCost - masterCost) &&
-        !monsters.includes(monster) // 重複を避ける
-      );
-      
-      if (validMonsters.length === 0) break;
-      
-      // ランダムに選択するか、コストを節約するかを決める
-      if (Math.random() < 0.8) { // 80%の確率でモンスターを追加
-        const selectedMonster = validMonsters[Math.floor(Math.random() * validMonsters.length)];
-        const monsterCost = monsterData[selectedMonster].cost;
-        
-        if (currentCost + monsterCost <= MAX_COST) {
-          monsters.push(selectedMonster);
-          currentCost += monsterCost;
+    // 3体のモンスターでちょうど残りコストになる組み合わせを探す
+    for (let i = 0; i < availableMonsters.length; i++) {
+      for (let j = i; j < availableMonsters.length; j++) {
+        for (let k = j; k < availableMonsters.length; k++) {
+          const monster1 = availableMonsters[i];
+          const monster2 = availableMonsters[j];
+          const monster3 = availableMonsters[k];
+          
+          const totalMonsterCost = monsterData[monster1].cost + monsterData[monster2].cost + monsterData[monster3].cost;
+          
+          if (totalMonsterCost === remainingCost) {
+            // ちょうどコスト8になる組み合わせが見つかった
+            const selectedMonsters = [monster1, monster2, monster3];
+            // 配列をシャッフルして順序をランダムにする
+            for (let shuffle = selectedMonsters.length - 1; shuffle > 0; shuffle--) {
+              const randomIndex = Math.floor(Math.random() * (shuffle + 1));
+              [selectedMonsters[shuffle], selectedMonsters[randomIndex]] = [selectedMonsters[randomIndex], selectedMonsters[shuffle]];
+            }
+            return { master: masterType, monsters: selectedMonsters };
+          }
         }
       }
     }
-    
-    // コストが8以下であれば成功
-    if (currentCost <= MAX_COST) {
-      return { master: masterType, monsters };
-    }
   }
   
-  // フォールバック: 確実にコスト8以下になる組み合わせ
+  // フォールバック: 確実にコスト8になる組み合わせ
   return {
-    master: 'normal', // コスト1
-    monsters: ['slime', 'slime'] // 各コスト1、合計2、マスターと合わせて3
+    master: 'red', // コスト2
+    monsters: ['wolf', 'golem', 'bear'] // 各コスト2、合計6、マスターと合わせて8
   };
 };
 
@@ -129,9 +123,9 @@ export const createInitialGameState = (
   enemyDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }
 ): GameState => {
   // プレイヤーチームの生成（指定されていない場合はランダム）
-  const playerTeam = playerDeck || generateTeamWithMaxCost8();
+  const playerTeam = playerDeck || generateTeamWithCost8();
   // 敵チームの生成（指定されていない場合はランダム）
-  const enemyTeam = enemyDeck || generateTeamWithMaxCost8();
+  const enemyTeam = enemyDeck || generateTeamWithCost8();
 
   const characters: Character[] = [];
 

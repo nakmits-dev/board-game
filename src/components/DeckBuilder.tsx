@@ -172,9 +172,9 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
     ) as MonsterType[];
   };
 
-  // ランダム選択機能（モンスター3体、合計コスト8以下）
+  // ランダム選択機能（モンスター3体、合計コスト8）
   const generateRandomTeam = (): { master: keyof typeof masterData; monsters: MonsterType[] } => {
-    const MAX_COST = 8;
+    const TARGET_COST = 8;
     const MAX_ATTEMPTS = 1000;
     
     const availableMasters = Object.keys(masterData) as Array<keyof typeof masterData>;
@@ -183,40 +183,45 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
       const masterType = availableMasters[Math.floor(Math.random() * availableMasters.length)];
       const masterCost = masterData[masterType].cost;
-      const remainingCost = MAX_COST - masterCost;
+      const remainingCost = TARGET_COST - masterCost;
       
+      // 3体のモンスターでちょうど残りコストになる組み合わせを探す
       const monsters: MonsterType[] = [];
-      let currentCost = masterCost;
       
-      // 3体のモンスターを選択
-      for (let i = 0; i < 3; i++) {
-        const validMonsters = availableMonsters.filter(monster => 
-          monsterData[monster].cost <= remainingCost - (currentCost - masterCost) &&
-          !monsters.includes(monster)
-        );
-        
-        if (validMonsters.length === 0) break;
-        
-        const selectedMonster = validMonsters[Math.floor(Math.random() * validMonsters.length)];
-        const monsterCost = monsterData[selectedMonster].cost;
-        
-        if (currentCost + monsterCost <= MAX_COST) {
-          monsters.push(selectedMonster);
-          currentCost += monsterCost;
+      // 全ての3体の組み合わせを試す
+      for (let i = 0; i < availableMonsters.length; i++) {
+        for (let j = i; j < availableMonsters.length; j++) {
+          for (let k = j; k < availableMonsters.length; k++) {
+            const monster1 = availableMonsters[i];
+            const monster2 = availableMonsters[j];
+            const monster3 = availableMonsters[k];
+            
+            const totalMonsterCost = monsterData[monster1].cost + monsterData[monster2].cost + monsterData[monster3].cost;
+            
+            if (totalMonsterCost === remainingCost) {
+              // ちょうどコスト8になる組み合わせが見つかった
+              const selectedMonsters = [monster1, monster2, monster3];
+              // 配列をシャッフルして順序をランダムにする
+              for (let shuffle = selectedMonsters.length - 1; shuffle > 0; shuffle--) {
+                const randomIndex = Math.floor(Math.random() * (shuffle + 1));
+                [selectedMonsters[shuffle], selectedMonsters[randomIndex]] = [selectedMonsters[randomIndex], selectedMonsters[shuffle]];
+              }
+              return { master: masterType, monsters: selectedMonsters };
+            }
+          }
         }
-      }
-      
-      // 3体のモンスターが選択され、コストが8以下であれば成功
-      if (monsters.length === 3 && currentCost <= MAX_COST) {
-        return { master: masterType, monsters };
       }
     }
     
-    // フォールバック: 確実にコスト8以下になる組み合わせ（3体必須）
-    return {
-      master: 'normal', // コスト1
-      monsters: ['slime', 'slime', 'slime'] // 各コスト1、合計3、マスターと合わせて4
-    };
+    // フォールバック: 確実にコスト8になる組み合わせ
+    // コスト1のマスター + コスト1のモンスター3体 + コスト2のモンスター2体 = 8
+    const fallbackCombinations = [
+      { master: 'normal' as keyof typeof masterData, monsters: ['slime', 'slime', 'wolf'] as MonsterType[] }, // 1+1+1+2 = 5 (不足)
+      { master: 'red' as keyof typeof masterData, monsters: ['slime', 'slime', 'wolf'] as MonsterType[] }, // 2+1+1+2 = 6 (不足)
+      { master: 'red' as keyof typeof masterData, monsters: ['wolf', 'golem', 'bear'] as MonsterType[] }, // 2+2+2+2 = 8 (完璧)
+    ];
+    
+    return fallbackCombinations[2]; // 確実にコスト8になる組み合わせを返す
   };
 
   const handleRandomSelection = () => {
