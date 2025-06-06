@@ -70,7 +70,7 @@ export const monsterData: Record<string, MonsterCard> = {
     attack: 1,
     defense: 0,
     actions: 1,
-    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%82%B9%E3%83%A9%E3%82%A4%E3%83%A0.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
+    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%82%B9%E3%83%A9%E3%82%A4%E3%83%A0.png?alt=media&token=7fc5b636-fd93-4049-83f2-a9644dcc01f1',
     evolution: 'red-slime',
     skillId: '',
     cost: 1
@@ -81,7 +81,7 @@ export const monsterData: Record<string, MonsterCard> = {
     attack: 2,
     defense: 0,
     actions: 1,
-    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%AC%E3%83%83%E3%83%89%E3%82%B9%E3%83%A9%E3%82%A4%E3%83%A0.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
+    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%AC%E3%83%83%E3%83%88%E3%82%99%E3%82%B9%E3%83%A9%E3%82%A4%E3%83%A0.png?alt=media&token=4c2daebc-8929-4911-8f99-cbd4a26fc02e',
     skillId: '',
     cost: 1
   },
@@ -91,7 +91,7 @@ export const monsterData: Record<string, MonsterCard> = {
     attack: 1,
     defense: 0,
     actions: 1,
-    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%9B%E3%82%A8%E3%83%BC%E3%83%AB.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
+    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%9B%E3%82%A8%E3%83%BC%E3%83%AB.png?alt=media&token=cc1ee78b-acca-45cc-b2f6-c5e5d5e05fde',
     evolution: 'king-whale',
     skillId: '',
     cost: 2
@@ -102,7 +102,7 @@ export const monsterData: Record<string, MonsterCard> = {
     attack: 2,
     defense: 0,
     actions: 1,
-    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%82%AD%E3%83%B3%E3%82%B0%E3%83%9B%E3%82%A8%E3%83%BC%E3%83%AB.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
+    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%82%AD%E3%83%B3%E3%82%AF%E3%82%99%E3%83%9B%E3%82%A8%E3%83%BC%E3%83%AB.png?alt=media&token=c5acebcd-a4cb-43a8-a346-1c077b9f1fcc',
     skillId: '',
     cost: 2
   },
