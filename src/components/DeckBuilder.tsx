@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { MonsterType, MasterCard, Position } from '../types/gameTypes';
 import { monsterData, masterData } from '../data/cardData';
 import { skillData } from '../data/skillData';
-import { Shield, Sword, Sparkle, Heart, Crown, Gitlab as GitLab, Diamond, Play, X, Users, Bot } from 'lucide-react';
+import { Shield, Sword, Sparkle, Heart, Crown, Gitlab as GitLab, Diamond, Play, X } from 'lucide-react';
 
 interface DeckBuilderProps {
   onStartGame: (
@@ -18,7 +18,6 @@ interface PositionAssignment {
 }
 
 const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
-  const [currentTeam, setCurrentTeam] = useState<'player' | 'enemy'>('player');
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
   
   const [playerAssignments, setPlayerAssignments] = useState<PositionAssignment[]>([
@@ -34,15 +33,6 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
     { position: { x: 2, y: 0 }, type: 'monster' },
     { position: { x: 1, y: 1 }, type: 'monster' },
   ]);
-
-  const getCurrentAssignments = () => currentTeam === 'player' ? playerAssignments : enemyAssignments;
-  const setCurrentAssignments = (assignments: PositionAssignment[]) => {
-    if (currentTeam === 'player') {
-      setPlayerAssignments(assignments);
-    } else {
-      setEnemyAssignments(assignments);
-    }
-  };
   
   const getTotalCost = (assignments: PositionAssignment[]) => {
     return assignments.reduce((total, assignment) => {
@@ -59,10 +49,26 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
     return assignments.find(a => a.position.x === position.x && a.position.y === position.y);
   };
 
+  const getTeamForPosition = (position: Position): 'player' | 'enemy' => {
+    return position.y >= 2 ? 'player' : 'enemy';
+  };
+
+  const getAssignmentsForPosition = (position: Position) => {
+    return getTeamForPosition(position) === 'player' ? playerAssignments : enemyAssignments;
+  };
+
+  const setAssignmentsForPosition = (position: Position, assignments: PositionAssignment[]) => {
+    if (getTeamForPosition(position) === 'player') {
+      setPlayerAssignments(assignments);
+    } else {
+      setEnemyAssignments(assignments);
+    }
+  };
+
   const canAssign = (id: string, type: 'master' | 'monster') => {
     if (!selectedPosition) return false;
     
-    const assignments = getCurrentAssignments();
+    const assignments = getAssignmentsForPosition(selectedPosition);
     const assignment = getAssignmentAt(selectedPosition, assignments);
     if (!assignment || assignment.type !== type) return false;
     
@@ -90,7 +96,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
   const assignCard = (id: string, type: 'master' | 'monster') => {
     if (!canAssign(id, type) || !selectedPosition) return;
     
-    const assignments = getCurrentAssignments();
+    const assignments = getAssignmentsForPosition(selectedPosition);
     const newAssignments = assignments.map(assignment => {
       if (assignment.position.x === selectedPosition.x && assignment.position.y === selectedPosition.y) {
         return { ...assignment, id };
@@ -98,12 +104,12 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
       return assignment;
     });
     
-    setCurrentAssignments(newAssignments);
+    setAssignmentsForPosition(selectedPosition, newAssignments);
     setSelectedPosition(null);
   };
 
   const removeCard = (position: Position) => {
-    const assignments = getCurrentAssignments();
+    const assignments = getAssignmentsForPosition(position);
     const newAssignments = assignments.map(assignment => {
       if (assignment.position.x === position.x && assignment.position.y === position.y) {
         const { id, ...rest } = assignment;
@@ -112,7 +118,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
       return assignment;
     });
     
-    setCurrentAssignments(newAssignments);
+    setAssignmentsForPosition(position, newAssignments);
   };
 
   const canStartGame = () => {
@@ -164,9 +170,11 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
 
   const baseMonsters = getBaseMonsters();
 
-  const renderBoardCell = (position: Position, assignments: PositionAssignment[], isCurrentTeam: boolean) => {
+  const renderBoardCell = (position: Position) => {
+    const isPlayerTeam = getTeamForPosition(position) === 'player';
+    const assignments = getAssignmentsForPosition(position);
     const assignment = getAssignmentAt(position, assignments);
-    const isSelected = selectedPosition?.x === position.x && selectedPosition?.y === position.y && isCurrentTeam;
+    const isSelected = selectedPosition?.x === position.x && selectedPosition?.y === position.y;
     
     if (!assignment) return null;
     
@@ -181,7 +189,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
     let cellClassName = "w-20 h-20 flex items-center justify-center relative border transition-all duration-200";
     
     if (hasCard) {
-      cellClassName += isCurrentTeam === (position.y >= 2) 
+      cellClassName += isPlayerTeam 
         ? " border-blue-100" 
         : " border-red-100";
     } else {
@@ -192,9 +200,9 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
       cellClassName += " ring-2 ring-yellow-300 bg-yellow-50/30";
     }
 
-    if (isCurrentTeam && !hasCard) {
+    if (!hasCard) {
       cellClassName += " ring-1 ring-green-400/50 bg-green-400/10 cursor-pointer hover:bg-green-400/20";
-    } else if (isCurrentTeam && hasCard) {
+    } else {
       cellClassName += " cursor-pointer hover:bg-blue-50/30";
     }
 
@@ -202,12 +210,12 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
       <div
         key={`${position.x}-${position.y}`}
         className={cellClassName}
-        onClick={() => isCurrentTeam ? setSelectedPosition(position) : undefined}
+        onClick={() => setSelectedPosition(position)}
       >
         {hasCard && cardData ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <div className={`relative w-16 h-16 rounded-lg overflow-hidden ${
-              isCurrentTeam === (position.y >= 2)
+              isPlayerTeam
                 ? 'ring-1 ring-blue-400 shadow-md shadow-blue-400/30' 
                 : 'ring-1 ring-red-400 shadow-md shadow-red-400/30'
             }`}>
@@ -218,7 +226,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
                 draggable={false}
               />
               <div className={`absolute inset-0 ${
-                isCurrentTeam === (position.y >= 2) ? 'bg-blue-500' : 'bg-red-500'
+                isPlayerTeam ? 'bg-blue-500' : 'bg-red-500'
               } bg-opacity-10`}></div>
               
               {/* Stats overlay - 対戦ボードと同じ */}
@@ -241,17 +249,15 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
               </div>
 
               {/* バツボタン */}
-              {isCurrentTeam && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeCard(position);
-                  }}
-                  className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg z-10"
-                >
-                  <X size={10} />
-                </button>
-              )}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeCard(position);
+                }}
+                className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg z-10"
+              >
+                <X size={10} />
+              </button>
             </div>
             
             {/* HP表示 - 対戦ボードと同じ */}
@@ -260,7 +266,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
                 <div
                   key={i}
                   className={`w-3 h-3 flex items-center justify-center ${
-                    isCurrentTeam === (position.y >= 2)
+                    isPlayerTeam
                       ? 'text-blue-500/90'
                       : 'text-red-500/90'
                   }`}
@@ -295,8 +301,9 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
     canSelect: boolean
   ) => {
     const skill = data.skillId ? skillData[data.skillId] : undefined;
-    const assignments = getCurrentAssignments();
-    const isAssigned = assignments.some(a => a.id === id);
+    const playerAssigned = playerAssignments.some(a => a.id === id);
+    const enemyAssigned = enemyAssignments.some(a => a.id === id);
+    const isAssigned = playerAssigned || enemyAssigned;
     
     return (
       <div
@@ -378,7 +385,9 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
 
           {/* Status indicators */}
           {isAssigned && (
-            <div className="absolute top-2 right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+            <div className={`absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center ${
+              playerAssigned ? 'bg-blue-500' : 'bg-red-500'
+            }`}>
               <span className="text-white text-xs font-bold">✓</span>
             </div>
           )}
@@ -387,8 +396,8 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
     );
   };
 
-  const currentAssignments = getCurrentAssignments();
-  const selectedAssignment = selectedPosition ? getAssignmentAt(selectedPosition, currentAssignments) : null;
+  const selectedAssignment = selectedPosition ? getAssignmentAt(selectedPosition, getAssignmentsForPosition(selectedPosition)) : null;
+  const selectedTeam = selectedPosition ? getTeamForPosition(selectedPosition) : null;
 
   return (
     <div className="min-h-screen bg-blue-50 p-4">
@@ -398,38 +407,6 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
           <p className="text-center text-gray-600 mb-4">
             両チームのマスターは必須、モンスターは任意（最大コスト8）
           </p>
-          
-          {/* Team Selector */}
-          <div className="flex justify-center gap-4 mb-6">
-            <button
-              onClick={() => {
-                setCurrentTeam('player');
-                setSelectedPosition(null);
-              }}
-              className={`px-6 py-3 rounded-lg font-bold transition-all flex items-center gap-2 ${
-                currentTeam === 'player'
-                  ? 'bg-blue-600 text-white shadow-lg'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
-            >
-              <Users size={20} />
-              プレイヤーチーム
-            </button>
-            <button
-              onClick={() => {
-                setCurrentTeam('enemy');
-                setSelectedPosition(null);
-              }}
-              className={`px-6 py-3 rounded-lg font-bold transition-all flex items-center gap-2 ${
-                currentTeam === 'enemy'
-                  ? 'bg-red-600 text-white shadow-lg'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
-            >
-              <Bot size={20} />
-              敵チーム
-            </button>
-          </div>
           
           {/* Cost Display */}
           <div className="flex justify-center items-center gap-6 mb-6">
@@ -477,33 +454,31 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
 
         {/* Board Layout */}
         <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-          <h2 className="text-xl font-bold text-gray-800 mb-4 text-center">
-            {currentTeam === 'player' ? 'プレイヤーチーム' : '敵チーム'}編成
-          </h2>
+          <h2 className="text-xl font-bold text-gray-800 mb-4 text-center">ボード編成</h2>
           <div className="flex justify-center">
             <div className="bg-white rounded-xl p-4 border border-blue-100">
               <div className="grid grid-rows-4 gap-1">
                 {/* Enemy area */}
                 <div className="grid grid-cols-3 gap-1">
                   {[0, 1, 2].map(x => 
-                    renderBoardCell({ x, y: 0 }, enemyAssignments, currentTeam === 'enemy')
+                    renderBoardCell({ x, y: 0 })
                   )}
                 </div>
                 <div className="grid grid-cols-3 gap-1">
                   <div className="w-20 h-20"></div>
-                  {renderBoardCell({ x: 1, y: 1 }, enemyAssignments, currentTeam === 'enemy')}
+                  {renderBoardCell({ x: 1, y: 1 })}
                   <div className="w-20 h-20"></div>
                 </div>
                 
                 {/* Player area */}
                 <div className="grid grid-cols-3 gap-1">
                   <div className="w-20 h-20"></div>
-                  {renderBoardCell({ x: 1, y: 2 }, playerAssignments, currentTeam === 'player')}
+                  {renderBoardCell({ x: 1, y: 2 })}
                   <div className="w-20 h-20"></div>
                 </div>
                 <div className="grid grid-cols-3 gap-1">
                   {[0, 1, 2].map(x => 
-                    renderBoardCell({ x, y: 3 }, playerAssignments, currentTeam === 'player')
+                    renderBoardCell({ x, y: 3 })
                   )}
                 </div>
               </div>
@@ -512,8 +487,8 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
           
           {selectedPosition && (
             <div className="mt-4 text-center">
-              <p className={`font-medium ${currentTeam === 'player' ? 'text-blue-600' : 'text-red-600'}`}>
-                位置 ({selectedPosition.x}, {selectedPosition.y}) の{selectedAssignment?.type === 'master' ? 'マスター' : 'モンスター'}を選択してください
+              <p className={`font-medium ${selectedTeam === 'player' ? 'text-blue-600' : 'text-red-600'}`}>
+                {selectedTeam === 'player' ? 'プレイヤー' : '敵'}チーム - 位置 ({selectedPosition.x}, {selectedPosition.y}) の{selectedAssignment?.type === 'master' ? 'マスター' : 'モンスター'}を選択してください
               </p>
             </div>
           )}
@@ -524,8 +499,8 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
           <div className="bg-white rounded-xl shadow-lg p-6">
             <h2 className="text-xl font-bold text-gray-800 mb-4">
               {selectedAssignment.type === 'master' ? 'マスター' : 'モンスター'}選択
-              <span className={`ml-2 text-sm ${currentTeam === 'player' ? 'text-blue-600' : 'text-red-600'}`}>
-                ({currentTeam === 'player' ? 'プレイヤーチーム' : '敵チーム'})
+              <span className={`ml-2 text-sm ${selectedTeam === 'player' ? 'text-blue-600' : 'text-red-600'}`}>
+                ({selectedTeam === 'player' ? 'プレイヤー' : '敵'}チーム)
               </span>
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
