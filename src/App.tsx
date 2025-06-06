@@ -30,8 +30,12 @@ const GameContent = () => {
     setShowDeckBuilder(true);
   };
 
+  const handleCloseDeckBuilder = () => {
+    setShowDeckBuilder(false);
+  };
+
   if (showDeckBuilder) {
-    return <DeckBuilder onStartGame={handleStartGame} />;
+    return <DeckBuilder onStartGame={handleStartGame} onClose={handleCloseDeckBuilder} />;
   }
 
   return (
@@ -51,13 +55,13 @@ const GameContent = () => {
                   className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow-lg transform transition hover:scale-105"
                   onClick={handleShowDeckBuilder}
                 >
-                  デッキ編成
+                  チーム編成
                 </button>
                 <button
                   className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-lg transform transition hover:scale-105"
                   onClick={() => handleStartGame()}
                 >
-                  {gamePhase === 'preparation' ? 'ランダムで開始' : 'もう一度プレイ'}
+                  {gamePhase === 'preparation' ? '対戦開始' : 'もう一度プレイ'}
                 </button>
               </div>
             ) : (

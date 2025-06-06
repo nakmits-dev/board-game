@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { MonsterType, MasterCard, Position } from '../types/gameTypes';
 import { monsterData, masterData } from '../data/cardData';
 import { skillData } from '../data/skillData';
-import { Shield, Sword, Sparkle, Heart, Crown, Gitlab as GitLab, Play, X, Filter, Star, Shuffle } from 'lucide-react';
+import { Shield, Sword, Sparkle, Heart, Crown, Gitlab as GitLab, Play, X, Filter, Star, Shuffle, ArrowLeft } from 'lucide-react';
 import CharacterCard from './CharacterCard';
 
 interface DeckBuilderProps {
@@ -10,6 +10,7 @@ interface DeckBuilderProps {
     playerDeck: { master: keyof typeof masterData; monsters: MonsterType[] },
     enemyDeck: { master: keyof typeof masterData; monsters: MonsterType[] }
   ) => void;
+  onClose: () => void;
 }
 
 interface PositionAssignment {
@@ -18,7 +19,7 @@ interface PositionAssignment {
   id?: string;
 }
 
-const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
+const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
   const [costFilter, setCostFilter] = useState<number | null>(null);
   const cardSelectionRef = useRef<HTMLDivElement>(null);
@@ -158,7 +159,20 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
     );
   };
 
-  // ランダム選択機能
+  // 進化前のモンスターのみを取得する関数
+  const getBaseMonsters = (): MonsterType[] => {
+    const evolutionTargets = new Set(
+      Object.values(monsterData)
+        .map(monster => monster.evolution)
+        .filter(evolution => evolution !== undefined)
+    );
+    
+    return Object.keys(monsterData).filter(key => 
+      !evolutionTargets.has(key as MonsterType)
+    ) as MonsterType[];
+  };
+
+  // ランダム選択機能（モンスター3体、合計コスト8以下）
   const generateRandomTeam = (): { master: keyof typeof masterData; monsters: MonsterType[] } => {
     const MAX_COST = 8;
     const MAX_ATTEMPTS = 1000;
@@ -174,6 +188,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
       const monsters: MonsterType[] = [];
       let currentCost = masterCost;
       
+      // 3体のモンスターを選択
       for (let i = 0; i < 3; i++) {
         const validMonsters = availableMonsters.filter(monster => 
           monsterData[monster].cost <= remainingCost - (currentCost - masterCost) &&
@@ -182,25 +197,25 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
         
         if (validMonsters.length === 0) break;
         
-        if (Math.random() < 0.8) {
-          const selectedMonster = validMonsters[Math.floor(Math.random() * validMonsters.length)];
-          const monsterCost = monsterData[selectedMonster].cost;
-          
-          if (currentCost + monsterCost <= MAX_COST) {
-            monsters.push(selectedMonster);
-            currentCost += monsterCost;
-          }
+        const selectedMonster = validMonsters[Math.floor(Math.random() * validMonsters.length)];
+        const monsterCost = monsterData[selectedMonster].cost;
+        
+        if (currentCost + monsterCost <= MAX_COST) {
+          monsters.push(selectedMonster);
+          currentCost += monsterCost;
         }
       }
       
-      if (currentCost <= MAX_COST) {
+      // 3体のモンスターが選択され、コストが8以下であれば成功
+      if (monsters.length === 3 && currentCost <= MAX_COST) {
         return { master: masterType, monsters };
       }
     }
     
+    // フォールバック: 確実にコスト8以下になる組み合わせ
     return {
       master: 'normal',
-      monsters: ['slime', 'slime']
+      monsters: ['slime', 'slime', 'slime']
     };
   };
 
@@ -248,19 +263,6 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
     setEnemyAssignments(newEnemyAssignments);
   };
 
-  // 進化前のモンスターのみを取得
-  const getBaseMonsters = (): MonsterType[] => {
-    const evolutionTargets = new Set(
-      Object.values(monsterData)
-        .map(monster => monster.evolution)
-        .filter(evolution => evolution !== undefined)
-    );
-    
-    return Object.keys(monsterData).filter(key => 
-      !evolutionTargets.has(key as MonsterType)
-    ) as MonsterType[];
-  };
-
   const baseMonsters = getBaseMonsters();
 
   const renderBoardCell = (position: Position) => {
@@ -278,7 +280,6 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
         : monsterData[assignment.id as MonsterType]
       : null;
 
-    // 対戦ボードと同じスタイリングを適用
     let cellClassName = "w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center relative border transition-all duration-200";
     
     if (hasCard) {
@@ -328,7 +329,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
                 isPlayerTeam ? 'bg-blue-500' : 'bg-red-500'
               } bg-opacity-10`}></div>
               
-              {/* Stats overlay - 対戦ボードと同じ */}
+              {/* Stats overlay */}
               <div className="absolute bottom-0 inset-x-0 flex justify-center gap-0.5 p-0.5">
                 {cardData.attack >= 2 && (
                   <div className="w-3 h-3 sm:w-4 sm:h-4 bg-red-500/80 rounded flex items-center justify-center">
@@ -346,11 +347,9 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
                   </div>
                 )}
               </div>
-
-              {/* バツボタンを削除 */}
             </div>
             
-            {/* HP表示 - 対戦ボードと同じ */}
+            {/* HP表示 */}
             <div className="flex gap-0.5 mt-1">
               {Array.from({ length: cardData.hp }, (_, i) => (
                 <div
@@ -455,10 +454,17 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
     <div className="min-h-screen bg-blue-50 p-2 sm:p-4">
       <div className="max-w-6xl mx-auto">
         <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-4 sm:mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-center text-blue-900 mb-2">デッキ編成</h1>
-          <p className="text-center text-gray-600 mb-4 text-sm sm:text-base">
-            コスト8以下になるよう編成してください
-          </p>
+          <div className="flex items-center justify-between mb-4">
+            <button
+              onClick={onClose}
+              className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <ArrowLeft size={20} />
+              戻る
+            </button>
+            <h1 className="text-2xl sm:text-3xl font-bold text-blue-900">チーム編成</h1>
+            <div className="w-20"></div> {/* スペーサー */}
+          </div>
           
           {/* Cost Display - 1行にまとめる */}
           <div className="flex justify-center items-center gap-4 sm:gap-6 mb-4 sm:mb-6">
@@ -493,8 +499,10 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
                 ))}
               </div>
             </div>
-            
-            {/* ランダム選択ボタン */}
+          </div>
+          
+          {/* ボタン配置 */}
+          <div className="flex justify-center gap-4">
             <button
               onClick={handleRandomSelection}
               className="px-4 sm:px-6 py-2 sm:py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg shadow-lg transform transition hover:scale-105 flex items-center gap-2"
@@ -503,16 +511,18 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
               ランダム選択
             </button>
             
-            {/* 完了ボタン */}
-            {canStartGame() && (
-              <button
-                onClick={handleStartGame}
-                className="px-4 sm:px-6 py-2 sm:py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow-lg transform transition hover:scale-105 flex items-center gap-2"
-              >
-                <Play size={16} className="sm:w-5 sm:h-5" />
-                完了
-              </button>
-            )}
+            <button
+              onClick={handleStartGame}
+              disabled={!canStartGame()}
+              className={`px-4 sm:px-6 py-2 sm:py-3 font-bold rounded-lg shadow-lg transform transition flex items-center gap-2 ${
+                canStartGame()
+                  ? 'bg-green-600 hover:bg-green-700 text-white hover:scale-105'
+                  : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+              }`}
+            >
+              <Play size={16} className="sm:w-5 sm:h-5" />
+              完了
+            </button>
           </div>
         </div>
 
