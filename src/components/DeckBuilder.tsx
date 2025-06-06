@@ -10,7 +10,10 @@ interface DeckBuilderProps {
     playerDeck: { master: keyof typeof masterData; monsters: MonsterType[] },
     enemyDeck: { master: keyof typeof masterData; monsters: MonsterType[] }
   ) => void;
-  onClose: () => void;
+  onClose: (
+    playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] },
+    enemyDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }
+  ) => void;
 }
 
 interface PositionAssignment {
@@ -157,8 +160,11 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
       .filter(a => a.type === 'monster' && a.id)
       .map(a => a.id as MonsterType);
     
-    // 完了ボタンは対戦ボード画面に戻るだけで、ゲームは開始しない
-    onClose();
+    // 編成内容を保存して戻る
+    onClose(
+      { master: playerMaster, monsters: playerMonsters },
+      { master: enemyMaster, monsters: enemyMonsters }
+    );
   };
 
   // 進化前のモンスターのみを取得する関数
@@ -180,43 +186,20 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
     const enemyTeam = generateTeamWithCost8();
     
     // プレイヤーチーム設定
-    const newPlayerAssignments = playerAssignments.map(assignment => {
-      if (assignment.type === 'master') {
-        return { ...assignment, id: playerTeam.master };
-      } else {
-        const monsterIndex = playerAssignments.filter(a => 
-          a.type === 'monster' && 
-          (a.position.x < assignment.position.x || 
-           (a.position.x === assignment.position.x && a.position.y < assignment.position.y))
-        ).length;
-        
-        return { 
-          ...assignment, 
-          id: playerTeam.monsters[monsterIndex] || undefined 
-        };
-      }
-    });
+    setPlayerAssignments([
+      { position: { x: 0, y: 3 }, type: 'monster', id: playerTeam.monsters[0] },
+      { position: { x: 1, y: 3 }, type: 'master', id: playerTeam.master },
+      { position: { x: 2, y: 3 }, type: 'monster', id: playerTeam.monsters[1] },
+      { position: { x: 1, y: 2 }, type: 'monster', id: playerTeam.monsters[2] },
+    ]);
     
     // 敵チーム設定
-    const newEnemyAssignments = enemyAssignments.map(assignment => {
-      if (assignment.type === 'master') {
-        return { ...assignment, id: enemyTeam.master };
-      } else {
-        const monsterIndex = enemyAssignments.filter(a => 
-          a.type === 'monster' && 
-          (a.position.x < assignment.position.x || 
-           (a.position.x === assignment.position.x && a.position.y < assignment.position.y))
-        ).length;
-        
-        return { 
-          ...assignment, 
-          id: enemyTeam.monsters[monsterIndex] || undefined 
-        };
-      }
-    });
-    
-    setPlayerAssignments(newPlayerAssignments);
-    setEnemyAssignments(newEnemyAssignments);
+    setEnemyAssignments([
+      { position: { x: 0, y: 0 }, type: 'monster', id: enemyTeam.monsters[0] },
+      { position: { x: 1, y: 0 }, type: 'master', id: enemyTeam.master },
+      { position: { x: 2, y: 0 }, type: 'monster', id: enemyTeam.monsters[1] },
+      { position: { x: 1, y: 1 }, type: 'monster', id: enemyTeam.monsters[2] },
+    ]);
   };
 
   const baseMonsters = getBaseMonsters();
@@ -412,7 +395,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
         <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-4 sm:mb-6">
           <div className="flex items-center justify-between mb-4">
             <button
-              onClick={onClose}
+              onClick={() => onClose()}
               className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <ArrowLeft size={20} />

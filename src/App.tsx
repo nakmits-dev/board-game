@@ -14,6 +14,10 @@ const GameContent = () => {
   const { state, dispatch } = useGame();
   const { gamePhase } = state;
   const [showDeckBuilder, setShowDeckBuilder] = useState(false);
+  const [currentDecks, setCurrentDecks] = useState<{
+    player?: { master: keyof typeof masterData; monsters: MonsterType[] };
+    enemy?: { master: keyof typeof masterData; monsters: MonsterType[] };
+  }>({});
 
   const handleStartGame = (
     playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] },
@@ -22,7 +26,12 @@ const GameContent = () => {
     if (gamePhase === 'result') {
       dispatch({ type: 'RESET_GAME' });
     }
-    dispatch({ type: 'START_GAME', playerDeck, enemyDeck });
+    
+    // デッキが指定されている場合は保存
+    const finalPlayerDeck = playerDeck || currentDecks.player;
+    const finalEnemyDeck = enemyDeck || currentDecks.enemy;
+    
+    dispatch({ type: 'START_GAME', playerDeck: finalPlayerDeck, enemyDeck: finalEnemyDeck });
     setShowDeckBuilder(false);
   };
 
@@ -30,7 +39,14 @@ const GameContent = () => {
     setShowDeckBuilder(true);
   };
 
-  const handleCloseDeckBuilder = () => {
+  const handleCloseDeckBuilder = (
+    playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] },
+    enemyDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }
+  ) => {
+    // 編成内容を保存
+    if (playerDeck && enemyDeck) {
+      setCurrentDecks({ player: playerDeck, enemy: enemyDeck });
+    }
     setShowDeckBuilder(false);
   };
 
