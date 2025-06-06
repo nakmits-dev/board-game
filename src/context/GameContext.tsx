@@ -13,7 +13,7 @@ type GameAction =
   | { type: 'SELECT_SKILL'; skill: Skill }
   | { type: 'USE_SKILL'; targetId: string }
   | { type: 'END_TURN' }
-  | { type: 'START_GAME'; playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] } }
+  | { type: 'START_GAME'; playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }; enemyDeck?: { master: keyof typeof masterData; monsters: MonsterType[] } }
   | { type: 'RESET_GAME' }
   | { type: 'ADD_CRYSTAL'; team: Team }
   | { type: 'SET_ANIMATION_TARGET'; target: { id: string; type: 'move' | 'attack' | 'damage' | 'heal' | 'ko' | 'crystal-gain' | 'turn-start' | 'evolve' } | null }
@@ -432,7 +432,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
     case 'START_GAME': {
       const startingTeam: Team = Math.random() < 0.5 ? 'player' : 'enemy';
-      const newState = createInitialGameState(action.playerDeck);
+      const newState = createInitialGameState(action.playerDeck, action.enemyDeck);
       
       return {
         ...newState,

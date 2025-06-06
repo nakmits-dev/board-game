@@ -15,11 +15,14 @@ const GameContent = () => {
   const { gamePhase } = state;
   const [showDeckBuilder, setShowDeckBuilder] = useState(false);
 
-  const handleStartGame = (playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }) => {
+  const handleStartGame = (
+    playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] },
+    enemyDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }
+  ) => {
     if (gamePhase === 'result') {
       dispatch({ type: 'RESET_GAME' });
     }
-    dispatch({ type: 'START_GAME', playerDeck });
+    dispatch({ type: 'START_GAME', playerDeck, enemyDeck });
     setShowDeckBuilder(false);
   };
 
