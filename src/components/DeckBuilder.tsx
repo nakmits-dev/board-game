@@ -512,7 +512,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
               className="px-4 sm:px-6 py-2 sm:py-3 bg-gray-600 hover:bg-gray-700 text-white font-bold rounded-lg shadow-lg transform transition hover:scale-105 flex items-center gap-2"
             >
               <Trash2 size={16} className="sm:w-5 sm:h-5" />
-              オールクリア
+              クリア
             </button>
             
             <button
@@ -520,7 +520,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
               className="px-4 sm:px-6 py-2 sm:py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg shadow-lg transform transition hover:scale-105 flex items-center gap-2"
             >
               <Shuffle size={16} className="sm:w-5 sm:h-5" />
-              ランダム選択
+              ランダム
             </button>
             
             <button
