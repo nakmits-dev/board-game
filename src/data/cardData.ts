@@ -1,5 +1,4 @@
 import { MonsterType } from '../types/gameTypes';
-import { skillData } from './skillData';
 
 export const monsterData: Record<MonsterType, {
   name: string;
@@ -71,7 +70,14 @@ export const masterTypes = {
     defense: 0,
     actions: 1,
     image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%AC%E3%83%83%E3%83%88%E3%82%99%E3%83%9E%E3%82%B9%E3%82%BF%E3%83%BC.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
-    skills: [skillData['rage-strike']]
+    skills: [{
+      id: 'rage-strike',
+      name: 'いかりのいちげき',
+      description: 'ちかくのてきにこうげき（+1）をあたえる',
+      damage: 1,
+      range: 1,
+      crystalCost: 3
+    }]
   },
   blue: {
     name: 'ブルーマスター',
@@ -80,7 +86,14 @@ export const masterTypes = {
     defense: 1,
     actions: 1,
     image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%95%E3%82%99%E3%83%AB%E3%83%BC%E3%83%9E%E3%82%B9%E3%82%BF%E3%83%BC.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
-    skills: [skillData['rage-strike']]
+    skills: [{
+      id: 'rage-strike',
+      name: 'いかりのいちげき',
+      description: 'ちかくのてきにこうげき（+1）をあたえる',
+      damage: 1,
+      range: 1,
+      crystalCost: 3
+    }]
   },
   green: {
     name: 'グリーンマスター',
@@ -89,7 +102,14 @@ export const masterTypes = {
     defense: 0,
     actions: 1,
     image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%82%AF%E3%82%99%E3%83%AA%E3%83%BC%E3%83%B3%E3%83%9E%E3%82%B9%E3%82%BF%E3%83%BC.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
-    skills: [skillData['heal']]
+    skills: [{
+      id: 'heal',
+      name: 'かいふく',
+      description: 'みかたいちたいのHPを2かいふくする',
+      healing: 2,
+      range: 1,
+      crystalCost: 2
+    }]
   },
   yellow: {
     name: 'イエローマスター',
@@ -98,7 +118,14 @@ export const masterTypes = {
     defense: 0,
     actions: 2,
     image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%82%A4%E3%82%A8%E3%83%AD%E3%83%BC%E3%83%9E%E3%82%B9%E3%82%BF%E3%83%BC.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
-    skills: [skillData['rage-strike']]
+    skills: [{
+      id: 'rage-strike',
+      name: 'いかりのいちげき',
+      description: 'ちかくのてきにこうげき（+1）をあたえる',
+      damage: 1,
+      range: 1,
+      crystalCost: 3
+    }]
   },
   black: {
     name: 'ブラックマスター',
@@ -107,7 +134,15 @@ export const masterTypes = {
     defense: 0,
     actions: 1,
     image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%95%E3%82%99%E3%83%A9%E3%83%83%E3%82%AF%E3%83%9E%E3%82%B9%E3%82%BF%E3%83%BC.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
-    skills: [skillData['curse']]
+    skills: [{
+      id: 'curse',
+      name: 'のろい',
+      description: 'ぼうぎょをむしして1ダメージをあたえる',
+      damage: 1,
+      range: 1,
+      crystalCost: 4,
+      ignoreDefense: true
+    }]
   },
   white: {
     name: 'ホワイトマスター',
@@ -116,6 +151,18 @@ export const masterTypes = {
     defense: 0,
     actions: 1,
     image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%9B%E3%83%AF%E3%82%A4%E3%83%88%E3%83%9E%E3%82%B9%E3%82%BF%E3%83%BC.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
-    skills: [skillData['evolve']]
+    skills: [{
+      id: 'evolve',
+      name: 'しんか',
+      description: 'みかたモンスターをしんかさせる',
+      range: 1,
+      crystalCost: 3,
+      effects: [{ type: 'evolve' }]
+    }]
   }
+};
+
+export const masterData = {
+  player: masterTypes.red,
+  enemy: masterTypes.red
 };
