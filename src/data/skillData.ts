@@ -23,7 +23,7 @@ export const skillData: Record<string, Skill> = {
     description: 'てきのたいりょくを１へらす',
     damage: 1,
     range: 999,
-    crystalCost: 1,
+    crystalCost: 3,
     ignoreDefense: true
   },
   'evolve': {
