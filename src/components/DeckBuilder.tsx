@@ -1,42 +1,114 @@
 import React, { useState } from 'react';
-import { MonsterType, MasterCard } from '../types/gameTypes';
+import { MonsterType, MasterCard, Position } from '../types/gameTypes';
 import { monsterData, masterData } from '../data/cardData';
 import { skillData } from '../data/skillData';
-import { Shield, Sword, Sparkle, Heart, Crown, Gitlab as GitLab, Diamond, Plus, Minus, Play } from 'lucide-react';
+import { Shield, Sword, Sparkle, Heart, Crown, Gitlab as GitLab, Diamond, Play, X } from 'lucide-react';
 
 interface DeckBuilderProps {
   onStartGame: (playerDeck: { master: keyof typeof masterData; monsters: MonsterType[] }) => void;
 }
 
+interface PositionAssignment {
+  position: Position;
+  type: 'master' | 'monster';
+  id?: string;
+}
+
 const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
-  const [selectedMaster, setSelectedMaster] = useState<keyof typeof masterData>('normal');
-  const [selectedMonsters, setSelectedMonsters] = useState<MonsterType[]>([]);
+  const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
+  const [assignments, setAssignments] = useState<PositionAssignment[]>([
+    { position: { x: 0, y: 3 }, type: 'monster' },
+    { position: { x: 1, y: 3 }, type: 'master' },
+    { position: { x: 2, y: 3 }, type: 'monster' },
+    { position: { x: 1, y: 2 }, type: 'monster' },
+  ]);
   
   const getTotalCost = () => {
-    const masterCost = masterData[selectedMaster].cost;
-    const monstersCost = selectedMonsters.reduce((total, monster) => total + monsterData[monster].cost, 0);
-    return masterCost + monstersCost;
+    return assignments.reduce((total, assignment) => {
+      if (!assignment.id) return total;
+      if (assignment.type === 'master') {
+        return total + masterData[assignment.id as keyof typeof masterData].cost;
+      } else {
+        return total + monsterData[assignment.id as MonsterType].cost;
+      }
+    }, 0);
   };
 
-  const canAddMonster = (monster: MonsterType) => {
-    if (selectedMonsters.length >= 3) return false;
-    if (selectedMonsters.includes(monster)) return false;
-    const newCost = getTotalCost() + monsterData[monster].cost;
-    return newCost <= 8;
+  const getAssignmentAt = (position: Position) => {
+    return assignments.find(a => a.position.x === position.x && a.position.y === position.y);
   };
 
-  const addMonster = (monster: MonsterType) => {
-    if (canAddMonster(monster)) {
-      setSelectedMonsters([...selectedMonsters, monster]);
+  const canAssign = (id: string, type: 'master' | 'monster') => {
+    if (!selectedPosition) return false;
+    
+    const assignment = getAssignmentAt(selectedPosition);
+    if (!assignment || assignment.type !== type) return false;
+    
+    // 既に同じカードが配置されているかチェック
+    const alreadyAssigned = assignments.some(a => a.id === id);
+    if (alreadyAssigned) return false;
+    
+    // コスト計算
+    const currentCost = getTotalCost();
+    const cardCost = type === 'master' 
+      ? masterData[id as keyof typeof masterData].cost 
+      : monsterData[id as MonsterType].cost;
+    
+    // 既に配置されているカードがある場合、そのコストを引く
+    if (assignment.id) {
+      const existingCost = type === 'master'
+        ? masterData[assignment.id as keyof typeof masterData].cost
+        : monsterData[assignment.id as MonsterType].cost;
+      return currentCost - existingCost + cardCost <= 8;
     }
+    
+    return currentCost + cardCost <= 8;
   };
 
-  const removeMonster = (monster: MonsterType) => {
-    setSelectedMonsters(selectedMonsters.filter(m => m !== monster));
+  const assignCard = (id: string, type: 'master' | 'monster') => {
+    if (!canAssign(id, type) || !selectedPosition) return;
+    
+    setAssignments(prev => prev.map(assignment => {
+      if (assignment.position.x === selectedPosition.x && assignment.position.y === selectedPosition.y) {
+        return { ...assignment, id };
+      }
+      return assignment;
+    }));
+    
+    setSelectedPosition(null);
+  };
+
+  const removeCard = (position: Position) => {
+    setAssignments(prev => prev.map(assignment => {
+      if (assignment.position.x === position.x && assignment.position.y === position.y) {
+        const { id, ...rest } = assignment;
+        return rest;
+      }
+      return assignment;
+    }));
   };
 
   const canStartGame = () => {
-    return selectedMonsters.length === 3 && getTotalCost() === 8;
+    const allAssigned = assignments.every(a => a.id);
+    const validCost = getTotalCost() === 8;
+    return allAssigned && validCost;
+  };
+
+  const handleStartGame = () => {
+    if (!canStartGame()) return;
+    
+    const masterAssignment = assignments.find(a => a.type === 'master');
+    const monsterAssignments = assignments.filter(a => a.type === 'monster');
+    
+    if (!masterAssignment?.id) return;
+    
+    const monsters = monsterAssignments.map(a => a.id as MonsterType).filter(Boolean);
+    if (monsters.length !== 3) return;
+    
+    onStartGame({
+      master: masterAssignment.id as keyof typeof masterData,
+      monsters
+    });
   };
 
   // 進化前のモンスターのみを取得
@@ -54,27 +126,91 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
 
   const baseMonsters = getBaseMonsters();
 
+  const renderBoardCell = (position: Position) => {
+    const assignment = getAssignmentAt(position);
+    const isSelected = selectedPosition?.x === position.x && selectedPosition?.y === position.y;
+    
+    if (!assignment) return null;
+    
+    const hasCard = !!assignment.id;
+    const cardData = hasCard 
+      ? assignment.type === 'master' 
+        ? masterData[assignment.id as keyof typeof masterData]
+        : monsterData[assignment.id as MonsterType]
+      : null;
+
+    return (
+      <div
+        key={`${position.x}-${position.y}`}
+        className={`w-20 h-20 border-2 rounded-lg flex items-center justify-center cursor-pointer transition-all duration-200 ${
+          isSelected 
+            ? 'border-blue-400 bg-blue-50 ring-2 ring-blue-400/50' 
+            : hasCard
+            ? 'border-slate-300 bg-white hover:border-slate-400'
+            : 'border-dashed border-gray-400 bg-gray-50 hover:border-gray-500'
+        }`}
+        onClick={() => setSelectedPosition(position)}
+      >
+        {hasCard && cardData ? (
+          <div className="relative w-full h-full">
+            <img 
+              src={cardData.image} 
+              alt={cardData.name}
+              className="w-full h-full object-cover rounded"
+            />
+            <div className={`absolute top-0 right-0 w-4 h-4 rounded-full flex items-center justify-center text-xs ${
+              assignment.type === 'master' 
+                ? 'bg-amber-500 text-amber-950' 
+                : 'bg-slate-500 text-white'
+            }`}>
+              {assignment.type === 'master' ? <Crown size={8} /> : <GitLab size={8} />}
+            </div>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                removeCard(position);
+              }}
+              className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center"
+            >
+              <X size={8} />
+            </button>
+          </div>
+        ) : (
+          <div className="text-center">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-1 ${
+              assignment.type === 'master' 
+                ? 'bg-amber-100 text-amber-600' 
+                : 'bg-slate-100 text-slate-600'
+            }`}>
+              {assignment.type === 'master' ? <Crown size={16} /> : <GitLab size={16} />}
+            </div>
+            <span className="text-xs text-gray-500">
+              {assignment.type === 'master' ? 'マスター' : 'モンスター'}
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderCard = (
     type: 'master' | 'monster',
     id: string,
     data: any,
-    isSelected: boolean,
-    onSelect: () => void,
     canSelect: boolean
   ) => {
     const skill = data.skillId ? skillData[data.skillId] : undefined;
+    const isAssigned = assignments.some(a => a.id === id);
     
     return (
       <div
         key={id}
         className={`relative bg-slate-800/95 rounded-xl overflow-hidden shadow-lg border transition-all duration-200 cursor-pointer transform hover:scale-105 ${
-          isSelected 
-            ? 'border-blue-400 ring-2 ring-blue-400/50' 
-            : canSelect 
+          canSelect && !isAssigned
             ? 'border-slate-600 hover:border-slate-400' 
             : 'border-slate-700 opacity-50 cursor-not-allowed'
         }`}
-        onClick={canSelect ? onSelect : undefined}
+        onClick={() => canSelect && !isAssigned ? assignCard(id, type) : undefined}
       >
         <div className="p-3">
           {/* Header */}
@@ -142,9 +278,9 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
             </div>
           )}
 
-          {/* Selection indicator */}
-          {isSelected && (
-            <div className="absolute top-2 right-2 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+          {/* Status indicators */}
+          {isAssigned && (
+            <div className="absolute top-2 right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
               <span className="text-white text-xs font-bold">✓</span>
             </div>
           )}
@@ -153,13 +289,15 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
     );
   };
 
+  const selectedAssignment = selectedPosition ? getAssignmentAt(selectedPosition) : null;
+
   return (
     <div className="min-h-screen bg-blue-50 p-4">
       <div className="max-w-6xl mx-auto">
         <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
           <h1 className="text-3xl font-bold text-center text-blue-900 mb-2">デッキ編成</h1>
           <p className="text-center text-gray-600 mb-4">
-            マスター1体とモンスター3体を選んでください（合計コスト8）
+            ボードの位置をクリックしてカードを配置してください（合計コスト8）
           </p>
           
           {/* Cost Display */}
@@ -181,7 +319,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
             
             {canStartGame() && (
               <button
-                onClick={() => onStartGame({ master: selectedMaster, monsters: selectedMonsters })}
+                onClick={handleStartGame}
                 className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-lg transform transition hover:scale-105 flex items-center gap-2"
               >
                 <Play size={20} />
@@ -191,113 +329,70 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
           </div>
         </div>
 
-        {/* Selected Team Display */}
+        {/* Board Layout */}
         <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-          <h2 className="text-xl font-bold text-gray-800 mb-4">選択中のチーム</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {/* Master Slot */}
-            <div className="relative">
-              <h3 className="text-sm font-bold text-center mb-2 text-amber-600">マスター</h3>
-              {renderCard(
-                'master',
-                selectedMaster,
-                masterData[selectedMaster],
-                true,
-                () => {},
-                false
-              )}
-            </div>
-            
-            {/* Monster Slots */}
-            {[0, 1, 2].map(index => (
-              <div key={index} className="relative">
-                <h3 className="text-sm font-bold text-center mb-2 text-slate-600">モンスター {index + 1}</h3>
-                {selectedMonsters[index] ? (
-                  <div className="relative">
-                    {renderCard(
-                      'monster',
-                      selectedMonsters[index],
-                      monsterData[selectedMonsters[index]],
-                      true,
-                      () => removeMonster(selectedMonsters[index]),
-                      true
-                    )}
-                    <button
-                      onClick={() => removeMonster(selectedMonsters[index])}
-                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center text-xs"
-                    >
-                      <Minus size={12} />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="h-48 border-2 border-dashed border-gray-300 rounded-xl flex items-center justify-center">
-                    <Plus size={24} className="text-gray-400" />
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Master Selection */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-          <h2 className="text-xl font-bold text-gray-800 mb-4">マスター選択</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-            {Object.entries(masterData).map(([id, data]) => {
-              const newCost = data.cost + selectedMonsters.reduce((total, monster) => total + monsterData[monster].cost, 0);
-              const canSelect = newCost <= 8;
-              
-              return renderCard(
-                'master',
-                id,
-                data,
-                selectedMaster === id,
-                () => setSelectedMaster(id as keyof typeof masterData),
-                canSelect
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Monster Selection */}
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <h2 className="text-xl font-bold text-gray-800 mb-4">モンスター選択</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {baseMonsters.map(monster => {
-              const data = monsterData[monster];
-              const isSelected = selectedMonsters.includes(monster);
-              
-              return (
-                <div key={monster} className="relative">
-                  {renderCard(
-                    'monster',
-                    monster,
-                    data,
-                    isSelected,
-                    () => isSelected ? removeMonster(monster) : addMonster(monster),
-                    canAddMonster(monster) || isSelected
-                  )}
-                  {isSelected && (
-                    <button
-                      onClick={() => removeMonster(monster)}
-                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center text-xs"
-                    >
-                      <Minus size={12} />
-                    </button>
-                  )}
-                  {!isSelected && canAddMonster(monster) && (
-                    <button
-                      onClick={() => addMonster(monster)}
-                      className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 hover:bg-green-600 text-white rounded-full flex items-center justify-center text-xs"
-                    >
-                      <Plus size={12} />
-                    </button>
-                  )}
+          <h2 className="text-xl font-bold text-gray-800 mb-4 text-center">チーム配置</h2>
+          <div className="flex justify-center">
+            <div className="bg-slate-100 rounded-xl p-4">
+              <div className="grid grid-rows-4 gap-2">
+                {/* Enemy area (grayed out) */}
+                <div className="grid grid-cols-3 gap-2 opacity-30">
+                  {[0, 1, 2].map(x => (
+                    <div key={`enemy-${x}-0`} className="w-20 h-20 bg-red-100 border border-red-300 rounded-lg flex items-center justify-center">
+                      <span className="text-xs text-red-600">敵</span>
+                    </div>
+                  ))}
                 </div>
-              );
-            })}
+                <div className="grid grid-cols-3 gap-2 opacity-30">
+                  <div className="w-20 h-20"></div>
+                  <div className="w-20 h-20 bg-red-100 border border-red-300 rounded-lg flex items-center justify-center">
+                    <span className="text-xs text-red-600">敵</span>
+                  </div>
+                  <div className="w-20 h-20"></div>
+                </div>
+                
+                {/* Player area */}
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="w-20 h-20"></div>
+                  {renderBoardCell({ x: 1, y: 2 })}
+                  <div className="w-20 h-20"></div>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {renderBoardCell({ x: 0, y: 3 })}
+                  {renderBoardCell({ x: 1, y: 3 })}
+                  {renderBoardCell({ x: 2, y: 3 })}
+                </div>
+              </div>
+            </div>
           </div>
+          
+          {selectedPosition && (
+            <div className="mt-4 text-center">
+              <p className="text-blue-600 font-medium">
+                位置 ({selectedPosition.x}, {selectedPosition.y}) の{selectedAssignment?.type === 'master' ? 'マスター' : 'モンスター'}を選択してください
+              </p>
+            </div>
+          )}
         </div>
+
+        {/* Card Selection */}
+        {selectedPosition && selectedAssignment && (
+          <div className="bg-white rounded-xl shadow-lg p-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-4">
+              {selectedAssignment.type === 'master' ? 'マスター' : 'モンスター'}選択
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {selectedAssignment.type === 'master' 
+                ? Object.entries(masterData).map(([id, data]) => 
+                    renderCard('master', id, data, canAssign(id, 'master'))
+                  )
+                : baseMonsters.map(monster => 
+                    renderCard('monster', monster, monsterData[monster], canAssign(monster, 'monster'))
+                  )
+              }
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
