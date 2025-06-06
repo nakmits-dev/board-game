@@ -56,17 +56,27 @@ const getEvolvedMonsterType = (type: MonsterType): MonsterType | null => {
   return monsterData[type].evolution || null;
 };
 
+// 進化前のモンスターのみを取得する関数
+const getBaseMonsters = (): MonsterType[] => {
+  const evolutionTargets = new Set(
+    Object.values(monsterData)
+      .map(monster => monster.evolution)
+      .filter(evolution => evolution !== undefined)
+  );
+  
+  return Object.keys(monsterData).filter(key => 
+    !evolutionTargets.has(key as MonsterType)
+  ) as MonsterType[];
+};
+
 // コスト8でチーム編成を行う関数
 const generateTeamWithCost8 = (): { master: keyof typeof masterData; monsters: MonsterType[] } => {
   const TARGET_COST = 8;
   const MAX_ATTEMPTS = 1000;
   
-  // 利用可能なマスターとモンスターのリスト
+  // 利用可能なマスターと進化前のモンスターのみのリスト
   const availableMasters = Object.keys(masterData) as Array<keyof typeof masterData>;
-  const availableMonsters = Object.keys(monsterData).filter(key => 
-    !monsterData[key].evolution || // 進化前のモンスター
-    !Object.values(monsterData).some(monster => monster.evolution === key) // 進化後だが進化前が存在しないモンスター
-  ) as MonsterType[];
+  const availableMonsters = getBaseMonsters();
   
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     // ランダムにマスターを選択
@@ -101,7 +111,7 @@ const generateTeamWithCost8 = (): { master: keyof typeof masterData; monsters: M
     }
   }
   
-  // フォールバック: 確実にコスト8になる組み合わせ
+  // フォールバック: 確実にコスト8になる組み合わせ（進化前のモンスターのみ）
   return {
     master: 'normal', // コスト1
     monsters: ['wolf', 'golem', 'bear'] // 各コスト2、合計6、マスターと合わせて7
