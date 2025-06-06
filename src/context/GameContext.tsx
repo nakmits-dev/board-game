@@ -432,6 +432,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
     case 'START_GAME': {
       const startingTeam: Team = Math.random() < 0.5 ? 'player' : 'enemy';
+      
+      // 新しいゲーム状態を作成（編成内容を反映）
       const newState = createInitialGameState(action.playerDeck, action.enemyDeck);
       
       return {
