@@ -112,7 +112,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
     setSelectedPosition(null);
   };
 
-  const removeCard = (position: Position) => {
+  const clearCard = (position: Position) => {
     const assignments = getAssignmentsForPosition(position);
     const newAssignments = assignments.map(assignment => {
       if (assignment.position.x === position.x && assignment.position.y === position.y) {
@@ -212,10 +212,10 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
       }
     }
     
-    // フォールバック: 確実にコスト8以下になる組み合わせ
+    // フォールバック: 確実にコスト8以下になる組み合わせ（3体必須）
     return {
-      master: 'normal',
-      monsters: ['slime', 'slime', 'slime']
+      master: 'normal', // コスト1
+      monsters: ['slime', 'slime', 'slime'] // 各コスト1、合計3、マスターと合わせて4
     };
   };
 
@@ -564,13 +564,21 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
               <p className={`font-medium text-sm sm:text-base ${selectedTeam === 'player' ? 'text-blue-600' : 'text-red-600'}`}>
                 {selectedTeam === 'player' ? '青' : '赤'}チーム - {selectedAssignment?.type === 'master' ? 'マスター' : 'モンスター'}を選択してください
               </p>
+              {selectedAssignment?.id && (
+                <button
+                  onClick={() => clearCard(selectedPosition)}
+                  className="mt-2 px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg transition-colors"
+                >
+                  クリア
+                </button>
+              )}
             </div>
           )}
         </div>
 
         {/* Card Selection */}
         {selectedPosition && selectedAssignment && (
-          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6" ref={cardSelectionRef}>
+          <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
               <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-2 sm:mb-0">
                 {selectedAssignment.type === 'master' ? 'マスター' : 'モンスター'}選択
@@ -613,7 +621,10 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
               </div>
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div 
+              ref={cardSelectionRef}
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto"
+            >
               {selectedAssignment.type === 'master' 
                 ? getFilteredCards('master').map(([id, data]) => {
                     const character = createCharacterForCard('master', id, data);
