@@ -155,7 +155,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           if (newHp === 0) {
             animations.push(
               { id: target.id, type: 'ko' },
-              { id: state.selectedCharacter.team, type: 'crystal-gain' }
+              { id: target.team, type: 'crystal-gain' }
             );
 
             // 進化条件を満たしているか確認（進化先があるモンスターのみ）
@@ -299,7 +299,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         if (newHp === 0) {
           animations.push(
             { id: target.id, type: 'ko' },
-            { id: state.selectedCharacter.team, type: 'crystal-gain' }
+            { id: target.team, type: 'crystal-gain' }
           );
         }
 
@@ -361,11 +361,11 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         const crystalGain = defeatedCharacter.cost;
         
         if (defeatedCharacter.team === 'player') {
-          // プレイヤーのキャラクターが倒された場合、敵がクリスタルを獲得
-          enemyCrystals = Math.min(MAX_CRYSTALS, enemyCrystals + crystalGain);
-        } else {
-          // 敵のキャラクターが倒された場合、プレイヤーがクリスタルを獲得
+          // プレイヤーのキャラクターが倒された場合、プレイヤーがクリスタルを獲得
           playerCrystals = Math.min(MAX_CRYSTALS, playerCrystals + crystalGain);
+        } else {
+          // 敵のキャラクターが倒された場合、敵がクリスタルを獲得
+          enemyCrystals = Math.min(MAX_CRYSTALS, enemyCrystals + crystalGain);
         }
       }
 
