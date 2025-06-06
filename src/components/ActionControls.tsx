@@ -30,16 +30,11 @@ const ActionControls: React.FC = () => {
           }`}>
             <Crown size={32} className="text-white drop-shadow" />
           </div>
-          <h2 className={`text-2xl font-bold mb-2 ${
+          <h2 className={`text-2xl font-bold ${
             winner === 'player' ? 'text-blue-600' : 'text-red-600'
           }`}>
             {winner === 'player' ? 'あなたの勝利！' : '相手の勝利！'}
           </h2>
-          <p className="text-gray-600 text-center">
-            {winner === 'player' 
-              ? '見事、相手のマスターを倒しました！'
-              : '相手にマスターを倒されてしまいました...'}
-          </p>
         </div>
       </div>
     );

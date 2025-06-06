@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shield, Sword, Sparkle, Heart, Crown, Gitlab as GitLab, Diamond } from 'lucide-react';
+import { Shield, Sword, Sparkle, Heart, Crown, Gitlab as GitLab, Diamond, Star } from 'lucide-react';
 import { Character, Skill, Team } from '../types/gameTypes';
 import { skillData } from '../data/skillData';
 
@@ -45,7 +45,23 @@ const CharacterCard: React.FC<CharacterCardProps> = ({
   const skill = character.skillId ? skillData[character.skillId] : undefined;
 
   return (
-    <div className="w-[360px] h-[520px] bg-slate-800/95 rounded-2xl overflow-hidden shadow-xl border border-slate-700/50 backdrop-blur-sm flex flex-col">
+    <div className="w-[360px] h-[520px] bg-slate-800/95 rounded-2xl overflow-hidden shadow-xl border border-slate-700/50 backdrop-blur-sm flex flex-col relative">
+      {/* Cost Display - 右上に配置 */}
+      <div className="absolute top-3 right-3 z-10">
+        <div className="relative">
+          <Star 
+            size={32} 
+            className="text-yellow-400 drop-shadow-lg" 
+            fill="currentColor"
+          />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-yellow-900 font-bold text-sm drop-shadow">
+              {character.cost}
+            </span>
+          </div>
+        </div>
+      </div>
+
       {/* Header with Type and Name */}
       <div className="bg-gradient-to-r from-slate-700/80 to-slate-700/60 rounded-xl mx-2 mt-2 p-2 shadow-lg border border-slate-600/30">
         <div className="flex items-center gap-2">
