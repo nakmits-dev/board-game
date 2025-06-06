@@ -19,7 +19,7 @@ const CharacterPanel: React.FC = () => {
   };
 
   return (
-    <div className="perspective-1000">
+    <div className="perspective-1000 flex justify-center items-center h-full">
       <CharacterCard
         character={selectedCharacter}
         currentTeam={currentTeam}

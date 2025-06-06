@@ -35,7 +35,7 @@ const CharacterModal: React.FC<CharacterModalProps> = ({
 
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/50 backdrop-blur-sm lg:hidden">
-      <div ref={modalRef} className="w-full max-w-sm p-4">
+      <div ref={modalRef} className="flex items-center justify-center">
         <CharacterCard
           character={character}
           currentTeam={currentTeam}
