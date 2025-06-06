@@ -183,7 +183,7 @@ export const masterData: Record<string, MasterCard> = {
   'red': {
     type: 'red',
     name: 'レッドマスター',
-    hp: 3,
+    hp: 4,
     attack: 2,
     defense: 0,
     actions: 1,
@@ -194,7 +194,7 @@ export const masterData: Record<string, MasterCard> = {
   'blue': {
     type: 'blue',
     name: 'ブルーマスター',
-    hp: 3,
+    hp: 2,
     attack: 1,
     defense: 1,
     actions: 1,
