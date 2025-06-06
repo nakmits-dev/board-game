@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { MonsterType, MasterCard, Position } from '../types/gameTypes';
 import { monsterData, masterData, generateTeamWithCost8 } from '../data/cardData';
 import { skillData } from '../data/skillData';
-import { Shield, Sword, Sparkle, Heart, Crown, Gitlab as GitLab, Play, X, Filter, Star, Shuffle, ArrowLeft } from 'lucide-react';
+import { Shield, Sword, Sparkle, Heart, Crown, Gitlab as GitLab, Play, X, Filter, Star, Shuffle, ArrowLeft, Check } from 'lucide-react';
 import CharacterCard from './CharacterCard';
 
 interface DeckBuilderProps {
@@ -303,6 +303,22 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
                 </div>
               ))}
             </div>
+
+            {/* 選択中のマスにクリアボタンを表示 */}
+            {isSelected && (
+              <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-lg">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    clearCard(position);
+                    setSelectedPosition(null);
+                  }}
+                  className="w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-colors shadow-lg"
+                >
+                  <Check size={16} />
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="text-center">
@@ -522,12 +538,9 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
                 {selectedTeam === 'player' ? '青' : '赤'}チーム - {selectedAssignment?.type === 'master' ? 'マスター' : 'モンスター'}を選択してください
               </p>
               {selectedAssignment?.id && (
-                <button
-                  onClick={() => clearCard(selectedPosition)}
-                  className="mt-2 px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg transition-colors"
-                >
-                  クリア
-                </button>
+                <p className="mt-2 text-sm text-gray-600">
+                  配置済みのカードをクリアするには、カード中央のボタンを押してください
+                </p>
               )}
             </div>
           )}
@@ -588,10 +601,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
               {selectedAssignment.type === 'master' 
                 ? getFilteredCards('master').map(([id, data]) => {
                     const character = createCharacterForCard('master', id, data);
-                    const playerAssigned = playerAssignments.some(a => a.id === id);
-                    const enemyAssigned = enemyAssignments.some(a => a.id === id);
-                    const isAssigned = playerAssigned || enemyAssigned;
-                    const canSelect = canAssign(id, 'master') && !isAssigned;
+                    const canSelect = canAssign(id, 'master');
                     
                     return (
                       <div
@@ -610,25 +620,13 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
                           enemyCrystals={0}
                           variant="panel"
                         />
-                        
-                        {/* Status indicators */}
-                        {isAssigned && (
-                          <div className={`absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center ${
-                            playerAssigned ? 'bg-blue-500' : 'bg-red-500'
-                          }`}>
-                            <span className="text-white text-xs font-bold">✓</span>
-                          </div>
-                        )}
                       </div>
                     );
                   })
                 : getFilteredCards('monster').map(monster => {
                     const data = monsterData[monster];
                     const character = createCharacterForCard('monster', monster, data);
-                    const playerAssigned = playerAssignments.some(a => a.id === monster);
-                    const enemyAssigned = enemyAssignments.some(a => a.id === monster);
-                    const isAssigned = playerAssigned || enemyAssigned;
-                    const canSelect = canAssign(monster, 'monster') && !isAssigned;
+                    const canSelect = canAssign(monster, 'monster');
                     
                     return (
                       <div
@@ -647,15 +645,6 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
                           enemyCrystals={0}
                           variant="panel"
                         />
-                        
-                        {/* Status indicators */}
-                        {isAssigned && (
-                          <div className={`absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center ${
-                            playerAssigned ? 'bg-blue-500' : 'bg-red-500'
-                          }`}>
-                            <span className="text-white text-xs font-bold">✓</span>
-                          </div>
-                        )}
                       </div>
                     );
                   })
