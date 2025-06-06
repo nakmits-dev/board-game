@@ -176,7 +176,7 @@ export const masterData: Record<string, MasterCard> = {
     attack: 1,
     defense: 0,
     actions: 1,
-    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%9E%E3%82%B9%E3%82%BF%E3%83%BC.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
+    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%9E%E3%82%B9%E3%82%BF%E3%83%BC.png?alt=media&token=16df62e1-4321-4e44-9f9d-9b3ca7a87881',
     skillId: '',
     cost: 1
   },
