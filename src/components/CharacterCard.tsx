@@ -1,6 +1,7 @@
 import React from 'react';
 import { Shield, Sword, Sparkle, Heart, Crown, Gitlab as GitLab, Diamond } from 'lucide-react';
 import { Character, Skill, Team } from '../types/gameTypes';
+import { skillData } from '../data/skillData';
 
 interface CharacterCardProps {
   character?: Character;
@@ -40,6 +41,9 @@ const CharacterCard: React.FC<CharacterCardProps> = ({
   const teamColor = character.team === 'player' ? 'blue' : 'red';
   const TypeIcon = character.type === 'master' ? Crown : GitLab;
   const availableCrystals = character.team === 'player' ? playerCrystals : enemyCrystals;
+
+  // Get the skill for this character
+  const skill = character.skillId ? skillData.get(character.skillId) : undefined;
 
   return (
     <div className="w-[360px] h-[520px] bg-slate-800/95 rounded-2xl overflow-hidden shadow-xl border border-slate-700/50 backdrop-blur-sm flex flex-col">
@@ -107,41 +111,36 @@ const CharacterCard: React.FC<CharacterCardProps> = ({
       {/* Skills */}
       <div className="flex-1 bg-gradient-to-r from-slate-700/80 to-slate-700/60 rounded-xl mx-2 mb-2 mt-1 p-2 shadow-lg border border-slate-600/30 overflow-y-auto">
         <div className="space-y-1.5">
-          {character.skills.map(skill => {
-            const canUseSkill = isCurrentTeam && hasActions && availableCrystals >= skill.crystalCost;
-
-            return (
-              <div 
-                key={skill.id}
-                className={`p-2 rounded-lg transition-all duration-200 ${
-                  canUseSkill && onSkillSelect
-                    ? 'bg-gradient-to-br from-purple-900/90 to-purple-800/90 hover:from-purple-800/90 hover:to-purple-700/90 cursor-pointer transform hover:scale-[1.02] border border-purple-700/30'
-                    : 'bg-gradient-to-br from-slate-600/90 to-slate-700/90 border border-slate-600/30 opacity-75'
-                }`}
-                onClick={() => canUseSkill && onSkillSelect?.(skill)}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm text-purple-200 drop-shadow">
-                      {skill.name}
-                    </span>
-                    <span className="flex items-center gap-0.5">
-                      {Array(skill.crystalCost).fill('').map((_, i) => (
-                        <Diamond 
-                          key={i} 
-                          size={12} 
-                          className={`inline drop-shadow ${
-                            i < availableCrystals ? 'text-purple-400' : 'text-purple-800'
-                          }`} 
-                        />
-                      ))}
-                    </span>
-                  </div>
+          {skill && (
+            <div 
+              className={`p-2 rounded-lg transition-all duration-200 ${
+                isCurrentTeam && hasActions && availableCrystals >= skill.crystalCost && onSkillSelect
+                  ? 'bg-gradient-to-br from-purple-900/90 to-purple-800/90 hover:from-purple-800/90 hover:to-purple-700/90 cursor-pointer transform hover:scale-[1.02] border border-purple-700/30'
+                  : 'bg-gradient-to-br from-slate-600/90 to-slate-700/90 border border-slate-600/30 opacity-75'
+              }`}
+              onClick={() => isCurrentTeam && hasActions && availableCrystals >= skill.crystalCost && onSkillSelect?.(skill)}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-sm text-purple-200 drop-shadow">
+                    {skill.name}
+                  </span>
+                  <span className="flex items-center gap-0.5">
+                    {Array(skill.crystalCost).fill('').map((_, i) => (
+                      <Diamond 
+                        key={i} 
+                        size={12} 
+                        className={`inline drop-shadow ${
+                          i < availableCrystals ? 'text-purple-400' : 'text-purple-800'
+                        }`} 
+                      />
+                    ))}
+                  </span>
                 </div>
-                <p className="text-xs leading-relaxed text-purple-300/90 min-h-[2.5rem]">{skill.description}</p>
               </div>
-            );
-          })}
+              <p className="text-xs leading-relaxed text-purple-300/90 min-h-[2.5rem]">{skill.description}</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
