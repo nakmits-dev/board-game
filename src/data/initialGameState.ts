@@ -1,5 +1,5 @@
 import { Character, GameState, Position, Team, MonsterType } from '../types/gameTypes';
-import { monsterData, masterData } from './cardData';
+import { monsterData, masterTypes, masterData } from './cardData';
 
 const generateId = (): string => {
   return Math.random().toString(36).substring(2, 9);
@@ -28,8 +28,14 @@ const createMonster = (type: MonsterType, position: Position, team: Team): Chara
   };
 };
 
+const getRandomMasterType = () => {
+  const types = Object.keys(masterTypes);
+  const randomIndex = Math.floor(Math.random() * types.length);
+  return masterTypes[types[randomIndex] as keyof typeof masterTypes];
+};
+
 const createMaster = (position: Position, team: Team): Character => {
-  const data = team === 'player' ? masterData.player : masterData.enemy;
+  const data = getRandomMasterType();
   
   return {
     id: generateId(),
