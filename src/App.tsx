@@ -54,7 +54,14 @@ const GameContent = () => {
   };
 
   if (showDeckBuilder) {
-    return <DeckBuilder onStartGame={handleStartGame} onClose={handleCloseDeckBuilder} />;
+    return (
+      <DeckBuilder 
+        onStartGame={handleStartGame} 
+        onClose={handleCloseDeckBuilder}
+        initialPlayerDeck={currentDecks.player}
+        initialEnemyDeck={currentDecks.enemy}
+      />
+    );
   }
 
   return (

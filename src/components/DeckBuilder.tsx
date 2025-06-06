@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { MonsterType, MasterCard, Position } from '../types/gameTypes';
 import { monsterData, masterData, generateTeamWithCost8 } from '../data/cardData';
 import { skillData } from '../data/skillData';
@@ -14,6 +14,8 @@ interface DeckBuilderProps {
     playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] },
     enemyDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }
   ) => void;
+  initialPlayerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] };
+  initialEnemyDeck?: { master: keyof typeof masterData; monsters: MonsterType[] };
 }
 
 interface PositionAssignment {
@@ -22,25 +24,74 @@ interface PositionAssignment {
   id?: string;
 }
 
-const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
+const DeckBuilder: React.FC<DeckBuilderProps> = ({ 
+  onStartGame, 
+  onClose, 
+  initialPlayerDeck, 
+  initialEnemyDeck 
+}) => {
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
   const [costFilter, setCostFilter] = useState<number | null>(null);
   const cardSelectionRef = useRef<HTMLDivElement>(null);
   
-  // 初期状態は全てクリア（カードが配置されていない状態）
-  const [playerAssignments, setPlayerAssignments] = useState<PositionAssignment[]>([
-    { position: { x: 0, y: 3 }, type: 'monster' },
-    { position: { x: 1, y: 3 }, type: 'master' },
-    { position: { x: 2, y: 3 }, type: 'monster' },
-    { position: { x: 1, y: 2 }, type: 'monster' },
-  ]);
-  
-  const [enemyAssignments, setEnemyAssignments] = useState<PositionAssignment[]>([
-    { position: { x: 0, y: 0 }, type: 'monster' },
-    { position: { x: 1, y: 0 }, type: 'master' },
-    { position: { x: 2, y: 0 }, type: 'monster' },
-    { position: { x: 1, y: 1 }, type: 'monster' },
-  ]);
+  // 初期状態を設定する関数
+  const createInitialAssignments = (
+    deck?: { master: keyof typeof masterData; monsters: MonsterType[] },
+    isPlayer: boolean = true
+  ): PositionAssignment[] => {
+    const positions = isPlayer 
+      ? [
+          { position: { x: 0, y: 3 }, type: 'monster' as const },
+          { position: { x: 1, y: 3 }, type: 'master' as const },
+          { position: { x: 2, y: 3 }, type: 'monster' as const },
+          { position: { x: 1, y: 2 }, type: 'monster' as const },
+        ]
+      : [
+          { position: { x: 0, y: 0 }, type: 'monster' as const },
+          { position: { x: 1, y: 0 }, type: 'master' as const },
+          { position: { x: 2, y: 0 }, type: 'monster' as const },
+          { position: { x: 1, y: 1 }, type: 'monster' as const },
+        ];
+
+    if (!deck) {
+      return positions;
+    }
+
+    // デッキ情報がある場合は配置
+    return positions.map((pos, index) => {
+      if (pos.type === 'master') {
+        return { ...pos, id: deck.master };
+      } else {
+        const monsterIndex = isPlayer 
+          ? [0, 2, 1][positions.filter((p, i) => p.type === 'monster' && i < index).length]
+          : [0, 2, 1][positions.filter((p, i) => p.type === 'monster' && i < index).length];
+        return { ...pos, id: deck.monsters[monsterIndex] };
+      }
+    });
+  };
+
+  // 初期状態を設定（ゲーム開始時の状態またはランダム生成）
+  const getInitialState = () => {
+    if (initialPlayerDeck && initialEnemyDeck) {
+      // 既存の編成がある場合はそれを使用
+      return {
+        player: createInitialAssignments(initialPlayerDeck, true),
+        enemy: createInitialAssignments(initialEnemyDeck, false)
+      };
+    } else {
+      // 新規の場合はランダム生成
+      const playerTeam = generateTeamWithCost8();
+      const enemyTeam = generateTeamWithCost8();
+      return {
+        player: createInitialAssignments(playerTeam, true),
+        enemy: createInitialAssignments(enemyTeam, false)
+      };
+    }
+  };
+
+  const initialState = getInitialState();
+  const [playerAssignments, setPlayerAssignments] = useState<PositionAssignment[]>(initialState.player);
+  const [enemyAssignments, setEnemyAssignments] = useState<PositionAssignment[]>(initialState.enemy);
   
   const getTotalCost = (assignments: PositionAssignment[]) => {
     return assignments.reduce((total, assignment) => {
