@@ -31,6 +31,7 @@ const createMonster = (type: MonsterType, position: Position, team: Team): Chara
 };
 
 const getRandomMasterType = () => {
+  // 基本マスターとドラゴン系から選択
   const types = Object.keys(masterData) as Array<keyof typeof masterData>;
   const randomIndex = Math.floor(Math.random() * types.length);
   return types[randomIndex];
@@ -64,9 +65,15 @@ const getEvolvedMonsterType = (type: MonsterType): MonsterType | null => {
 };
 
 const getRandomMonsterTypes = (): MonsterType[] => {
-  const baseTypes: MonsterType[] = ['wolf', 'golem', 'bear'];
+  // 全てのベースモンスター（進化前のもの）から選択
+  const baseTypes: MonsterType[] = Object.keys(monsterData)
+    .filter(key => !monsterData[key].evolution || 
+      !Object.values(monsterData).some(monster => monster.evolution === key)
+    ) as MonsterType[];
+  
+  // ランダムに3体選択
   const shuffled = [...baseTypes].sort(() => Math.random() - 0.5);
-  return shuffled;
+  return shuffled.slice(0, 3);
 };
 
 export { createMonster, createMaster, getEvolvedMonsterType, monsterData };
