@@ -64,11 +64,8 @@ const getEvolvedMonsterType = (type: MonsterType): MonsterType | null => {
 };
 
 const getRandomMonsterTypes = (): MonsterType[] => {
-  // 全てのベースモンスター（進化前のもの）から選択
-  const baseTypes: MonsterType[] = Object.keys(monsterData)
-    .filter(key => !monsterData[key].evolution || 
-      !Object.values(monsterData).some(monster => monster.evolution === key)
-    ) as MonsterType[];
+  // 進化前のベースモンスターのみを選択対象とする
+  const baseTypes: MonsterType[] = ['wolf', 'golem', 'bear', 'slime', 'whale', 'red-dragon', 'blue-dragon', 'yellow-dragon', 'green-dragon', 'white-dragon', 'black-dragon'];
   
   // ランダムに3体選択
   const shuffled = [...baseTypes].sort(() => Math.random() - 0.5);
