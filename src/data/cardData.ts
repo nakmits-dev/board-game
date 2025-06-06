@@ -112,7 +112,7 @@ export const monsterData: Record<string, MonsterCard> = {
     attack: 2,
     defense: 0,
     actions: 1,
-    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%AC%E3%83%83%E3%83%89%E3%83%89%E3%83%A9%E3%82%B4%E3%83%B3.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
+    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%AC%E3%83%83%E3%83%88%E3%82%99%E3%83%88%E3%82%99%E3%83%A9%E3%82%B3%E3%82%99%E3%83%B3.png?alt=media&token=19659ad8-cb12-466b-be2d-6561d66da478',
     skillId: 'rage-strike',
     cost: 3
   },
@@ -122,7 +122,7 @@ export const monsterData: Record<string, MonsterCard> = {
     attack: 1,
     defense: 1,
     actions: 1,
-    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%96%E3%83%AB%E3%83%BC%E3%83%89%E3%83%A9%E3%82%B4%E3%83%B3.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
+    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%95%E3%82%99%E3%83%AB%E3%83%BC%E3%83%88%E3%82%99%E3%83%A9%E3%82%B3%E3%82%99%E3%83%B3.png?alt=media&token=9fd92c08-291d-47de-a114-cfb193cbb7a8',
     skillId: 'rage-strike',
     cost: 3
   },
@@ -132,7 +132,7 @@ export const monsterData: Record<string, MonsterCard> = {
     attack: 1,
     defense: 0,
     actions: 2,
-    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%82%A4%E3%82%A8%E3%83%AD%E3%83%BC%E3%83%89%E3%83%A9%E3%82%B4%E3%83%B3.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
+    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%82%A4%E3%82%A8%E3%83%AD%E3%83%BC%E3%83%88%E3%82%99%E3%83%A9%E3%82%B3%E3%82%99%E3%83%B3.png?alt=media&token=3336ee4b-1641-4d24-bcd0-b115d481f55c',
     skillId: 'rage-strike',
     cost: 3
   },
@@ -142,7 +142,7 @@ export const monsterData: Record<string, MonsterCard> = {
     attack: 1,
     defense: 0,
     actions: 1,
-    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%82%B0%E3%83%AA%E3%83%BC%E3%83%B3%E3%83%89%E3%83%A9%E3%82%B4%E3%83%B3.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
+    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%82%AF%E3%82%99%E3%83%AA%E3%83%BC%E3%83%B3%E3%83%88%E3%82%99%E3%83%A9%E3%82%B3%E3%82%99%E3%83%B3.png?alt=media&token=b52f9674-b161-4dae-9ff5-8abda7198a49',
     skillId: 'heal',
     cost: 3
   },
