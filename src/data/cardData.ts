@@ -198,7 +198,7 @@ export const masterData: Record<string, MasterCard> = {
     attack: 1,
     defense: 1,
     actions: 1,
-    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%96%E3%83%AB%E3%83%BC%E3%83%9E%E3%82%B9%E3%82%BF%E3%83%BC.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
+    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%95%E3%82%99%E3%83%AB%E3%83%BC%E3%83%9E%E3%82%B9%E3%82%BF%E3%83%BC.png?alt=media&token=dd68a34b-6faf-46e2-9811-618817775bf6',
     skillId: 'rage-strike',
     cost: 2
   },
