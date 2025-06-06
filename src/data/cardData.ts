@@ -1,4 +1,4 @@
-import { MonsterCard, MasterCard } from '../types/gameTypes';
+import { MonsterCard, MasterCard, MonsterType } from '../types/gameTypes';
 
 export const monsterData: Record<string, MonsterCard> = {
   'wolf': {
@@ -246,4 +246,64 @@ export const masterData: Record<string, MasterCard> = {
     skillId: 'evolve',
     cost: 2
   }
+};
+
+// 進化前のモンスターのみを取得する関数
+const getBaseMonsters = (): MonsterType[] => {
+  const evolutionTargets = new Set(
+    Object.values(monsterData)
+      .map(monster => monster.evolution)
+      .filter(evolution => evolution !== undefined)
+  );
+  
+  return Object.keys(monsterData).filter(key => 
+    !evolutionTargets.has(key as MonsterType)
+  ) as MonsterType[];
+};
+
+// コスト8でチーム編成を行う関数（マスター必須、モンスター3体必須）
+export const generateTeamWithCost8 = (): { master: keyof typeof masterData; monsters: MonsterType[] } => {
+  const TARGET_COST = 8;
+  const MAX_ATTEMPTS = 1000;
+  
+  // 利用可能なマスターと進化前のモンスターのみのリスト
+  const availableMasters = Object.keys(masterData) as Array<keyof typeof masterData>;
+  const availableMonsters = getBaseMonsters();
+  
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    // ランダムにマスターを選択
+    const masterType = availableMasters[Math.floor(Math.random() * availableMasters.length)];
+    const masterCost = masterData[masterType].cost;
+    const remainingCost = TARGET_COST - masterCost;
+    
+    // 3体のモンスターでちょうど残りコストになる組み合わせを探す
+    for (let i = 0; i < availableMonsters.length; i++) {
+      for (let j = i; j < availableMonsters.length; j++) {
+        for (let k = j; k < availableMonsters.length; k++) {
+          const monster1 = availableMonsters[i];
+          const monster2 = availableMonsters[j];
+          const monster3 = availableMonsters[k];
+          
+          const totalMonsterCost = monsterData[monster1].cost + monsterData[monster2].cost + monsterData[monster3].cost;
+          
+          if (totalMonsterCost === remainingCost) {
+            // ちょうどコスト8になる組み合わせが見つかった
+            const selectedMonsters = [monster1, monster2, monster3];
+            // 配列をシャッフルして順序をランダムにする
+            for (let shuffle = selectedMonsters.length - 1; shuffle > 0; shuffle--) {
+              const randomIndex = Math.floor(Math.random() * (shuffle + 1));
+              [selectedMonsters[shuffle], selectedMonsters[randomIndex]] = [selectedMonsters[randomIndex], selectedMonsters[shuffle]];
+            }
+            return { master: masterType, monsters: selectedMonsters };
+          }
+        }
+      }
+    }
+  }
+  
+  // フォールバック: 確実にコスト8になる組み合わせ
+  return {
+    master: 'red', // コスト2
+    monsters: ['wolf', 'golem', 'bear'] // 各コスト2、合計6、マスターと合わせて8
+  };
 };

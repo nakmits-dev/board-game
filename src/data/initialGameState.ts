@@ -116,7 +116,7 @@ const generateTeamWithCost8 = (): { master: keyof typeof masterData; monsters: M
   };
 };
 
-export { createMonster, createMaster, getEvolvedMonsterType, monsterData };
+export { createMonster, createMaster, getEvolvedMonsterType, monsterData, generateTeamWithCost8 };
 
 export const createInitialGameState = (
   playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] },

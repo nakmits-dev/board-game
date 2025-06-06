@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { MonsterType, MasterCard, Position } from '../types/gameTypes';
-import { monsterData, masterData } from '../data/cardData';
+import { monsterData, masterData, generateTeamWithCost8 } from '../data/cardData';
 import { skillData } from '../data/skillData';
 import { Shield, Sword, Sparkle, Heart, Crown, Gitlab as GitLab, Play, X, Filter, Star, Shuffle, ArrowLeft } from 'lucide-react';
 import CharacterCard from './CharacterCard';
@@ -24,18 +24,22 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
   const [costFilter, setCostFilter] = useState<number | null>(null);
   const cardSelectionRef = useRef<HTMLDivElement>(null);
   
+  // 初期状態でランダムチームを生成
+  const initialPlayerTeam = generateTeamWithCost8();
+  const initialEnemyTeam = generateTeamWithCost8();
+  
   const [playerAssignments, setPlayerAssignments] = useState<PositionAssignment[]>([
-    { position: { x: 0, y: 3 }, type: 'monster' },
-    { position: { x: 1, y: 3 }, type: 'master' },
-    { position: { x: 2, y: 3 }, type: 'monster' },
-    { position: { x: 1, y: 2 }, type: 'monster' },
+    { position: { x: 0, y: 3 }, type: 'monster', id: initialPlayerTeam.monsters[0] },
+    { position: { x: 1, y: 3 }, type: 'master', id: initialPlayerTeam.master },
+    { position: { x: 2, y: 3 }, type: 'monster', id: initialPlayerTeam.monsters[1] },
+    { position: { x: 1, y: 2 }, type: 'monster', id: initialPlayerTeam.monsters[2] },
   ]);
   
   const [enemyAssignments, setEnemyAssignments] = useState<PositionAssignment[]>([
-    { position: { x: 0, y: 0 }, type: 'monster' },
-    { position: { x: 1, y: 0 }, type: 'master' },
-    { position: { x: 2, y: 0 }, type: 'monster' },
-    { position: { x: 1, y: 1 }, type: 'monster' },
+    { position: { x: 0, y: 0 }, type: 'monster', id: initialEnemyTeam.monsters[0] },
+    { position: { x: 1, y: 0 }, type: 'master', id: initialEnemyTeam.master },
+    { position: { x: 2, y: 0 }, type: 'monster', id: initialEnemyTeam.monsters[1] },
+    { position: { x: 1, y: 1 }, type: 'monster', id: initialEnemyTeam.monsters[2] },
   ]);
   
   const getTotalCost = (assignments: PositionAssignment[]) => {
@@ -139,7 +143,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
     return playerCost <= 8 && enemyCost <= 8;
   };
 
-  const handleStartGame = () => {
+  const handleComplete = () => {
     if (!canStartGame()) return;
     
     const playerMaster = playerAssignments.find(a => a.type === 'master')?.id as keyof typeof masterData;
@@ -153,10 +157,8 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
       .filter(a => a.type === 'monster' && a.id)
       .map(a => a.id as MonsterType);
     
-    onStartGame(
-      { master: playerMaster, monsters: playerMonsters },
-      { master: enemyMaster, monsters: enemyMonsters }
-    );
+    // 完了ボタンは対戦ボード画面に戻るだけで、ゲームは開始しない
+    onClose();
   };
 
   // 進化前のモンスターのみを取得する関数
@@ -173,60 +175,9 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
   };
 
   // ランダム選択機能（モンスター3体、合計コスト8）
-  const generateRandomTeam = (): { master: keyof typeof masterData; monsters: MonsterType[] } => {
-    const TARGET_COST = 8;
-    const MAX_ATTEMPTS = 1000;
-    
-    const availableMasters = Object.keys(masterData) as Array<keyof typeof masterData>;
-    const availableMonsters = getBaseMonsters();
-    
-    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-      const masterType = availableMasters[Math.floor(Math.random() * availableMasters.length)];
-      const masterCost = masterData[masterType].cost;
-      const remainingCost = TARGET_COST - masterCost;
-      
-      // 3体のモンスターでちょうど残りコストになる組み合わせを探す
-      const monsters: MonsterType[] = [];
-      
-      // 全ての3体の組み合わせを試す
-      for (let i = 0; i < availableMonsters.length; i++) {
-        for (let j = i; j < availableMonsters.length; j++) {
-          for (let k = j; k < availableMonsters.length; k++) {
-            const monster1 = availableMonsters[i];
-            const monster2 = availableMonsters[j];
-            const monster3 = availableMonsters[k];
-            
-            const totalMonsterCost = monsterData[monster1].cost + monsterData[monster2].cost + monsterData[monster3].cost;
-            
-            if (totalMonsterCost === remainingCost) {
-              // ちょうどコスト8になる組み合わせが見つかった
-              const selectedMonsters = [monster1, monster2, monster3];
-              // 配列をシャッフルして順序をランダムにする
-              for (let shuffle = selectedMonsters.length - 1; shuffle > 0; shuffle--) {
-                const randomIndex = Math.floor(Math.random() * (shuffle + 1));
-                [selectedMonsters[shuffle], selectedMonsters[randomIndex]] = [selectedMonsters[randomIndex], selectedMonsters[shuffle]];
-              }
-              return { master: masterType, monsters: selectedMonsters };
-            }
-          }
-        }
-      }
-    }
-    
-    // フォールバック: 確実にコスト8になる組み合わせ
-    // コスト1のマスター + コスト1のモンスター3体 + コスト2のモンスター2体 = 8
-    const fallbackCombinations = [
-      { master: 'normal' as keyof typeof masterData, monsters: ['slime', 'slime', 'wolf'] as MonsterType[] }, // 1+1+1+2 = 5 (不足)
-      { master: 'red' as keyof typeof masterData, monsters: ['slime', 'slime', 'wolf'] as MonsterType[] }, // 2+1+1+2 = 6 (不足)
-      { master: 'red' as keyof typeof masterData, monsters: ['wolf', 'golem', 'bear'] as MonsterType[] }, // 2+2+2+2 = 8 (完璧)
-    ];
-    
-    return fallbackCombinations[2]; // 確実にコスト8になる組み合わせを返す
-  };
-
   const handleRandomSelection = () => {
-    const playerTeam = generateRandomTeam();
-    const enemyTeam = generateRandomTeam();
+    const playerTeam = generateTeamWithCost8();
+    const enemyTeam = generateTeamWithCost8();
     
     // プレイヤーチーム設定
     const newPlayerAssignments = playerAssignments.map(assignment => {
@@ -517,7 +468,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
             </button>
             
             <button
-              onClick={handleStartGame}
+              onClick={handleComplete}
               disabled={!canStartGame()}
               className={`px-4 sm:px-6 py-2 sm:py-3 font-bold rounded-lg shadow-lg transform transition flex items-center gap-2 ${
                 canStartGame()
