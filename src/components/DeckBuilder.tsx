@@ -27,22 +27,19 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
   const [costFilter, setCostFilter] = useState<number | null>(null);
   const cardSelectionRef = useRef<HTMLDivElement>(null);
   
-  // 初期状態でランダムチームを生成
-  const initialPlayerTeam = generateTeamWithCost8();
-  const initialEnemyTeam = generateTeamWithCost8();
-  
+  // 初期状態は全てクリア（カードが配置されていない状態）
   const [playerAssignments, setPlayerAssignments] = useState<PositionAssignment[]>([
-    { position: { x: 0, y: 3 }, type: 'monster', id: initialPlayerTeam.monsters[0] },
-    { position: { x: 1, y: 3 }, type: 'master', id: initialPlayerTeam.master },
-    { position: { x: 2, y: 3 }, type: 'monster', id: initialPlayerTeam.monsters[1] },
-    { position: { x: 1, y: 2 }, type: 'monster', id: initialPlayerTeam.monsters[2] },
+    { position: { x: 0, y: 3 }, type: 'monster' },
+    { position: { x: 1, y: 3 }, type: 'master' },
+    { position: { x: 2, y: 3 }, type: 'monster' },
+    { position: { x: 1, y: 2 }, type: 'monster' },
   ]);
   
   const [enemyAssignments, setEnemyAssignments] = useState<PositionAssignment[]>([
-    { position: { x: 0, y: 0 }, type: 'monster', id: initialEnemyTeam.monsters[0] },
-    { position: { x: 1, y: 0 }, type: 'master', id: initialEnemyTeam.master },
-    { position: { x: 2, y: 0 }, type: 'monster', id: initialEnemyTeam.monsters[1] },
-    { position: { x: 1, y: 1 }, type: 'monster', id: initialEnemyTeam.monsters[2] },
+    { position: { x: 0, y: 0 }, type: 'monster' },
+    { position: { x: 1, y: 0 }, type: 'master' },
+    { position: { x: 2, y: 0 }, type: 'monster' },
+    { position: { x: 1, y: 1 }, type: 'monster' },
   ]);
   
   const getTotalCost = (assignments: PositionAssignment[]) => {
