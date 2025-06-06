@@ -1,3 +1,5 @@
+import { Position } from './position';
+
 export type CharacterType = 'monster' | 'master';
 export type Team = 'player' | 'enemy';
 export type MonsterType = 'wolf' | 'golem' | 'bear' | 'star-wolf' | 'iron-golem' | 'white-bear';
@@ -32,6 +34,7 @@ export interface Card {
   actions: number;
   image: string;
   skillId: string;
+  cost: number;
 }
 
 export interface MonsterCard extends Card {
@@ -55,6 +58,7 @@ export interface BaseCharacter {
   remainingActions: number;
   skillId: string;
   image: string;
+  cost: number;
 }
 
 export interface Monster extends BaseCharacter {

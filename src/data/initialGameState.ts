@@ -24,6 +24,7 @@ const createMonster = (type: MonsterType, position: Position, team: Team): Chara
     remainingActions: 0,
     image: stats.image,
     skillId: stats.skillId,
+    cost: stats.cost,
     canEvolve: !!stats.evolution,
     isEvolved: false
   };
@@ -53,7 +54,8 @@ const createMaster = (position: Position, team: Team): Character => {
     actions: stats.actions,
     remainingActions: 0,
     image: stats.image,
-    skillId: stats.skillId
+    skillId: stats.skillId,
+    cost: stats.cost
   };
 };
 

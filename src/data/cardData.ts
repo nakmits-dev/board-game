@@ -1,5 +1,4 @@
-import { MonsterCard, MasterCard, Skill } from '../types/gameTypes';
-import { skillData } from './skillData';
+import { MonsterCard, MasterCard } from '../types/gameTypes';
 
 export const monsterData: Record<string, MonsterCard> = {
   'wolf': {
@@ -10,7 +9,8 @@ export const monsterData: Record<string, MonsterCard> = {
     actions: 2,
     image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%82%A6%E3%83%AB%E3%83%95.png?alt=media&token=15418287-edda-486e-9815-1ebb4b2da203',
     evolution: 'star-wolf',
-    skillId: ''
+    skillId: '',
+    cost: 2
   },
   'golem': {
     name: 'ゴーレム',
@@ -20,7 +20,8 @@ export const monsterData: Record<string, MonsterCard> = {
     actions: 1,
     image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%82%B3%E3%82%99%E3%83%BC%E3%83%AC%E3%83%A0.png?alt=media&token=868ad28d-288a-4041-999b-4efde6460400',
     evolution: 'iron-golem',
-    skillId: ''
+    skillId: '',
+    cost: 2
   },
   'bear': {
     name: 'ベアー',
@@ -30,7 +31,8 @@ export const monsterData: Record<string, MonsterCard> = {
     actions: 1,
     image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%98%E3%82%99%E3%82%A2%E3%83%BC.png?alt=media&token=d186d7fc-8c38-4b3d-bc86-0eb1f2932cc8',
     evolution: 'white-bear',
-    skillId: ''
+    skillId: '',
+    cost: 2
   },
   'star-wolf': {
     name: 'スターウルフ',
@@ -39,7 +41,8 @@ export const monsterData: Record<string, MonsterCard> = {
     defense: 0,
     actions: 2,
     image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%82%B9%E3%82%BF%E3%83%BC%E3%82%A6%E3%83%AB%E3%83%95.png?alt=media&token=222f5b7e-49a5-489b-86f8-3d529e9cd0fa',
-    skillId: ''
+    skillId: '',
+    cost: 2
   },
   'iron-golem': {
     name: 'アイアンゴーレム',
@@ -48,7 +51,8 @@ export const monsterData: Record<string, MonsterCard> = {
     defense: 1,
     actions: 1,
     image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%82%A2%E3%82%A4%E3%82%A2%E3%83%B3%E3%82%B3%E3%82%99%E3%83%BC%E3%83%AC%E3%83%A0.png?alt=media&token=5117d52b-3b4d-48fa-8cfa-a650e0a930e0',
-    skillId: ''
+    skillId: '',
+    cost: 2
   },
   'white-bear': {
     name: 'ホワイトベアー',
@@ -57,7 +61,8 @@ export const monsterData: Record<string, MonsterCard> = {
     defense: 0,
     actions: 1,
     image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%9B%E3%83%AF%E3%82%A4%E3%83%88%E3%83%98%E3%82%99%E3%82%A2%E3%83%BC.png?alt=media&token=ac221df6-cffa-43b0-9ef5-1e41d920c280',
-    skillId: ''
+    skillId: '',
+    cost: 2
   }
 };
 
@@ -70,7 +75,8 @@ export const masterData: Record<string, MasterCard> = {
     defense: 0,
     actions: 1,
     image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%AC%E3%83%83%E3%83%88%E3%82%99%E3%83%9E%E3%82%B9%E3%82%BF%E3%83%BC.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
-    skillId: 'rage-strike'
+    skillId: 'rage-strike',
+    cost: 2
   },
   'blue': {
     type: 'blue',
@@ -80,7 +86,8 @@ export const masterData: Record<string, MasterCard> = {
     defense: 1,
     actions: 1,
     image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%95%E3%82%99%E3%83%AB%E3%83%BC%E3%83%9E%E3%82%B9%E3%82%BF%E3%83%BC.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
-    skillId: 'rage-strike'
+    skillId: 'rage-strike',
+    cost: 2
   },
   'green': {
     type: 'green',
@@ -90,7 +97,8 @@ export const masterData: Record<string, MasterCard> = {
     defense: 0,
     actions: 1,
     image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%82%AF%E3%82%99%E3%83%AA%E3%83%BC%E3%83%B3%E3%83%9E%E3%82%B9%E3%82%BF%E3%83%BC.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
-    skillId: 'heal'
+    skillId: 'heal',
+    cost: 2
   },
   'yellow': {
     type: 'yellow',
@@ -100,7 +108,8 @@ export const masterData: Record<string, MasterCard> = {
     defense: 0,
     actions: 2,
     image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%82%A4%E3%82%A8%E3%83%AD%E3%83%BC%E3%83%9E%E3%82%B9%E3%82%BF%E3%83%BC.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
-    skillId: 'rage-strike'
+    skillId: 'rage-strike',
+    cost: 2
   },
   'black': {
     type: 'black',
@@ -110,7 +119,8 @@ export const masterData: Record<string, MasterCard> = {
     defense: 0,
     actions: 1,
     image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%95%E3%82%99%E3%83%A9%E3%83%83%E3%82%AF%E3%83%9E%E3%82%B9%E3%82%BF%E3%83%BC.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
-    skillId: 'curse'
+    skillId: 'curse',
+    cost: 2
   },
   'white': {
     type: 'white',
@@ -120,6 +130,7 @@ export const masterData: Record<string, MasterCard> = {
     defense: 0,
     actions: 1,
     image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%9B%E3%83%AF%E3%82%A4%E3%83%88%E3%83%9E%E3%82%B9%E3%82%BF%E3%83%BC.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
-    skillId: 'evolve'
+    skillId: 'evolve',
+    cost: 2
   }
 };
