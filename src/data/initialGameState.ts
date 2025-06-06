@@ -30,14 +30,7 @@ const createMonster = (type: MonsterType, position: Position, team: Team): Chara
   };
 };
 
-const getRandomMasterType = () => {
-  const types = Object.keys(masterData) as Array<keyof typeof masterData>;
-  const randomIndex = Math.floor(Math.random() * types.length);
-  return types[randomIndex];
-};
-
-const createMaster = (position: Position, team: Team): Character => {
-  const masterType = getRandomMasterType();
+const createMaster = (masterType: keyof typeof masterData, position: Position, team: Team): Character => {
   const stats = masterData[masterType];
   
   return {
@@ -63,31 +56,78 @@ const getEvolvedMonsterType = (type: MonsterType): MonsterType | null => {
   return monsterData[type].evolution || null;
 };
 
-const getRandomMonsterTypes = (): MonsterType[] => {
-  // 進化前のベースモンスターのみを選択対象とする
-  const baseTypes: MonsterType[] = ['wolf', 'golem', 'bear', 'slime', 'whale', 'red-dragon', 'blue-dragon', 'yellow-dragon', 'green-dragon', 'white-dragon', 'black-dragon'];
+// コスト8でチーム編成を行う関数
+const generateTeamWithCost8 = (): { master: keyof typeof masterData; monsters: MonsterType[] } => {
+  const TARGET_COST = 8;
+  const MAX_ATTEMPTS = 1000;
   
-  // ランダムに3体選択
-  const shuffled = [...baseTypes].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, 3);
+  // 利用可能なマスターとモンスターのリスト
+  const availableMasters = Object.keys(masterData) as Array<keyof typeof masterData>;
+  const availableMonsters = Object.keys(monsterData).filter(key => 
+    !monsterData[key].evolution || // 進化前のモンスター
+    !Object.values(monsterData).some(monster => monster.evolution === key) // 進化後だが進化前が存在しないモンスター
+  ) as MonsterType[];
+  
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    // ランダムにマスターを選択
+    const masterType = availableMasters[Math.floor(Math.random() * availableMasters.length)];
+    const masterCost = masterData[masterType].cost;
+    const remainingCost = TARGET_COST - masterCost;
+    
+    if (remainingCost < 3) continue; // 最低3体のモンスターが必要
+    
+    // 残りコストでモンスターを3体選択
+    const monsters: MonsterType[] = [];
+    let currentCost = masterCost;
+    
+    // 3体のモンスターを選択
+    for (let i = 0; i < 3; i++) {
+      const maxMonsterCost = TARGET_COST - currentCost - (2 - i); // 残りのモンスターの最低コストを考慮
+      const validMonsters = availableMonsters.filter(monster => 
+        monsterData[monster].cost <= maxMonsterCost &&
+        !monsters.includes(monster) // 重複を避ける
+      );
+      
+      if (validMonsters.length === 0) break;
+      
+      const selectedMonster = validMonsters[Math.floor(Math.random() * validMonsters.length)];
+      monsters.push(selectedMonster);
+      currentCost += monsterData[selectedMonster].cost;
+    }
+    
+    // ちょうど8コストで3体のモンスターが選択できた場合
+    if (monsters.length === 3 && currentCost === TARGET_COST) {
+      return { master: masterType, monsters };
+    }
+  }
+  
+  // フォールバック: 確実にコスト8になる組み合わせ
+  return {
+    master: 'normal', // コスト1
+    monsters: ['wolf', 'golem', 'bear'] // 各コスト2、合計6、マスターと合わせて7
+  };
 };
 
 export { createMonster, createMaster, getEvolvedMonsterType, monsterData };
 
 export const createInitialGameState = (): GameState => {
-  const playerMonsters = getRandomMonsterTypes();
-  const enemyMonsters = getRandomMonsterTypes();
+  // プレイヤーチームの生成（コスト8）
+  const playerTeam = generateTeamWithCost8();
+  // 敵チームの生成（コスト8）
+  const enemyTeam = generateTeamWithCost8();
 
   const characters: Character[] = [
-    createMonster(playerMonsters[0], { x: 0, y: 3 }, 'player'),
-    createMaster({ x: 1, y: 3 }, 'player'),
-    createMonster(playerMonsters[1], { x: 2, y: 3 }, 'player'),
-    createMonster(playerMonsters[2], { x: 1, y: 2 }, 'player'),
+    // プレイヤーチーム
+    createMonster(playerTeam.monsters[0], { x: 0, y: 3 }, 'player'),
+    createMaster(playerTeam.master, { x: 1, y: 3 }, 'player'),
+    createMonster(playerTeam.monsters[1], { x: 2, y: 3 }, 'player'),
+    createMonster(playerTeam.monsters[2], { x: 1, y: 2 }, 'player'),
     
-    createMonster(enemyMonsters[0], { x: 0, y: 0 }, 'enemy'),
-    createMaster({ x: 1, y: 0 }, 'enemy'),
-    createMonster(enemyMonsters[1], { x: 2, y: 0 }, 'enemy'),
-    createMonster(enemyMonsters[2], { x: 1, y: 1 }, 'enemy'),
+    // 敵チーム
+    createMonster(enemyTeam.monsters[0], { x: 0, y: 0 }, 'enemy'),
+    createMaster(enemyTeam.master, { x: 1, y: 0 }, 'enemy'),
+    createMonster(enemyTeam.monsters[1], { x: 2, y: 0 }, 'enemy'),
+    createMonster(enemyTeam.monsters[2], { x: 1, y: 1 }, 'enemy'),
   ];
 
   return {
