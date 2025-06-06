@@ -30,7 +30,7 @@ export const skillData: Record<string, Skill> = {
     id: 'evolve',
     name: 'しんか',
     description: 'みかたモンスターをしんかさせる',
-    range: 1,
+    range: 999,
     crystalCost: 3,
     effects: [{ type: 'evolve' }]
   }
