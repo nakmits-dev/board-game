@@ -24,6 +24,24 @@ export interface Skill {
   effects?: SkillEffect[];
 }
 
+export interface Card {
+  name: string;
+  hp: number;
+  attack: number;
+  defense: number;
+  actions: number;
+  image: string;
+  skillId: string;
+}
+
+export interface MonsterCard extends Card {
+  evolution?: MonsterType;
+}
+
+export interface MasterCard extends Card {
+  type: 'red' | 'blue' | 'green' | 'yellow' | 'black' | 'white';
+}
+
 export interface BaseCharacter {
   id: string;
   name: string;
@@ -35,7 +53,7 @@ export interface BaseCharacter {
   defense: number;
   actions: number;
   remainingActions: number;
-  skills: Skill[];
+  skillId: string;
   image: string;
 }
 
@@ -48,6 +66,7 @@ export interface Monster extends BaseCharacter {
 
 export interface Master extends BaseCharacter {
   type: 'master';
+  masterType: MasterCard['type'];
 }
 
 export type Character = Monster | Master;

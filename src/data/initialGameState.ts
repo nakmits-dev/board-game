@@ -1,5 +1,6 @@
-import { Character, GameState, Position, Team, MonsterType } from '../types/gameTypes';
-import { monsterData, masterTypes, masterData } from './cardData';
+import { Character, GameState, Position, Team, MonsterType, MasterCard } from '../types/gameTypes';
+import { monsterData, masterData } from './cardData';
+import { skillData } from './skillData';
 
 const generateId = (): string => {
   return Math.random().toString(36).substring(2, 9);
@@ -21,39 +22,38 @@ const createMonster = (type: MonsterType, position: Position, team: Team): Chara
     defense: stats.defense,
     actions: stats.actions,
     remainingActions: 0,
-    image: stats.baseImage,
-    skills: [],
+    image: stats.image,
+    skillId: stats.skillId,
     canEvolve: !!stats.evolution,
     isEvolved: false
   };
 };
 
 const getRandomMasterType = () => {
-  const types = Object.keys(masterTypes);
+  const types = Object.keys(masterData) as Array<keyof typeof masterData>;
   const randomIndex = Math.floor(Math.random() * types.length);
-  return masterTypes[types[randomIndex] as keyof typeof masterTypes];
+  return types[randomIndex];
 };
 
 const createMaster = (position: Position, team: Team): Character => {
-  const data = getRandomMasterType();
+  const masterType = getRandomMasterType();
+  const stats = masterData[masterType];
   
   return {
     id: generateId(),
-    name: data.name,
+    name: stats.name,
     type: 'master',
+    masterType: stats.type,
     team,
     position,
-    hp: data.hp,
-    maxHp: data.hp,
-    attack: data.attack,
-    defense: data.defense,
-    actions: data.actions,
+    hp: stats.hp,
+    maxHp: stats.hp,
+    attack: stats.attack,
+    defense: stats.defense,
+    actions: stats.actions,
     remainingActions: 0,
-    image: data.image,
-    skills: data.skills.map(skill => ({
-      id: generateId(),
-      ...skill
-    })),
+    image: stats.image,
+    skillId: stats.skillId
   };
 };
 
