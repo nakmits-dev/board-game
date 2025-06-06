@@ -546,10 +546,10 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
               </div>
             </div>
             
-            {/* カード選択エリア - スクロールなしで固定高さ */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 h-[500px]">
+            {/* カード選択エリア - 動的なグリッド */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 auto-rows-max">
               {selectedAssignment.type === 'master' 
-                ? getFilteredCards('master').slice(0, 10).map(([id, data]) => {
+                ? getFilteredCards('master').map(([id, data]) => {
                     const character = createCharacterForCard('master', id, data);
                     const playerAssigned = playerAssignments.some(a => a.id === id);
                     const enemyAssigned = enemyAssignments.some(a => a.id === id);
@@ -587,7 +587,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
                       </div>
                     );
                   })
-                : getFilteredCards('monster').slice(0, 10).map(monster => {
+                : getFilteredCards('monster').map(monster => {
                     const data = monsterData[monster];
                     const character = createCharacterForCard('monster', monster, data);
                     const playerAssigned = playerAssignments.some(a => a.id === monster);
