@@ -42,7 +42,6 @@ const CharacterCard: React.FC<CharacterCardProps> = ({
   const TypeIcon = character.type === 'master' ? Crown : GitLab;
   const availableCrystals = character.team === 'player' ? playerCrystals : enemyCrystals;
 
-  // Get the skill for this character - Changed from .get() to bracket notation
   const skill = character.skillId ? skillData[character.skillId] : undefined;
 
   return (
