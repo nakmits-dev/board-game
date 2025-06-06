@@ -62,7 +62,7 @@ const CharacterCard: React.FC<CharacterCardProps> = ({
         </div>
       </div>
 
-      {/* Header with Type */}
+      {/* Header with Type and Name */}
       <div className="bg-gradient-to-r from-slate-700/80 to-slate-700/60 rounded-xl mx-2 mt-2 p-1.5 shadow-lg border border-slate-600/30">
         <div className="flex items-center gap-2">
           <div className={`p-1 rounded-full ${
@@ -73,21 +73,14 @@ const CharacterCard: React.FC<CharacterCardProps> = ({
             <TypeIcon size={12} className="drop-shadow" />
           </div>
           
-          <span className="text-xs text-slate-400 font-medium">
-            {character.type === 'master' ? 'マスター' : 'モンスター'}
-          </span>
+          <h3 className={`text-base font-bold ${
+            teamColor === 'blue' 
+              ? 'bg-gradient-to-r from-blue-300 to-blue-200 text-transparent bg-clip-text' 
+              : 'bg-gradient-to-r from-red-300 to-red-200 text-transparent bg-clip-text'
+          }`}>
+            {character.name}
+          </h3>
         </div>
-      </div>
-
-      {/* Character Name */}
-      <div className="px-2 py-1">
-        <h3 className={`text-base font-bold text-center ${
-          teamColor === 'blue' 
-            ? 'bg-gradient-to-r from-blue-300 to-blue-200 text-transparent bg-clip-text' 
-            : 'bg-gradient-to-r from-red-300 to-red-200 text-transparent bg-clip-text'
-        }`}>
-          {character.name}
-        </h3>
       </div>
 
       {/* Character Image with Stats Overlay */}
