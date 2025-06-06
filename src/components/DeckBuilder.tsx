@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { MonsterType, MasterCard, Position } from '../types/gameTypes';
 import { monsterData, masterData } from '../data/cardData';
 import { skillData } from '../data/skillData';
-import { Shield, Sword, Sparkle, Heart, Crown, Gitlab as GitLab, Diamond, Play, X } from 'lucide-react';
+import { Shield, Sword, Sparkle, Heart, Crown, Gitlab as GitLab, Diamond, Play, X, Filter } from 'lucide-react';
 
 interface DeckBuilderProps {
   onStartGame: (
@@ -19,6 +19,7 @@ interface PositionAssignment {
 
 const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
+  const [costFilter, setCostFilter] = useState<number | null>(null);
   
   const [playerAssignments, setPlayerAssignments] = useState<PositionAssignment[]>([
     { position: { x: 0, y: 3 }, type: 'monster' },
@@ -201,7 +202,12 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
     }
 
     if (!hasCard) {
-      cellClassName += " ring-1 ring-green-400/50 bg-green-400/10 cursor-pointer hover:bg-green-400/20";
+      // 選択可能なマスを青と赤で分ける
+      if (isPlayerTeam) {
+        cellClassName += " ring-1 ring-blue-400/50 bg-blue-400/10 cursor-pointer hover:bg-blue-400/20";
+      } else {
+        cellClassName += " ring-1 ring-red-400/50 bg-red-400/10 cursor-pointer hover:bg-red-400/20";
+      }
     } else {
       cellClassName += " cursor-pointer hover:bg-blue-50/30";
     }
@@ -408,6 +414,28 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
   const selectedAssignment = selectedPosition ? getAssignmentAt(selectedPosition, getAssignmentsForPosition(selectedPosition)) : null;
   const selectedTeam = selectedPosition ? getTeamForPosition(selectedPosition) : null;
 
+  // フィルタリング関数
+  const getFilteredCards = (type: 'master' | 'monster') => {
+    if (type === 'master') {
+      return Object.entries(masterData).filter(([id, data]) => 
+        costFilter === null || data.cost === costFilter
+      );
+    } else {
+      return baseMonsters.filter(monster => 
+        costFilter === null || monsterData[monster].cost === costFilter
+      );
+    }
+  };
+
+  // 利用可能なコストを取得
+  const getAvailableCosts = (type: 'master' | 'monster') => {
+    if (type === 'master') {
+      return [...new Set(Object.values(masterData).map(data => data.cost))].sort();
+    } else {
+      return [...new Set(baseMonsters.map(monster => monsterData[monster].cost))].sort();
+    }
+  };
+
   return (
     <div className="min-h-screen bg-blue-50 p-2 sm:p-4">
       <div className="max-w-6xl mx-auto">
@@ -417,11 +445,11 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
             コスト8以下になるよう編成してください
           </p>
           
-          {/* Cost Display */}
-          <div className="flex flex-col sm:flex-row justify-center items-center gap-4 sm:gap-6 mb-4 sm:mb-6">
+          {/* Cost Display - 1行にまとめる */}
+          <div className="flex justify-center items-center gap-4 sm:gap-6 mb-4 sm:mb-6">
             <div className="bg-blue-100 rounded-lg px-3 sm:px-4 py-2">
               <span className="text-sm font-bold text-blue-800">
-                プレイヤー: {getTotalCost(playerAssignments)}/8
+                青チーム: {getTotalCost(playerAssignments)}/8
               </span>
               <div className="flex items-center gap-1 mt-1">
                 {Array(8).fill('').map((_, i) => (
@@ -436,7 +464,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
             
             <div className="bg-red-100 rounded-lg px-3 sm:px-4 py-2">
               <span className="text-sm font-bold text-red-800">
-                敵: {getTotalCost(enemyAssignments)}/8
+                赤チーム: {getTotalCost(enemyAssignments)}/8
               </span>
               <div className="flex items-center gap-1 mt-1">
                 {Array(8).fill('').map((_, i) => (
@@ -497,7 +525,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
           {selectedPosition && (
             <div className="mt-4 text-center">
               <p className={`font-medium text-sm sm:text-base ${selectedTeam === 'player' ? 'text-blue-600' : 'text-red-600'}`}>
-                {selectedTeam === 'player' ? 'プレイヤー' : '敵'}チーム - {selectedAssignment?.type === 'master' ? 'マスター' : 'モンスター'}を選択してください
+                {selectedTeam === 'player' ? '青' : '赤'}チーム - {selectedAssignment?.type === 'master' ? 'マスター' : 'モンスター'}を選択してください
               </p>
             </div>
           )}
@@ -506,18 +534,54 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame }) => {
         {/* Card Selection */}
         {selectedPosition && selectedAssignment && (
           <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-            <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-4">
-              {selectedAssignment.type === 'master' ? 'マスター' : 'モンスター'}選択
-              <span className={`ml-2 text-sm ${selectedTeam === 'player' ? 'text-blue-600' : 'text-red-600'}`}>
-                ({selectedTeam === 'player' ? 'プレイヤー' : '敵'}チーム)
-              </span>
-            </h2>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-2 sm:mb-0">
+                {selectedAssignment.type === 'master' ? 'マスター' : 'モンスター'}選択
+                <span className={`ml-2 text-sm ${selectedTeam === 'player' ? 'text-blue-600' : 'text-red-600'}`}>
+                  ({selectedTeam === 'player' ? '青' : '赤'}チーム)
+                </span>
+              </h2>
+              
+              {/* コストフィルタ */}
+              <div className="flex items-center gap-2">
+                <Filter size={16} className="text-gray-600" />
+                <span className="text-sm text-gray-600">コスト:</span>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setCostFilter(null)}
+                    className={`px-2 py-1 text-xs rounded ${
+                      costFilter === null 
+                        ? 'bg-blue-500 text-white' 
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    }`}
+                  >
+                    全て
+                  </button>
+                  {getAvailableCosts(selectedAssignment.type).map(cost => (
+                    <button
+                      key={cost}
+                      onClick={() => setCostFilter(cost)}
+                      className={`px-2 py-1 text-xs rounded flex items-center gap-1 ${
+                        costFilter === cost 
+                          ? 'bg-blue-500 text-white' 
+                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      }`}
+                    >
+                      {Array(cost).fill('').map((_, i) => (
+                        <Diamond key={i} size={8} className="text-yellow-500" />
+                      ))}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4">
               {selectedAssignment.type === 'master' 
-                ? Object.entries(masterData).map(([id, data]) => 
+                ? getFilteredCards('master').map(([id, data]) => 
                     renderCard('master', id, data, canAssign(id, 'master'))
                   )
-                : baseMonsters.map(monster => 
+                : getFilteredCards('monster').map(monster => 
                     renderCard('monster', monster, monsterData[monster], canAssign(monster, 'monster'))
                   )
               }
