@@ -7,6 +7,11 @@ export interface Position {
   y: number;
 }
 
+export interface SkillEffect {
+  type: 'defense' | 'actions' | 'evolve';
+  value?: number;
+}
+
 export interface Skill {
   id: string;
   name: string;
@@ -15,6 +20,8 @@ export interface Skill {
   healing?: number;
   range: number;
   crystalCost: number;
+  ignoreDefense?: boolean;
+  effects?: SkillEffect[];
 }
 
 export interface BaseCharacter {
