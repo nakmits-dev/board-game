@@ -213,7 +213,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             attack: evolvedStats.attack,
             defense: evolvedStats.defense,
             actions: evolvedStats.actions,
-            image: evolvedStats.baseImage,
+            image: evolvedStats.image, // baseImageではなくimageを使用
             isEvolved: true,
           };
         }
