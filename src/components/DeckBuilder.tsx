@@ -83,7 +83,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
     const assignment = getAssignmentAt(selectedPosition, assignments);
     if (!assignment || assignment.type !== type) return false;
     
-    // 同じチーム内で既に同じカードが配置されているかチェック
+    // 選択中のチーム内で既に同じカードが配置されているかチェック
     const alreadyAssigned = assignments.some(a => a.id === id);
     if (alreadyAssigned) return false;
     
@@ -588,10 +588,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
               {selectedAssignment.type === 'master' 
                 ? getFilteredCards('master').map(([id, data]) => {
                     const character = createCharacterForCard('master', id, data);
-                    const playerAssigned = playerAssignments.some(a => a.id === id);
-                    const enemyAssigned = enemyAssignments.some(a => a.id === id);
-                    const isAssigned = playerAssigned || enemyAssigned;
-                    const canSelect = canAssign(id, 'master') && !isAssigned;
+                    const canSelect = canAssign(id, 'master');
                     
                     return (
                       <div
@@ -610,25 +607,13 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
                           enemyCrystals={0}
                           variant="panel"
                         />
-                        
-                        {/* Status indicators */}
-                        {isAssigned && (
-                          <div className={`absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center ${
-                            playerAssigned ? 'bg-blue-500' : 'bg-red-500'
-                          }`}>
-                            <span className="text-white text-xs font-bold">✓</span>
-                          </div>
-                        )}
                       </div>
                     );
                   })
                 : getFilteredCards('monster').map(monster => {
                     const data = monsterData[monster];
                     const character = createCharacterForCard('monster', monster, data);
-                    const playerAssigned = playerAssignments.some(a => a.id === monster);
-                    const enemyAssigned = enemyAssignments.some(a => a.id === monster);
-                    const isAssigned = playerAssigned || enemyAssigned;
-                    const canSelect = canAssign(monster, 'monster') && !isAssigned;
+                    const canSelect = canAssign(monster, 'monster');
                     
                     return (
                       <div
@@ -647,15 +632,6 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
                           enemyCrystals={0}
                           variant="panel"
                         />
-                        
-                        {/* Status indicators */}
-                        {isAssigned && (
-                          <div className={`absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center ${
-                            playerAssigned ? 'bg-blue-500' : 'bg-red-500'
-                          }`}>
-                            <span className="text-white text-xs font-bold">✓</span>
-                          </div>
-                        )}
                       </div>
                     );
                   })
