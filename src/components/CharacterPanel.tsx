@@ -18,6 +18,11 @@ const CharacterPanel: React.FC = () => {
     dispatch({ type: 'SELECT_SKILL', skill });
   };
 
+  // スキルデータを取得
+  const getSkillForCharacter = (character: any) => {
+    return character.skillId ? skillData[character.skillId] : undefined;
+  };
+
   return (
     <div className="perspective-1000">
       <CharacterCard

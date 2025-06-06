@@ -85,9 +85,13 @@ const generateTeamWithCost8 = (): { master: keyof typeof masterData; monsters: M
     const remainingCost = TARGET_COST - masterCost;
     
     // 3体のモンスターでちょうど残りコストになる組み合わせを探す
+    const attempts = [];
     for (let i = 0; i < availableMonsters.length; i++) {
-      for (let j = i; j < availableMonsters.length; j++) {
-        for (let k = j; k < availableMonsters.length; k++) {
+      for (let j = 0; j < availableMonsters.length; j++) {
+        for (let k = 0; k < availableMonsters.length; k++) {
+          // 同じモンスターが重複しないようにチェック
+          if (i === j || j === k || i === k) continue;
+          
           const monster1 = availableMonsters[i];
           const monster2 = availableMonsters[j];
           const monster3 = availableMonsters[k];
@@ -95,17 +99,16 @@ const generateTeamWithCost8 = (): { master: keyof typeof masterData; monsters: M
           const totalMonsterCost = monsterData[monster1].cost + monsterData[monster2].cost + monsterData[monster3].cost;
           
           if (totalMonsterCost === remainingCost) {
-            // ちょうどコスト8になる組み合わせが見つかった
-            const selectedMonsters = [monster1, monster2, monster3];
-            // 配列をシャッフルして順序をランダムにする
-            for (let shuffle = selectedMonsters.length - 1; shuffle > 0; shuffle--) {
-              const randomIndex = Math.floor(Math.random() * (shuffle + 1));
-              [selectedMonsters[shuffle], selectedMonsters[randomIndex]] = [selectedMonsters[randomIndex], selectedMonsters[shuffle]];
-            }
-            return { master: masterType, monsters: selectedMonsters };
+            attempts.push([monster1, monster2, monster3]);
           }
         }
       }
+    }
+    
+    if (attempts.length > 0) {
+      // ランダムに組み合わせを選択
+      const selectedCombination = attempts[Math.floor(Math.random() * attempts.length)];
+      return { master: masterType, monsters: selectedCombination };
     }
   }
   
@@ -130,13 +133,6 @@ export const createInitialGameState = (
   const characters: Character[] = [];
 
   // プレイヤーチーム
-  const playerPositions = [
-    { x: 0, y: 3 }, // 左前
-    { x: 1, y: 3 }, // 中央前（マスター）
-    { x: 2, y: 3 }, // 右前
-    { x: 1, y: 2 }  // 中央後
-  ];
-
   // マスターを中央前に配置
   characters.push(createMaster(playerTeam.master, { x: 1, y: 3 }, 'player'));
 
@@ -149,13 +145,6 @@ export const createInitialGameState = (
   });
 
   // 敵チーム
-  const enemyPositions = [
-    { x: 0, y: 0 }, // 左前
-    { x: 1, y: 0 }, // 中央前（マスター）
-    { x: 2, y: 0 }, // 右前
-    { x: 1, y: 1 }  // 中央後
-  ];
-
   // マスターを中央前に配置
   characters.push(createMaster(enemyTeam.master, { x: 1, y: 0 }, 'enemy'));
 

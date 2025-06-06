@@ -575,7 +575,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
                     return (
                       <div
                         key={id}
-                        className={`relative transition-all duration-200 cursor-pointer transform hover:scale-105 ${
+                        className={`relative transition-all duration-200 cursor-pointer ${
                           canSelect
                             ? 'opacity-100'
                             : 'opacity-50 cursor-not-allowed'
@@ -612,7 +612,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onStartGame, onClose }) => {
                     return (
                       <div
                         key={monster}
-                        className={`relative transition-all duration-200 cursor-pointer transform hover:scale-105 ${
+                        className={`relative transition-all duration-200 cursor-pointer ${
                           canSelect
                             ? 'opacity-100'
                             : 'opacity-50 cursor-not-allowed'
