@@ -392,10 +392,12 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
               assignment.type === 'master' 
                 ? 'bg-amber-100 text-amber-600' 
                 : 'bg-slate-100 text-slate-600'
-            }`}>
+            } ${!isPlayerTeam ? 'transform rotate-180' : ''}`}>
               {assignment.type === 'master' ? <Crown size={12} className="sm:w-4 sm:h-4" /> : <GitLab size={12} className="sm:w-4 sm:h-4" />}
             </div>
-            <span className="text-xs text-gray-500 hidden sm:block">
+            <span className={`text-xs text-gray-500 hidden sm:block ${
+              !isPlayerTeam ? 'transform rotate-180' : ''
+            }`}>
               {assignment.type === 'master' ? 'マスター' : 'モンスター'}
             </span>
           </div>

@@ -184,7 +184,7 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
                 {Array.from({ length: character.maxHp }, (_, i) => (
                   <div
                     key={i}
-                    className={`w-3 h-3 flex items-center justify-center ${
+                    className={`w-3 h-3 flex items-center justify-center transform rotate-180 ${
                       i < character.hp 
                         ? 'text-red-500/90'
                         : 'text-gray-300/50'
@@ -218,17 +218,23 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
                 character.team === 'enemy' ? 'top-0' : 'bottom-0'
               } inset-x-0 flex justify-center gap-0.5 p-0.5`}>
                 {character.attack >= 2 && (
-                  <div className="w-4 h-4 bg-red-500/80 rounded flex items-center justify-center">
+                  <div className={`w-4 h-4 bg-red-500/80 rounded flex items-center justify-center ${
+                    character.team === 'enemy' ? 'transform rotate-180' : ''
+                  }`}>
                     <Sword size={10} className="text-white" />
                   </div>
                 )}
                 {character.defense >= 1 && (
-                  <div className="w-4 h-4 bg-blue-500/80 rounded flex items-center justify-center">
+                  <div className={`w-4 h-4 bg-blue-500/80 rounded flex items-center justify-center ${
+                    character.team === 'enemy' ? 'transform rotate-180' : ''
+                  }`}>
                     <Shield size={10} className="text-white" />
                   </div>
                 )}
                 {character.actions >= 2 && (
-                  <div className="w-4 h-4 bg-yellow-500/80 rounded flex items-center justify-center">
+                  <div className={`w-4 h-4 bg-yellow-500/80 rounded flex items-center justify-center ${
+                    character.team === 'enemy' ? 'transform rotate-180' : ''
+                  }`}>
                     <Sparkle size={10} className="text-white" />
                   </div>
                 )}
@@ -238,7 +244,9 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
               {gamePhase === 'action' && character.team === currentTeam && character.remainingActions > 0 && (
                 <div className={`absolute ${
                   character.team === 'enemy' ? 'bottom-0 left-0' : 'top-0 right-0'
-                } w-5 h-5 bg-green-500/90 rounded flex items-center justify-center text-white text-xs font-bold shadow-sm`}>
+                } w-5 h-5 bg-green-500/90 rounded flex items-center justify-center text-white text-xs font-bold shadow-sm ${
+                  character.team === 'enemy' ? 'transform rotate-180' : ''
+                }`}>
                   {character.remainingActions}
                 </div>
               )}
