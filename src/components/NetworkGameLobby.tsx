@@ -129,7 +129,7 @@ const NetworkGameLobby: React.FC<NetworkGameLobbyProps> = ({ onClose, onStartNet
       setLoading(false); // エラー時のみここでloadingを解除
     }
     // 成功時はloadingはゲーム開始後に自動的に解除される
-  }, [networkState.isHost, isReady, networkState.opponent, startGame]);
+  };
 
   const copyRoomId = async () => {
     if (!roomId) return;
