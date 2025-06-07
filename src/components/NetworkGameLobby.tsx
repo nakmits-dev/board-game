@@ -25,12 +25,19 @@ const NetworkGameLobby: React.FC<NetworkGameLobbyProps> = ({ onClose, onStartNet
   // デッキが設定されているかチェック
   const hasValidDeck = savedDecks.player && savedDecks.enemy;
 
-  // ゲーム開始コールバックを設定
+  // ゲーム開始コールバックを設定（コンポーネントマウント時に一度だけ）
   useEffect(() => {
+    console.log('NetworkGameLobby: ゲーム開始コールバックを設定');
     setOnGameStart((roomId: string, isHost: boolean) => {
-      console.log('ゲーム開始コールバック実行:', { roomId, isHost });
+      console.log('NetworkGameLobby: ゲーム開始コールバック実行:', { roomId, isHost });
       onStartNetworkGame(roomId, isHost);
     });
+
+    // クリーンアップ時にコールバックをクリア
+    return () => {
+      console.log('NetworkGameLobby: コールバックをクリア');
+      setOnGameStart(() => {});
+    };
   }, [setOnGameStart, onStartNetworkGame]);
 
   // ネットワーク状態の変化を監視
@@ -112,17 +119,17 @@ const NetworkGameLobby: React.FC<NetworkGameLobbyProps> = ({ onClose, onStartNet
     setError('');
 
     try {
-      console.log('ゲーム開始処理開始');
+      console.log('NetworkGameLobby: ゲーム開始処理開始');
       await startGame();
-      console.log('ゲーム開始処理完了');
+      console.log('NetworkGameLobby: ゲーム開始処理完了');
       // ゲーム開始はFirebaseの監視で検出されるため、ここでは直接コールバックを呼ばない
     } catch (err: any) {
       setError(err.message || 'ゲームの開始に失敗しました');
       console.error('ゲーム開始エラー:', err);
-    } finally {
-      setLoading(false);
+      setLoading(false); // エラー時のみここでloadingを解除
     }
-  };
+    // 成功時はloadingはゲーム開始後に自動的に解除される
+  }, [networkState.isHost, isReady, networkState.opponent, startGame]);
 
   const copyRoomId = async () => {
     if (!roomId) return;

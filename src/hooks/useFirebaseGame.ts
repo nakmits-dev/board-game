@@ -18,11 +18,12 @@ export const useFirebaseGame = () => {
   });
 
   const [user, setUser] = useState<any>(null);
-  const [gameStartCallback, setGameStartCallback] = useState<((roomId: string, isHost: boolean) => void) | null>(null);
+  const gameStartCallbackRef = useRef<((roomId: string, isHost: boolean) => void) | null>(null);
   const roomRef = useRef<any>(null);
   const actionsRef = useRef<any>(null);
   const unsubscribeRoom = useRef<(() => void) | null>(null);
   const unsubscribeActions = useRef<(() => void) | null>(null);
+  const gameStartedRef = useRef(false); // ゲーム開始の重複実行を防ぐ
 
   // Firebase認証
   useEffect(() => {
@@ -45,7 +46,8 @@ export const useFirebaseGame = () => {
 
   // ゲーム開始コールバックを設定
   const setOnGameStart = useCallback((callback: (roomId: string, isHost: boolean) => void) => {
-    setGameStartCallback(() => callback);
+    console.log('ゲーム開始コールバックを設定:', !!callback);
+    gameStartCallbackRef.current = callback;
   }, []);
 
   // ルーム作成
@@ -92,6 +94,9 @@ export const useFirebaseGame = () => {
       isHost: true,
       connectionStatus: 'connected'
     }));
+
+    // ゲーム開始フラグをリセット
+    gameStartedRef.current = false;
 
     return roomId;
   }, [user]);
@@ -150,6 +155,9 @@ export const useFirebaseGame = () => {
             connectionStatus: 'connected'
           }));
 
+          // ゲーム開始フラグをリセット
+          gameStartedRef.current = false;
+
           resolve();
         } catch (error) {
           reject(error);
@@ -183,6 +191,7 @@ export const useFirebaseGame = () => {
     if (!networkState.roomId || !networkState.isHost) return;
 
     try {
+      console.log('ホストがゲーム開始処理を実行');
       const updates = {
         [`rooms/${networkState.roomId}/status`]: 'playing',
         [`rooms/${networkState.roomId}/gameState/startTime`]: Date.now(),
@@ -190,6 +199,7 @@ export const useFirebaseGame = () => {
       };
 
       await update(ref(database), updates);
+      console.log('Firebaseにゲーム開始状態を送信完了');
     } catch (error) {
       console.error('ゲーム開始に失敗:', error);
       throw error;
@@ -257,6 +267,13 @@ export const useFirebaseGame = () => {
         return;
       }
 
+      console.log('ルーム状態更新:', {
+        status: roomData.status,
+        isHost: networkState.isHost,
+        gameStarted: gameStartedRef.current,
+        hasCallback: !!gameStartCallbackRef.current
+      });
+
       // 対戦相手の情報を更新
       const players = Object.values(roomData.players);
       const opponent = players.find(p => p.id !== user.uid);
@@ -274,16 +291,24 @@ export const useFirebaseGame = () => {
         } : null,
       }));
 
-      // ゲーム開始の検出
-      if (roomData.status === 'playing' && gameStartCallback) {
-        console.log('ゲーム開始を検出:', {
+      // ゲーム開始の検出（重複実行を防ぐ）
+      if (roomData.status === 'playing' && !gameStartedRef.current && gameStartCallbackRef.current) {
+        console.log('ゲーム開始を検出 - コールバック実行:', {
           roomId: networkState.roomId,
           isHost: networkState.isHost,
-          status: roomData.status
+          status: roomData.status,
+          gameStarted: gameStartedRef.current
         });
         
-        // ゲーム開始コールバックを実行
-        gameStartCallback(networkState.roomId!, networkState.isHost);
+        gameStartedRef.current = true; // 重複実行を防ぐ
+        
+        // 少し遅延させてコールバックを実行（状態の安定化のため）
+        setTimeout(() => {
+          if (gameStartCallbackRef.current) {
+            console.log('ゲーム開始コールバックを実行');
+            gameStartCallbackRef.current(networkState.roomId!, networkState.isHost);
+          }
+        }, 100);
       }
     }, (error) => {
       console.error('ルーム監視エラー:', error);
@@ -298,7 +323,7 @@ export const useFirebaseGame = () => {
     return () => {
       cleanupRoomSubscription();
     };
-  }, [networkState.roomId, user, cleanupRoomSubscription, gameStartCallback, networkState.isHost]);
+  }, [networkState.roomId, user, cleanupRoomSubscription, networkState.isHost]);
 
   // アクション監視
   useEffect(() => {
@@ -389,8 +414,9 @@ export const useFirebaseGame = () => {
         lastSyncedTurn: 0,
       });
 
-      // ゲーム開始コールバックもクリア
-      setGameStartCallback(null);
+      // ゲーム開始コールバックとフラグもクリア
+      gameStartCallbackRef.current = null;
+      gameStartedRef.current = false;
     } catch (error) {
       console.error('ルーム退出に失敗:', error);
     }
