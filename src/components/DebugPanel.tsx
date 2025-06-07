@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useGame } from '../context/GameContext';
 import { useSimpleGameSync } from '../hooks/useSimpleGameSync';
-import { Bug, Eye, EyeOff, Clock, Users, Wifi, Database, WifiOff, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { Bug, Eye, EyeOff, Clock, Users, Wifi, Database, WifiOff, AlertCircle, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
 
 const DebugPanel: React.FC = () => {
   const { state } = useGame();
-  const { gameState: networkState, isConnected } = useSimpleGameSync();
+  const { gameState: networkState, isConnected, forceNewUser } = useSimpleGameSync();
   const [isExpanded, setIsExpanded] = useState(false);
 
   if (state.gamePhase === 'preparation') return null;
@@ -47,6 +47,16 @@ const DebugPanel: React.FC = () => {
   };
 
   const statusConsistency = getStatusConsistency();
+
+  // デバッグ用の新しいユーザーID生成
+  const handleForceNewUser = async () => {
+    try {
+      await forceNewUser();
+      console.log('🔧 新しいユーザーIDを生成しました');
+    } catch (error) {
+      console.error('🔧 ユーザーID生成に失敗:', error);
+    }
+  };
 
   return (
     <div className="fixed bottom-4 right-4 z-40">
@@ -99,10 +109,10 @@ const DebugPanel: React.FC = () => {
                 </span></div>
                 <div>接続状態: <span className="text-blue-300">{networkState.connectionStatus}</span></div>
                 <div>ゲームルームID: <span className="text-yellow-300 font-mono text-xs">
-                  {state.roomId ? state.roomId.slice(-8) : 'なし'}
+                  {state.roomId || 'なし'}
                 </span></div>
                 <div>ネットワークルームID: <span className="text-cyan-300 font-mono text-xs">
-                  {networkState.roomId ? networkState.roomId.slice(-8) : 'なし'}
+                  {networkState.roomId || 'なし'}
                 </span></div>
                 <div>ホスト: <span className="text-green-300">{state.isHost ? 'Yes' : 'No'}</span></div>
                 <div>ネットワーク状態: <span className={statusConsistency.color}>{networkState.status}</span></div>
@@ -140,6 +150,28 @@ const DebugPanel: React.FC = () => {
                       ✅ 正常に同期中
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* デバッグ操作 */}
+            {state.isNetworkGame && (
+              <div>
+                <h3 className="text-sm font-bold text-red-400 mb-2 flex items-center gap-1">
+                  <RefreshCw size={14} />
+                  デバッグ操作
+                </h3>
+                <div className="space-y-2">
+                  <button
+                    onClick={handleForceNewUser}
+                    className="w-full px-2 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded transition-colors"
+                    title="新しいユーザーIDを強制生成（同じタブ問題の解決用）"
+                  >
+                    新しいユーザーID生成
+                  </button>
+                  <p className="text-xs text-gray-400">
+                    ※同じブラウザの異なるタブで接続している場合に使用
+                  </p>
                 </div>
               </div>
             )}
