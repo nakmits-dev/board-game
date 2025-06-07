@@ -246,8 +246,7 @@ const Tutorial: React.FC<TutorialProps> = ({ onClose }) => {
               <h4 className="font-bold text-blue-800 mb-2">基本操作</h4>
               <div className="space-y-1 text-sm">
                 <p><strong>キャラクター選択:</strong> クリック</p>
-                <p><strong>移動:</strong> 移動先をクリック、またはドラッグ&ドロップ</p>
-                <p><strong>攻撃:</strong> 攻撃対象をクリック</p>
+                <p><strong>移動、攻撃:</strong> クリック、またはドラッグ&ドロップ</p>
               </div>
             </div>
             
@@ -286,15 +285,14 @@ const Tutorial: React.FC<TutorialProps> = ({ onClose }) => {
               <h4 className="font-bold text-green-800 mb-2">移動・攻撃操作</h4>
               <div className="space-y-2 text-sm">
                 <p><strong>キャラクター選択:</strong> キャラクターをタップ</p>
-                <p><strong>移動・攻撃:</strong> キャラクターを長押し→ドラッグで移動先や攻撃対象へ</p>
-                <p className="text-green-600 font-medium">💡 長押しでドラッグ操作が開始されます</p>
+                <p><strong>移動、攻撃:</strong> タップ</p>
               </div>
             </div>
             
             <div className="bg-purple-50 p-3 rounded-lg">
               <h4 className="font-bold text-purple-800 mb-2">スキル使用方法</h4>
               <div className="space-y-2 text-sm">
-                <p><strong>ステップ1:</strong> キャラクターをタップしてモーダルを開く</p>
+                <p><strong>ステップ1:</strong> キャラクターを長押ししてモーダルを開く</p>
                 <p><strong>ステップ2:</strong> モーダル内のスキルボタンをタップ</p>
                 <p><strong>ステップ3:</strong> 対象キャラクターをタップ</p>
                 <p className="text-purple-600 font-medium">💡 スキルボタンは紫色で表示されます</p>
