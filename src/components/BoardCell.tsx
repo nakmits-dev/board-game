@@ -14,6 +14,7 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
   const [showModal, setShowModal] = React.useState(false);
   const [isDragOver, setIsDragOver] = React.useState(false);
   const [isDragging, setIsDragging] = React.useState(false);
+  const [touchStartPos, setTouchStartPos] = React.useState<{ x: number; y: number } | null>(null);
   const character = getCharacterAt(position);
   const isSelected = selectedCharacter?.id === character?.id;
   const isActionable = gamePhase === 'action' && character?.team === currentTeam && character.remainingActions > 0;
@@ -75,6 +76,90 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
         action: { type: 'attack', targetId: character.id }
       });
       dispatch({ type: 'CONFIRM_ACTION' });
+    }
+  };
+
+  // タッチイベントの処理
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!character || character.team !== currentTeam || character.remainingActions <= 0 || selectedAction === 'skill') {
+      return;
+    }
+
+    const touch = e.touches[0];
+    setTouchStartPos({ x: touch.clientX, y: touch.clientY });
+    setIsDragging(true);
+    dispatch({ type: 'SELECT_CHARACTER', character });
+    
+    // タッチフィードバック
+    if (navigator.vibrate) {
+      navigator.vibrate(50);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging || !touchStartPos || selectedAction === 'skill') return;
+    
+    e.preventDefault(); // スクロールを防ぐ
+    
+    const touch = e.touches[0];
+    const deltaX = Math.abs(touch.clientX - touchStartPos.x);
+    const deltaY = Math.abs(touch.clientY - touchStartPos.y);
+    
+    // 一定距離以上移動した場合のみドラッグとして認識
+    if (deltaX > 10 || deltaY > 10) {
+      // ドラッグ中の視覚的フィードバック
+      const element = e.currentTarget as HTMLElement;
+      element.style.opacity = '0.7';
+      element.style.transform = 'scale(1.1)';
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!isDragging || !touchStartPos) return;
+    
+    const touch = e.changedTouches[0];
+    const deltaX = Math.abs(touch.clientX - touchStartPos.x);
+    const deltaY = Math.abs(touch.clientY - touchStartPos.y);
+    
+    // 元の状態に戻す
+    const element = e.currentTarget as HTMLElement;
+    element.style.opacity = '';
+    element.style.transform = '';
+    
+    setIsDragging(false);
+    setTouchStartPos(null);
+    
+    // 小さな移動の場合はタップとして処理
+    if (deltaX < 10 && deltaY < 10) {
+      handleClick();
+      return;
+    }
+    
+    // ドロップ先を特定
+    const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+    const cellElement = elementBelow?.closest('[data-position]') as HTMLElement;
+    
+    if (cellElement && selectedCharacter) {
+      const positionData = cellElement.getAttribute('data-position');
+      if (positionData) {
+        const [x, y] = positionData.split(',').map(Number);
+        const targetPosition = { x, y };
+        const targetCharacter = getCharacterAt(targetPosition);
+        
+        if (!targetCharacter && isValidMove(targetPosition)) {
+          dispatch({
+            type: 'SET_PENDING_ACTION',
+            action: { type: 'move', position: targetPosition }
+          });
+          dispatch({ type: 'CONFIRM_ACTION' });
+        } else if (targetCharacter && isValidAttack(targetCharacter.id)) {
+          dispatch({
+            type: 'SET_PENDING_ACTION',
+            action: { type: 'attack', targetId: targetCharacter.id }
+          });
+          dispatch({ type: 'CONFIRM_ACTION' });
+        }
+      }
     }
   };
 
@@ -166,9 +251,16 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        data-position={`${position.x},${position.y}`}
         style={{
           // スマホでのタッチ操作を最適化
-          touchAction: isDraggable ? 'manipulation' : 'auto'
+          touchAction: isDraggable ? 'none' : 'auto',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          WebkitTouchCallout: 'none'
         }}
       >
         {character && (
