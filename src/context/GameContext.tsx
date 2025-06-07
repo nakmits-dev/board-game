@@ -702,31 +702,36 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'START_NETWORK_GAME': {
-      const startingTeam: Team = 'player'; // ネットワークゲームでは常にプレイヤーから開始
+      console.log('START_NETWORK_GAME - 現在の状態保持開始');
+      console.log('現在のキャラクター数:', state.characters.length);
+      console.log('現在のクリスタル:', { player: state.playerCrystals, enemy: state.enemyCrystals });
       
-      // 新しいゲーム状態を作成（編成内容を反映）
-      const newState = createInitialGameState(action.playerDeck, action.enemyDeck);
+      const startingTeam: Team = 'player'; // ネットワークゲームでは常にプレイヤーから開始
       
       console.log('START_NETWORK_GAME - ルームID保持:', action.roomId);
       
+      // 既存の状態を保持しつつ、ネットワークゲーム用の設定のみ更新
       return {
-        ...newState,
+        ...state,
         gamePhase: 'action',
         currentTeam: startingTeam,
-        characters: newState.characters.map(char => ({
+        // キャラクターの行動回数のみリセット
+        characters: state.characters.map(char => ({
           ...char,
           remainingActions: char.team === startingTeam ? char.actions : 0,
         })),
         pendingAnimations: [{ id: startingTeam, type: 'turn-start' }],
-        savedDecks: {
-          player: action.playerDeck,
-          enemy: action.enemyDeck
-        },
         canUndo: false,
         isNetworkGame: true,
         isHost: action.isHost,
         roomId: action.roomId, // ここでルームIDを確実に設定
         networkSyncCallback: null,
+        // 選択状態をクリア
+        selectedCharacter: null,
+        selectedAction: null,
+        selectedSkill: null,
+        pendingAction: { type: null },
+        animationTarget: null,
       };
     }
 
