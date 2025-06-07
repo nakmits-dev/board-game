@@ -8,8 +8,8 @@ const ActionControls: React.FC = () => {
   
   if (gamePhase === 'preparation') {
     return (
-      <div className="p-4 bg-white rounded-xl shadow-lg border border-blue-100">
-        <p className="text-gray-700 font-medium">
+      <div className="p-3 sm:p-4 bg-white rounded-xl shadow-lg border border-blue-100">
+        <p className="text-gray-700 font-medium text-sm sm:text-base">
           ゲームを開始してください
         </p>
       </div>
@@ -21,16 +21,16 @@ const ActionControls: React.FC = () => {
     const winner = playerMasterAlive ? 'player' : 'enemy';
 
     return (
-      <div className="p-6 bg-white rounded-xl shadow-lg border border-blue-100">
+      <div className="p-4 sm:p-6 bg-white rounded-xl shadow-lg border border-blue-100">
         <div className="flex flex-col items-center">
-          <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${
+          <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mb-3 sm:mb-4 ${
             winner === 'player' 
               ? 'bg-gradient-to-br from-blue-500 to-blue-600'
               : 'bg-gradient-to-br from-red-500 to-red-600'
           }`}>
-            <Crown size={32} className="text-white drop-shadow" />
+            <Crown size={24} className="text-white drop-shadow sm:w-8 sm:h-8" />
           </div>
-          <h2 className={`text-2xl font-bold ${
+          <h2 className={`text-xl sm:text-2xl font-bold ${
             winner === 'player' ? 'text-blue-600' : 'text-red-600'
           }`}>
             {winner === 'player' ? 'あなたの勝利！' : '相手の勝利！'}
@@ -55,8 +55,8 @@ const ActionControls: React.FC = () => {
   }
 
   return (
-    <div className="p-4 bg-white rounded-xl shadow-lg border border-blue-100">
-      <p className="text-gray-700 font-medium">
+    <div className="p-3 sm:p-4 bg-white rounded-xl shadow-lg border border-blue-100">
+      <p className="text-gray-700 font-medium text-sm sm:text-base">
         {helpMessage}
       </p>
     </div>

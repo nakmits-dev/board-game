@@ -69,30 +69,30 @@ const TurnOrder: React.FC = () => {
   };
   
   return (
-    <div className="bg-white p-4 rounded-xl shadow-lg border border-blue-100">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+    <div className="bg-white p-3 sm:p-4 rounded-xl shadow-lg border border-blue-100">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4">
         {/* Turn Info */}
-        <div className="flex items-center gap-3">
-          <h3 className={`text-xl font-bold ${
+        <div className="flex items-center gap-2 sm:gap-3">
+          <h3 className={`text-lg sm:text-xl font-bold ${
             currentTeam === 'player' ? 'text-blue-600' : 'text-red-600'
           } ${animationTarget?.id === currentTeam && animationTarget?.type === 'turn-start' ? 'character-turn-start' : ''}`}>
             {currentTeam === 'player' ? 'あなたのターン' : '相手のターン'}
           </h3>
           <div className="flex items-center gap-2">
-            <div className={`font-mono font-bold text-lg ${
+            <div className={`font-mono font-bold text-base sm:text-lg ${
               isLowTime ? 'text-red-600 animate-pulse' : 'text-gray-600'
             }`}>
               {String(timeLeft).padStart(2, '0')}
             </div>
             <button
               onClick={handlePauseToggle}
-              className={`p-2 rounded-lg transition-colors ${
+              className={`p-1.5 sm:p-2 rounded-lg transition-colors ${
                 isPaused 
                   ? 'bg-green-100 text-green-600 hover:bg-green-200' 
                   : 'bg-yellow-100 text-yellow-600 hover:bg-yellow-200'
               }`}
             >
-              {isPaused ? <Play size={20} /> : <Pause size={20} />}
+              {isPaused ? <Play size={16} className="sm:w-5 sm:h-5" /> : <Pause size={16} className="sm:w-5 sm:h-5" />}
             </button>
           </div>
         </div>
@@ -101,20 +101,20 @@ const TurnOrder: React.FC = () => {
         <div className="flex items-center gap-2">
           <button
             onClick={handleSurrender}
-            className={`px-3 py-2 font-bold rounded transform transition text-sm sm:text-base ${
+            className={`px-2 py-1.5 sm:px-3 sm:py-2 font-bold rounded transform transition text-xs sm:text-sm ${
               showSurrenderConfirm
                 ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse'
                 : 'bg-gray-600 hover:bg-gray-700 text-white'
             }`}
           >
-            <div className="flex items-center gap-1.5">
-              <Flag size={16} />
+            <div className="flex items-center gap-1 sm:gap-1.5">
+              <Flag size={12} className="sm:w-4 sm:h-4" />
               <span>{showSurrenderConfirm ? '降参する' : '降参'}</span>
             </div>
           </button>
           <button
             ref={endTurnButtonRef}
-            className={`px-3 py-2 font-bold rounded transform transition hover:scale-105 text-sm sm:text-base ${
+            className={`px-2 py-1.5 sm:px-3 sm:py-2 font-bold rounded transform transition hover:scale-105 text-xs sm:text-sm ${
               currentTeam === 'player'
                 ? 'bg-blue-600 hover:bg-blue-700 text-white'
                 : 'bg-red-600 hover:bg-red-700 text-white'
@@ -130,7 +130,7 @@ const TurnOrder: React.FC = () => {
       </div>
 
       {/* Progress Bar */}
-      <div className="relative h-2 bg-gray-200 rounded-full overflow-hidden mt-3">
+      <div className="relative h-1.5 sm:h-2 bg-gray-200 rounded-full overflow-hidden mt-2 sm:mt-3">
         <div
           className={`absolute left-0 top-0 h-full transition-all duration-1000 rounded-full ${
             isPaused
