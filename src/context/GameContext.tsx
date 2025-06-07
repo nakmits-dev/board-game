@@ -117,6 +117,14 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       if (!state.selectedCharacter || state.selectedCharacter.team !== state.currentTeam) {
         return state;
       }
+
+      // ネットワークゲームの場合、自分のターンでない場合は操作を無効化
+      if (state.isNetworkGame) {
+        const isMyTurn = state.isHost ? state.currentTeam === 'player' : state.currentTeam === 'enemy';
+        if (!isMyTurn) {
+          return state;
+        }
+      }
       
       return {
         ...state,
@@ -699,6 +707,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       // 新しいゲーム状態を作成（編成内容を反映）
       const newState = createInitialGameState(action.playerDeck, action.enemyDeck);
       
+      console.log('START_NETWORK_GAME - ルームID保持:', action.roomId);
+      
       return {
         ...newState,
         gamePhase: 'action',
@@ -715,7 +725,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         canUndo: false,
         isNetworkGame: true,
         isHost: action.isHost,
-        roomId: action.roomId,
+        roomId: action.roomId, // ここでルームIDを確実に設定
         networkSyncCallback: null,
       };
     }
@@ -776,6 +786,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'SET_NETWORK_SYNC_CALLBACK': {
+      console.log('SET_NETWORK_SYNC_CALLBACK - コールバック設定:', !!action.callback);
       return {
         ...state,
         networkSyncCallback: action.callback,

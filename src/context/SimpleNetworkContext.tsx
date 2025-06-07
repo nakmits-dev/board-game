@@ -25,6 +25,12 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
       
       const syncCallback = async (action: any) => {
         console.log('アクション送信:', action);
+        console.log('送信先ルーム:', state.roomId);
+        
+        if (!state.roomId) {
+          console.error('ルームIDが設定されていません:', state.roomId);
+          return;
+        }
         
         try {
           // ゲームアクションを棋譜形式に変換
@@ -40,7 +46,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
 
           console.log('送信する手:', move);
           await sendMove(move);
-          console.log('手の送信完了');
+          console.log('手の送信成功');
         } catch (error) {
           console.error('アクション送信失敗:', error);
         }
