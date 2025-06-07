@@ -14,6 +14,10 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
   const [showModal, setShowModal] = React.useState(false);
   const [isDragOver, setIsDragOver] = React.useState(false);
   const [isDragging, setIsDragging] = React.useState(false);
+  const [touchStartPos, setTouchStartPos] = React.useState<{ x: number; y: number } | null>(null);
+  const [isLongPress, setIsLongPress] = React.useState(false);
+  const [longPressTimer, setLongPressTimer] = React.useState<NodeJS.Timeout | null>(null);
+  
   const character = getCharacterAt(position);
   const isSelected = selectedCharacter?.id === character?.id;
   const isActionable = gamePhase === 'action' && character?.team === currentTeam && character.remainingActions > 0;
@@ -23,6 +27,113 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
 
   // スマホかどうかを判定
   const isMobile = window.innerWidth < 1024;
+
+  // タッチイベントハンドラー
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!character || !isActionable || selectedAction === 'skill') return;
+    
+    const touch = e.touches[0];
+    setTouchStartPos({ x: touch.clientX, y: touch.clientY });
+    setIsLongPress(false);
+    
+    // 長押し検出タイマー
+    const timer = setTimeout(() => {
+      setIsLongPress(true);
+      setIsDragging(true);
+      dispatch({ type: 'SELECT_CHARACTER', character });
+      
+      // 触覚フィードバック
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+      
+      // ドラッグ開始の視覚的フィードバック
+      const element = e.currentTarget as HTMLElement;
+      element.classList.add('dragging-feedback');
+    }, 500); // 500ms長押しでドラッグ開始
+    
+    setLongPressTimer(timer);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isLongPress || !touchStartPos) return;
+    
+    e.preventDefault(); // スクロールを防止
+    
+    const touch = e.touches[0];
+    const deltaX = Math.abs(touch.clientX - touchStartPos.x);
+    const deltaY = Math.abs(touch.clientY - touchStartPos.y);
+    
+    // 一定距離移動したらドラッグとして認識
+    if (deltaX > 10 || deltaY > 10) {
+      // ドラッグ中の処理
+      const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+      const cellBelow = elementBelow?.closest('[data-board-cell]');
+      
+      // 全てのセルのハイライトをクリア
+      document.querySelectorAll('[data-board-cell]').forEach(cell => {
+        cell.classList.remove('drag-hover');
+      });
+      
+      // ドロップ可能なセルをハイライト
+      if (cellBelow) {
+        cellBelow.classList.add('drag-hover');
+      }
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+    }
+    
+    // ドラッグ中の視覚的フィードバックをクリア
+    const element = e.currentTarget as HTMLElement;
+    element.classList.remove('dragging-feedback');
+    
+    // 全てのセルのハイライトをクリア
+    document.querySelectorAll('[data-board-cell]').forEach(cell => {
+      cell.classList.remove('drag-hover');
+    });
+    
+    if (isLongPress && touchStartPos) {
+      // ドラッグ終了処理
+      const touch = e.changedTouches[0];
+      const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+      const cellBelow = elementBelow?.closest('[data-board-cell]');
+      
+      if (cellBelow) {
+        const posX = parseInt(cellBelow.getAttribute('data-x') || '0');
+        const posY = parseInt(cellBelow.getAttribute('data-y') || '0');
+        const targetPosition = { x: posX, y: posY };
+        const targetCharacter = getCharacterAt(targetPosition);
+        
+        if (!targetCharacter && isValidMove(targetPosition)) {
+          // 移動
+          dispatch({
+            type: 'SET_PENDING_ACTION',
+            action: { type: 'move', position: targetPosition }
+          });
+          dispatch({ type: 'CONFIRM_ACTION' });
+        } else if (targetCharacter && isValidAttack(targetCharacter.id)) {
+          // 攻撃
+          dispatch({
+            type: 'SET_PENDING_ACTION',
+            action: { type: 'attack', targetId: targetCharacter.id }
+          });
+          dispatch({ type: 'CONFIRM_ACTION' });
+        }
+      }
+    } else if (!isLongPress) {
+      // 短いタップの場合は通常のクリック処理
+      handleClick();
+    }
+    
+    setTouchStartPos(null);
+    setIsLongPress(false);
+    setIsDragging(false);
+  };
 
   const handleDragStart = (e: React.DragEvent) => {
     if (character && character.team === currentTeam && character.remainingActions > 0) {
@@ -160,12 +271,18 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
       <div 
         className={`${cellClassName} ${animationTarget?.id === character?.id && animationTarget?.type ? `character-${animationTarget.type}` : ''} ${isActionable ? 'character-actionable' : ''}`}
         onClick={handleClick}
-        draggable={isDraggable}
+        draggable={isDraggable && !isMobile}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
+        onTouchStart={isMobile ? handleTouchStart : undefined}
+        onTouchMove={isMobile ? handleTouchMove : undefined}
+        onTouchEnd={isMobile ? handleTouchEnd : undefined}
+        data-board-cell="true"
+        data-x={position.x}
+        data-y={position.y}
       >
         {character && (
           <div className="absolute inset-0 flex flex-col items-center justify-center">

@@ -22,19 +22,6 @@ const GameContent = () => {
   // スマホでの対戦中かどうかを判定
   const isMobileBattle = gamePhase === 'action' && window.innerWidth < 1024;
 
-  // 初回訪問時にチュートリアルを表示
-  useEffect(() => {
-    const hasSeenTutorial = localStorage.getItem('boardgame-tutorial-seen');
-    if (!hasSeenTutorial) {
-      setShowTutorial(true);
-    }
-  }, []);
-
-  const handleCloseTutorial = () => {
-    setShowTutorial(false);
-    localStorage.setItem('boardgame-tutorial-seen', 'true');
-  };
-
   // スマホ対戦中のスクロール制御
   useEffect(() => {
     if (isMobileBattle) {
@@ -139,15 +126,15 @@ const GameContent = () => {
       )}
       
       <main className={`container mx-auto p-4 max-w-7xl ${isMobileBattle ? 'pt-2' : ''}`}>
-        {/* スマホ対戦中のヘルプボタン */}
+        {/* スマホ対戦中の浮かび上がるヘルプボタン */}
         {isMobileBattle && (
           <div className="fixed top-4 right-4 z-30">
             <button
               onClick={() => setShowTutorial(true)}
-              className="w-14 h-14 bg-green-600 hover:bg-green-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors"
+              className="floating-help-button w-16 h-16 text-white rounded-full flex items-center justify-center transition-all duration-300"
               title="遊び方を見る"
             >
-              <HelpCircle size={20} />
+              <HelpCircle size={24} />
             </button>
           </div>
         )}
@@ -207,7 +194,7 @@ const GameContent = () => {
 
       {/* チュートリアル */}
       {showTutorial && (
-        <Tutorial onClose={handleCloseTutorial} />
+        <Tutorial onClose={() => setShowTutorial(false)} />
       )}
     </div>
   );
