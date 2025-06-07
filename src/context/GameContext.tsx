@@ -287,14 +287,22 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       }
 
       if (state.selectedSkill.damage) {
-        const totalDamage = state.selectedCharacter.attack + state.selectedSkill.damage;
-        const damage = Math.max(0, totalDamage - target.defense);
-        const newHp = Math.max(0, target.hp - damage);
-
         animations.push(
           { id: state.selectedCharacter.id, type: 'attack' },
           { id: target.id, type: 'damage' }
         );
+
+        let newHp: number;
+        
+        // 呪いスキルの場合は防御力を無視してHPを直接1減らす
+        if (state.selectedSkill.ignoreDefense) {
+          newHp = Math.max(0, target.hp - 1);
+        } else {
+          // 通常のダメージ計算
+          const totalDamage = state.selectedCharacter.attack + state.selectedSkill.damage;
+          const damage = Math.max(0, totalDamage - target.defense);
+          newHp = Math.max(0, target.hp - damage);
+        }
 
         if (newHp === 0) {
           animations.push(
