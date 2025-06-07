@@ -13,6 +13,7 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
   const { selectedCharacter, currentTeam, gamePhase, animationTarget, selectedAction, selectedSkill, playerCrystals, enemyCrystals } = state;
   const [showModal, setShowModal] = React.useState(false);
   const [isDragOver, setIsDragOver] = React.useState(false);
+  const [lastTap, setLastTap] = React.useState(0);
   
   const character = getCharacterAt(position);
   const isSelected = selectedCharacter?.id === character?.id;
@@ -80,6 +81,26 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
     }
   };
 
+  // ダブルタップ検出（スマホ専用）
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!isMobile || !character) return;
+    
+    const currentTime = new Date().getTime();
+    const tapLength = currentTime - lastTap;
+    
+    if (tapLength < 500 && tapLength > 0) {
+      // ダブルタップ検出
+      e.preventDefault();
+      setShowModal(true);
+      // 触覚フィードバック
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+    }
+    
+    setLastTap(currentTime);
+  };
+
   const handleClick = () => {
     if (character) {
       if (selectedCharacter && selectedAction === 'attack' && isValidAttack(character.id)) {
@@ -92,7 +113,6 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
         dispatch({ type: 'USE_SKILL', targetId: character.id });
       } else {
         dispatch({ type: 'SELECT_CHARACTER', character });
-        // スマホでは長押しでモーダル表示するため、クリックでは表示しない
       }
     } else if (selectedCharacter && canMoveTo) {
       dispatch({
@@ -102,18 +122,6 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
       dispatch({ type: 'CONFIRM_ACTION' });
     } else if (!character && !canMoveTo && !canAttack && !canUseSkill) {
       dispatch({ type: 'SELECT_CHARACTER', character: null });
-    }
-  };
-
-  // スマホでの長押し処理（HTMLデフォルト機能を使用）
-  const handleContextMenu = (e: React.MouseEvent) => {
-    if (isMobile && character) {
-      e.preventDefault(); // デフォルトのコンテキストメニューを無効化
-      setShowModal(true);
-      // 触覚フィードバック
-      if (navigator.vibrate) {
-        navigator.vibrate(50);
-      }
     }
   };
 
@@ -169,7 +177,7 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
       <div 
         className={`${cellClassName} ${animationTarget?.id === character?.id && animationTarget?.type ? `character-${animationTarget.type}` : ''} ${isActionable ? 'character-actionable' : ''}`}
         onClick={handleClick}
-        onContextMenu={handleContextMenu}
+        onTouchEnd={isMobile ? handleTouchEnd : undefined}
         draggable={isDraggablePC}
         onDragStart={isDraggablePC ? handleDragStart : undefined}
         onDragOver={!isMobile ? handleDragOver : undefined}

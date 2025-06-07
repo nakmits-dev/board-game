@@ -292,13 +292,21 @@ const Tutorial: React.FC<TutorialProps> = ({ onClose }) => {
             <div className="bg-purple-50 p-3 rounded-lg">
               <h4 className="font-bold text-purple-800 mb-2">スキル使用方法</h4>
               <div className="space-y-2 text-sm">
-                <p><strong>ステップ1:</strong> キャラクターを長押ししてモーダルを開く</p>
+                <p><strong>ステップ1:</strong> キャラクターをダブルタップしてモーダルを開く</p>
                 <p><strong>ステップ2:</strong> モーダル内のスキルボタンをタップ</p>
                 <p><strong>ステップ3:</strong> 対象キャラクターをタップ</p>
                 <p className="text-purple-600 font-medium">💡 スキルボタンは紫色で表示されます</p>
               </div>
             </div>
             
+            <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+              <h4 className="font-bold text-blue-800 mb-2">📱 操作のコツ</h4>
+              <div className="space-y-1 text-sm text-blue-700">
+                <p>• ダブルタップでキャラクター詳細を確認</p>
+                <p>• スキルはモーダル内から選択してください</p>
+                <p>• 素早いタップで移動・攻撃が可能</p>
+              </div>
+            </div>
           </div>
         </div>
       )
