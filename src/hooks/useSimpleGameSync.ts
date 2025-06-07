@@ -254,6 +254,9 @@ export const useSimpleGameSync = () => {
       const roomRef = ref(database, `simple_rooms/${gameState.roomId}`);
       await update(roomRef, { status: 'playing' });
       console.log('ゲーム開始成功');
+      
+      // ローカル状態も即座に更新
+      setGameState(prev => ({ ...prev, status: 'playing' }));
     } catch (error: any) {
       console.error('ゲーム開始エラー:', error);
       throw new Error(`ゲーム開始に失敗しました: ${error.message}`);
@@ -333,6 +336,7 @@ export const useSimpleGameSync = () => {
       // 手の履歴を更新
       const moves = roomData.moves ? Object.values(roomData.moves) : [];
       
+      // 状態を更新（ルームのstatusを反映）
       setGameState(prev => ({
         ...prev,
         opponent: opponent ? {
@@ -341,11 +345,13 @@ export const useSimpleGameSync = () => {
           connected: opponent.connected
         } : null,
         moves: moves,
-        status: roomData.status === 'playing' ? 'playing' : prev.status
+        status: roomData.status === 'playing' ? 'playing' : 
+                roomData.status === 'waiting' ? 'waiting' : 
+                prev.status
       }));
 
       // ゲーム開始検出
-      if (roomData.status === 'playing' && gameState.status === 'waiting') {
+      if (roomData.status === 'playing' && gameState.status !== 'playing') {
         console.log('ゲーム開始検出');
         if (onGameStartCallback.current) {
           onGameStartCallback.current(gameState.roomId!, gameState.isHost);

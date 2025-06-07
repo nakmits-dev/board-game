@@ -98,16 +98,39 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.isNetworkGame, state.isHost, setOnMove, dispatch]);
 
-  // ゲーム状態の変化をログ出力
+  // ゲーム状態とネットワーク状態の同期
   useEffect(() => {
-    console.log('ゲーム状態変化:', {
+    console.log('ゲーム状態とネットワーク状態の同期チェック');
+    console.log('ゲーム状態:', {
       isNetworkGame: state.isNetworkGame,
       roomId: state.roomId,
       isHost: state.isHost,
       gamePhase: state.gamePhase,
       currentTeam: state.currentTeam
     });
-  }, [state.isNetworkGame, state.roomId, state.isHost, state.gamePhase, state.currentTeam]);
+    console.log('ネットワーク状態:', {
+      roomId: gameState.roomId,
+      isHost: gameState.isHost,
+      status: gameState.status,
+      connectionStatus: gameState.connectionStatus,
+      hasOpponent: !!gameState.opponent
+    });
+
+    // ネットワークゲーム中にルーム情報が不整合の場合は修正
+    if (state.isNetworkGame && state.roomId && gameState.roomId !== state.roomId) {
+      console.warn('ルームID不整合を検出:', { 
+        gameStateRoomId: state.roomId, 
+        networkStateRoomId: gameState.roomId 
+      });
+      // この場合は何もしない（ネットワーク状態が正しい）
+    }
+
+    // ネットワーク状態が'playing'でゲーム状態がネットワークゲームでない場合
+    if (gameState.status === 'playing' && !state.isNetworkGame && gameState.roomId) {
+      console.log('ネットワークゲーム状態の復元が必要');
+      // この場合は既にゲームが開始されているので、状態を復元する必要がある
+    }
+  }, [state.isNetworkGame, state.roomId, state.isHost, state.gamePhase, state.currentTeam, gameState]);
 
   return (
     <SimpleNetworkContext.Provider 

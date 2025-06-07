@@ -19,6 +19,35 @@ const DebugPanel: React.FC = () => {
 
   const ConnectionIcon = getConnectionIcon();
 
+  // 状態の整合性チェック
+  const getStatusConsistency = () => {
+    if (!state.isNetworkGame) return { status: 'local', color: 'text-gray-400' };
+    
+    const gameRoomId = state.roomId;
+    const networkRoomId = networkState.roomId;
+    const networkStatus = networkState.status;
+    
+    if (gameRoomId !== networkRoomId) {
+      return { status: 'room_mismatch', color: 'text-red-400' };
+    }
+    
+    if (networkStatus === 'disconnected') {
+      return { status: 'disconnected', color: 'text-red-400' };
+    }
+    
+    if (networkStatus === 'waiting') {
+      return { status: 'waiting', color: 'text-yellow-400' };
+    }
+    
+    if (networkStatus === 'playing') {
+      return { status: 'playing', color: 'text-green-400' };
+    }
+    
+    return { status: 'unknown', color: 'text-gray-400' };
+  };
+
+  const statusConsistency = getStatusConsistency();
+
   return (
     <div className="fixed bottom-4 right-4 z-40">
       {/* 折りたたみボタン */}
@@ -31,14 +60,20 @@ const DebugPanel: React.FC = () => {
         <Bug size={16} />
         {/* 接続状態インジケーター */}
         {state.isNetworkGame && (
-          <ConnectionIcon 
-            size={12} 
-            className={`${
-              !isConnected ? 'text-red-400' : 
-              networkState.connectionStatus === 'connecting' ? 'text-yellow-400' : 
-              'text-green-400'
-            }`} 
-          />
+          <div className="flex items-center gap-1">
+            <ConnectionIcon 
+              size={12} 
+              className={`${
+                !isConnected ? 'text-red-400' : 
+                networkState.connectionStatus === 'connecting' ? 'text-yellow-400' : 
+                'text-green-400'
+              }`} 
+            />
+            <div 
+              className={`w-2 h-2 rounded-full ${statusConsistency.color.replace('text-', 'bg-')}`}
+              title={`状態: ${statusConsistency.status}`}
+            />
+          </div>
         )}
       </button>
 
@@ -69,15 +104,24 @@ const DebugPanel: React.FC = () => {
                 <h3 className="text-sm font-bold text-purple-400 mb-2 flex items-center gap-1">
                   <ConnectionIcon size={14} />
                   ネットワーク状態
+                  <div 
+                    className={`w-2 h-2 rounded-full ${statusConsistency.color.replace('text-', 'bg-')}`}
+                    title={`整合性: ${statusConsistency.status}`}
+                  />
                 </h3>
                 <div className="text-xs space-y-1">
                   <div>Firebase接続: <span className={`${isConnected ? 'text-green-300' : 'text-red-300'}`}>
                     {isConnected ? 'Connected' : 'Disconnected'}
                   </span></div>
                   <div>接続状態: <span className="text-blue-300">{networkState.connectionStatus}</span></div>
-                  <div>ルームID: <span className="text-yellow-300">{state.roomId || 'なし'}</span></div>
+                  <div>ゲームルームID: <span className="text-yellow-300 font-mono text-xs">
+                    {state.roomId ? state.roomId.slice(-8) : 'なし'}
+                  </span></div>
+                  <div>ネットワークルームID: <span className="text-cyan-300 font-mono text-xs">
+                    {networkState.roomId ? networkState.roomId.slice(-8) : 'なし'}
+                  </span></div>
                   <div>ホスト: <span className="text-green-300">{state.isHost ? 'Yes' : 'No'}</span></div>
-                  <div>ゲーム状態: <span className="text-blue-300">{networkState.status}</span></div>
+                  <div>ネットワーク状態: <span className={statusConsistency.color}>{networkState.status}</span></div>
                   <div>対戦相手: <span className="text-cyan-300">{networkState.opponent?.name || 'なし'}</span></div>
                   {networkState.opponent && (
                     <div>相手接続: <span className={`${networkState.opponent.connected ? 'text-green-300' : 'text-red-300'}`}>
@@ -85,6 +129,22 @@ const DebugPanel: React.FC = () => {
                     </span></div>
                   )}
                   <div>同期コールバック: <span className="text-orange-300">{state.networkSyncCallback ? 'Set' : 'None'}</span></div>
+                </div>
+              </div>
+            )}
+
+            {/* 状態整合性の詳細 */}
+            {state.isNetworkGame && statusConsistency.status !== 'playing' && (
+              <div>
+                <h3 className="text-sm font-bold text-red-400 mb-2">⚠️ 状態不整合</h3>
+                <div className="text-xs space-y-1">
+                  <div>問題: <span className="text-red-300">{statusConsistency.status}</span></div>
+                  {statusConsistency.status === 'room_mismatch' && (
+                    <div className="text-red-300">ルームIDが一致しません</div>
+                  )}
+                  {statusConsistency.status === 'disconnected' && (
+                    <div className="text-red-300">ネットワーク状態が切断されています</div>
+                  )}
                 </div>
               </div>
             )}
