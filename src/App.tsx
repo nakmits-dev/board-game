@@ -11,7 +11,7 @@ import Tutorial from './components/Tutorial';
 import { useGame } from './context/GameContext';
 import { MonsterType } from './types/gameTypes';
 import { masterData } from './data/cardData';
-import { HelpCircle } from 'lucide-react';
+import { HelpCircle, Play } from 'lucide-react';
 
 const GameContent = () => {
   const { state, dispatch, savedDecks } = useGame();
@@ -128,13 +128,13 @@ const GameContent = () => {
       <main className={`container mx-auto p-4 max-w-7xl ${isMobileBattle ? 'pt-2' : ''}`}>
         {/* スマホ対戦中の浮かび上がるヘルプボタン */}
         {isMobileBattle && (
-          <div className="fixed top-4 right-4 z-30">
+          <div className="fixed top-4 right-16 z-30">
             <button
               onClick={() => setShowTutorial(true)}
-              className="floating-help-button w-16 h-16 text-white rounded-full flex items-center justify-center transition-all duration-300"
+              className="floating-help-button w-12 h-12 text-white rounded-full flex items-center justify-center transition-all duration-300"
               title="遊び方を見る"
             >
-              <HelpCircle size={24} />
+              <HelpCircle size={20} />
             </button>
           </div>
         )}
