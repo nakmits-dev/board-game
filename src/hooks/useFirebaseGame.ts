@@ -100,7 +100,7 @@ export const useFirebaseGame = () => {
     
     // ルームの存在確認
     return new Promise((resolve, reject) => {
-      onValue(roomRef, (snapshot) => {
+      onValue(roomRef, async (snapshot) => {
         const roomData = snapshot.val() as GameRoom;
         
         if (!roomData) {
@@ -119,31 +119,52 @@ export const useFirebaseGame = () => {
           return;
         }
 
-        // プレイヤーを追加
-        const playerData = {
-          id: user.uid,
-          name: playerName,
-          team: 'enemy' as const,
-          deck,
-          ready: true,
-          connected: true,
-          lastSeen: Date.now(),
-        };
+        try {
+          // プレイヤーを追加
+          const playerData = {
+            id: user.uid,
+            name: playerName,
+            team: 'enemy' as const,
+            deck,
+            ready: true,
+            connected: true,
+            lastSeen: Date.now(),
+          };
 
-        update(ref(database, `rooms/${roomId}/players/${user.uid}`), playerData);
+          await update(ref(database, `rooms/${roomId}/players/${user.uid}`), playerData);
+          await update(ref(database, `rooms/${roomId}`), { updatedAt: Date.now() });
 
-        setNetworkState(prev => ({
-          ...prev,
-          isOnline: true,
-          roomId,
-          isHost: false,
-          connectionStatus: 'connected'
-        }));
+          setNetworkState(prev => ({
+            ...prev,
+            isOnline: true,
+            roomId,
+            isHost: false,
+            connectionStatus: 'connected'
+          }));
 
-        resolve();
+          resolve();
+        } catch (error) {
+          reject(error);
+        }
       }, { onlyOnce: true });
     });
   }, [user]);
+
+  // 準備状態を更新
+  const updateReadyStatus = useCallback(async (ready: boolean) => {
+    if (!networkState.roomId || !user) return;
+
+    const playerRef = ref(database, `rooms/${networkState.roomId}/players/${user.uid}`);
+    await update(playerRef, { 
+      ready,
+      lastSeen: Date.now()
+    });
+    
+    // ルーム全体の更新時刻も更新
+    await update(ref(database, `rooms/${networkState.roomId}`), { 
+      updatedAt: Date.now() 
+    });
+  }, [networkState.roomId, user]);
 
   // ゲーム開始
   const startGame = useCallback(async () => {
@@ -198,7 +219,15 @@ export const useFirebaseGame = () => {
 
       setNetworkState(prev => ({
         ...prev,
-        opponent: opponent || null,
+        opponent: opponent ? {
+          id: opponent.id,
+          name: opponent.name,
+          isHost: opponent.team === 'player',
+          team: opponent.team,
+          deck: opponent.deck,
+          ready: opponent.ready,
+          connected: opponent.connected,
+        } : null,
       }));
     });
 
@@ -277,6 +306,7 @@ export const useFirebaseGame = () => {
     networkState,
     createRoom,
     joinRoom,
+    updateReadyStatus,
     startGame,
     sendAction,
     leaveRoom,

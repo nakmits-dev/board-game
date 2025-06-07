@@ -3,7 +3,7 @@ import { useFirebaseGame } from '../hooks/useFirebaseGame';
 import { useGame } from '../context/GameContext';
 import { MonsterType } from '../types/gameTypes';
 import { masterData } from '../data/cardData';
-import { Wifi, WifiOff, Users, Copy, Check, X, Play, Clock } from 'lucide-react';
+import { Wifi, WifiOff, Users, Copy, Check, X, Play, Clock, UserCheck, UserX } from 'lucide-react';
 
 interface NetworkGameLobbyProps {
   onClose: () => void;
@@ -12,7 +12,7 @@ interface NetworkGameLobbyProps {
 
 const NetworkGameLobby: React.FC<NetworkGameLobbyProps> = ({ onClose, onStartNetworkGame }) => {
   const { savedDecks } = useGame();
-  const { networkState, createRoom, joinRoom, startGame, leaveRoom, isConnected } = useFirebaseGame();
+  const { networkState, createRoom, joinRoom, updateReadyStatus, startGame, leaveRoom, isConnected } = useFirebaseGame();
   
   const [mode, setMode] = useState<'menu' | 'create' | 'join' | 'waiting'>('menu');
   const [playerName, setPlayerName] = useState('プレイヤー');
@@ -20,6 +20,7 @@ const NetworkGameLobby: React.FC<NetworkGameLobbyProps> = ({ onClose, onStartNet
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isReady, setIsReady] = useState(true);
 
   // デッキが設定されているかチェック
   const hasValidDeck = savedDecks.player && savedDecks.enemy;
@@ -30,6 +31,13 @@ const NetworkGameLobby: React.FC<NetworkGameLobbyProps> = ({ onClose, onStartNet
       setRoomId(networkState.roomId);
     }
   }, [networkState.isOnline, networkState.roomId]);
+
+  // 準備状態の変更を監視
+  useEffect(() => {
+    if (mode === 'waiting' && networkState.roomId) {
+      updateReadyStatus(isReady);
+    }
+  }, [isReady, mode, networkState.roomId, updateReadyStatus]);
 
   const handleCreateRoom = async () => {
     if (!hasValidDeck || !savedDecks.player) {
@@ -44,6 +52,7 @@ const NetworkGameLobby: React.FC<NetworkGameLobbyProps> = ({ onClose, onStartNet
       const newRoomId = await createRoom(playerName, savedDecks.player);
       setRoomId(newRoomId);
       setMode('waiting');
+      setIsReady(true);
     } catch (err) {
       setError('ルームの作成に失敗しました');
       console.error(err);
@@ -64,6 +73,7 @@ const NetworkGameLobby: React.FC<NetworkGameLobbyProps> = ({ onClose, onStartNet
     try {
       await joinRoom(roomId.trim(), playerName, savedDecks.player);
       setMode('waiting');
+      setIsReady(true);
     } catch (err: any) {
       setError(err.message || 'ルームへの参加に失敗しました');
     } finally {
@@ -73,6 +83,12 @@ const NetworkGameLobby: React.FC<NetworkGameLobbyProps> = ({ onClose, onStartNet
 
   const handleStartGame = async () => {
     if (!networkState.isHost) return;
+
+    // 両プレイヤーが準備完了かチェック
+    if (!isReady || !networkState.opponent?.ready) {
+      setError('両プレイヤーが準備完了である必要があります');
+      return;
+    }
 
     try {
       await startGame();
@@ -99,7 +115,19 @@ const NetworkGameLobby: React.FC<NetworkGameLobbyProps> = ({ onClose, onStartNet
     setMode('menu');
     setRoomId('');
     setError('');
+    setIsReady(true);
   };
+
+  const toggleReady = () => {
+    setIsReady(!isReady);
+  };
+
+  // ゲーム開始可能かチェック
+  const canStartGame = networkState.isHost && 
+                      networkState.opponent && 
+                      isReady && 
+                      networkState.opponent.ready &&
+                      networkState.opponent.connected;
 
   if (!isConnected) {
     return (
@@ -303,24 +331,64 @@ const NetworkGameLobby: React.FC<NetworkGameLobbyProps> = ({ onClose, onStartNet
 
             {/* プレイヤー情報 */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between p-2 bg-blue-50 rounded">
-                <span className="font-medium text-blue-800">
-                  {networkState.isHost ? 'あなた (ホスト)' : 'あなた'}
-                </span>
-                <span className="text-sm text-blue-600">準備完了</span>
+              <div className={`flex items-center justify-between p-3 rounded-lg ${
+                isReady ? 'bg-green-50 border border-green-200' : 'bg-yellow-50 border border-yellow-200'
+              }`}>
+                <div className="flex items-center gap-2">
+                  {isReady ? (
+                    <UserCheck size={20} className="text-green-600" />
+                  ) : (
+                    <UserX size={20} className="text-yellow-600" />
+                  )}
+                  <span className={`font-medium ${
+                    isReady ? 'text-green-800' : 'text-yellow-800'
+                  }`}>
+                    {networkState.isHost ? 'あなた (ホスト)' : 'あなた'}
+                  </span>
+                </div>
+                <button
+                  onClick={toggleReady}
+                  className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                    isReady 
+                      ? 'bg-green-600 text-white hover:bg-green-700' 
+                      : 'bg-yellow-600 text-white hover:bg-yellow-700'
+                  }`}
+                >
+                  {isReady ? '準備完了' : '準備中'}
+                </button>
               </div>
               
               {networkState.opponent ? (
-                <div className="flex items-center justify-between p-2 bg-green-50 rounded">
-                  <span className="font-medium text-green-800">
-                    {networkState.opponent.name}
-                  </span>
-                  <span className="text-sm text-green-600">
-                    {networkState.opponent.connected ? '接続中' : '切断中'}
-                  </span>
+                <div className={`flex items-center justify-between p-3 rounded-lg ${
+                  networkState.opponent.ready 
+                    ? 'bg-green-50 border border-green-200' 
+                    : 'bg-yellow-50 border border-yellow-200'
+                }`}>
+                  <div className="flex items-center gap-2">
+                    {networkState.opponent.ready ? (
+                      <UserCheck size={20} className="text-green-600" />
+                    ) : (
+                      <UserX size={20} className="text-yellow-600" />
+                    )}
+                    <span className={`font-medium ${
+                      networkState.opponent.ready ? 'text-green-800' : 'text-yellow-800'
+                    }`}>
+                      {networkState.opponent.name}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm ${
+                      networkState.opponent.ready ? 'text-green-600' : 'text-yellow-600'
+                    }`}>
+                      {networkState.opponent.ready ? '準備完了' : '準備中'}
+                    </span>
+                    <div className={`w-2 h-2 rounded-full ${
+                      networkState.opponent.connected ? 'bg-green-500' : 'bg-red-500'
+                    }`}></div>
+                  </div>
                 </div>
               ) : (
-                <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
                   <span className="text-gray-600">対戦相手を待機中...</span>
                   <div className="animate-pulse w-2 h-2 bg-gray-400 rounded-full"></div>
                 </div>
@@ -328,14 +396,27 @@ const NetworkGameLobby: React.FC<NetworkGameLobbyProps> = ({ onClose, onStartNet
             </div>
 
             {/* ゲーム開始ボタン */}
-            {networkState.isHost && networkState.opponent && (
+            {networkState.isHost && (
               <button
                 onClick={handleStartGame}
-                className="w-full py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                disabled={!canStartGame}
+                className={`w-full py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
+                  canStartGame
+                    ? 'bg-green-600 text-white hover:bg-green-700'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
               >
                 <Play size={20} />
-                ゲーム開始
+                {canStartGame ? 'ゲーム開始' : '両プレイヤーの準備完了を待機中'}
               </button>
+            )}
+
+            {!networkState.isHost && networkState.opponent && (
+              <div className="text-center p-3 bg-blue-50 rounded-lg">
+                <p className="text-blue-700 text-sm">
+                  ホストがゲームを開始するまでお待ちください
+                </p>
+              </div>
             )}
 
             <button
