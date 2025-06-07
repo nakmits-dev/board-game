@@ -25,12 +25,14 @@ interface SimpleRoom {
     ready: boolean;
     connected: boolean;
     lastSeen: number;
+    userId?: string; // デバッグ用
   };
   guest?: {
     name: string;
     ready: boolean;
     connected: boolean;
     lastSeen: number;
+    userId?: string; // デバッグ用
   };
   status: 'waiting' | 'playing' | 'finished';
   moves: GameMove[];
@@ -65,6 +67,20 @@ export const useSimpleGameSync = () => {
   const processedMoves = useRef<Set<string>>(new Set());
   const heartbeatInterval = useRef<NodeJS.Timeout | null>(null);
 
+  // デバッグ用: 強制的に新しいユーザーIDを生成
+  const forceNewUser = useCallback(async () => {
+    console.log('🔧 デバッグ: 新しいユーザーIDを強制生成');
+    try {
+      await auth.signOut();
+      const result = await signInAnonymously(auth);
+      console.log('🔧 新しいユーザーID:', result.user.uid);
+      return result.user.uid;
+    } catch (error) {
+      console.error('🔧 ユーザー生成エラー:', error);
+      throw error;
+    }
+  }, []);
+
   // Firebase認証
   useEffect(() => {
     console.log('Firebase認証初期化開始');
@@ -75,7 +91,7 @@ export const useSimpleGameSync = () => {
       if (user) {
         setUser(user);
         setGameState(prev => ({ ...prev, connectionStatus: 'connected' }));
-        console.log('Firebase接続成功');
+        console.log('Firebase接続成功 - ユーザーID:', user.uid);
       } else {
         console.log('匿名認証を開始...');
         setGameState(prev => ({ ...prev, connectionStatus: 'connecting' }));
@@ -97,7 +113,7 @@ export const useSimpleGameSync = () => {
 
   // ハートビート機能
   const startHeartbeat = useCallback((roomId: string, isHost: boolean) => {
-    console.log('ハートビート開始:', { roomId, isHost });
+    console.log('ハートビート開始:', { roomId, isHost, userId: user?.uid });
     
     if (heartbeatInterval.current) {
       clearInterval(heartbeatInterval.current);
@@ -108,9 +124,10 @@ export const useSimpleGameSync = () => {
         const path = isHost ? `simple_rooms/${roomId}/host` : `simple_rooms/${roomId}/guest`;
         await update(ref(database, path), {
           connected: true,
-          lastSeen: Date.now()
+          lastSeen: Date.now(),
+          userId: user?.uid // デバッグ用
         });
-        console.log('ハートビート送信成功');
+        console.log('ハートビート送信成功 - ユーザーID:', user?.uid);
       } catch (error) {
         console.error('ハートビート送信失敗:', error);
       }
@@ -121,7 +138,7 @@ export const useSimpleGameSync = () => {
     
     // 5秒間隔でハートビート
     heartbeatInterval.current = setInterval(updatePresence, 5000);
-  }, []);
+  }, [user]);
 
   const stopHeartbeat = useCallback(() => {
     console.log('ハートビート停止');
@@ -151,7 +168,8 @@ export const useSimpleGameSync = () => {
           name: playerName,
           ready: true,
           connected: true,
-          lastSeen: Date.now()
+          lastSeen: Date.now(),
+          userId: user.uid // デバッグ用
         },
         status: 'waiting',
         moves: [],
@@ -209,6 +227,12 @@ export const useSimpleGameSync = () => {
         throw new Error('ルームは満員です');
       }
 
+      // 同じユーザーIDでの重複参加をチェック（デバッグ用）
+      if (roomData.host.userId === user.uid) {
+        console.warn('🔧 デバッグ警告: 同じユーザーIDでの参加を検出:', user.uid);
+        console.warn('🔧 これは同じブラウザの異なるタブからの接続の可能性があります');
+      }
+
       console.log('ルームデータ確認:', roomData);
 
       await update(roomRef, {
@@ -216,7 +240,8 @@ export const useSimpleGameSync = () => {
           name: playerName,
           ready: true,
           connected: true,
-          lastSeen: Date.now()
+          lastSeen: Date.now(),
+          userId: user.uid // デバッグ用
         }
       });
 
@@ -280,6 +305,7 @@ export const useSimpleGameSync = () => {
 
     console.log('手を送信:', moveData);
     console.log('送信先ルーム:', gameState.roomId);
+    console.log('送信者ユーザーID:', user?.uid);
 
     try {
       const movesRef = ref(database, `simple_rooms/${gameState.roomId}/moves`);
@@ -291,11 +317,11 @@ export const useSimpleGameSync = () => {
       console.error('エラーメッセージ:', error.message);
       throw new Error(`手の送信に失敗しました: ${error.message}`);
     }
-  }, [gameState.roomId, gameState.isHost]);
+  }, [gameState.roomId, gameState.isHost, user]);
 
   // ルーム監視を開始する関数
   const startRoomMonitoring = useCallback((roomId: string) => {
-    console.log('ルーム監視開始:', roomId);
+    console.log('ルーム監視開始:', roomId, 'ユーザーID:', user?.uid);
 
     // 既存の監視を停止
     if (roomUnsubscribe.current) {
@@ -323,6 +349,9 @@ export const useSimpleGameSync = () => {
       }
 
       console.log('ルームデータ更新:', roomData);
+      console.log('🔧 デバッグ - ホストユーザーID:', roomData.host.userId);
+      console.log('🔧 デバッグ - ゲストユーザーID:', roomData.guest?.userId);
+      console.log('🔧 デバッグ - 現在のユーザーID:', user?.uid);
 
       // 対戦相手情報を更新（接続状態も含む）
       const opponent = gameState.isHost ? roomData.guest : { 
@@ -386,7 +415,7 @@ export const useSimpleGameSync = () => {
 
     roomUnsubscribe.current = unsubscribe;
     return unsubscribe;
-  }, [gameState.isHost, gameState.status, stopHeartbeat]);
+  }, [gameState.isHost, gameState.status, stopHeartbeat, user]);
 
   // ルーム監視（gameState.roomIdの変化を監視）
   useEffect(() => {
@@ -415,7 +444,7 @@ export const useSimpleGameSync = () => {
   const leaveRoom = useCallback(async () => {
     if (!gameState.roomId) return;
 
-    console.log('ルーム退出:', gameState.roomId);
+    console.log('ルーム退出:', gameState.roomId, 'ユーザーID:', user?.uid);
 
     // ハートビート停止
     stopHeartbeat();
@@ -461,11 +490,11 @@ export const useSimpleGameSync = () => {
     });
 
     console.log('ルーム退出完了');
-  }, [gameState.roomId, gameState.isHost, gameState.connectionStatus, stopHeartbeat]);
+  }, [gameState.roomId, gameState.isHost, gameState.connectionStatus, stopHeartbeat, user]);
 
   // 外部からルーム監視を開始する関数を追加
   const connectToRoom = useCallback((roomId: string, isHost: boolean, playerName: string) => {
-    console.log('外部からルーム接続:', { roomId, isHost, playerName });
+    console.log('外部からルーム接続:', { roomId, isHost, playerName, userId: user?.uid });
     
     setGameState(prev => ({
       ...prev,
@@ -477,7 +506,7 @@ export const useSimpleGameSync = () => {
 
     // ハートビート開始
     startHeartbeat(roomId, isHost);
-  }, [startHeartbeat]);
+  }, [startHeartbeat, user]);
 
   // コンポーネントアンマウント時のクリーンアップ
   useEffect(() => {
@@ -507,9 +536,11 @@ export const useSimpleGameSync = () => {
     startGame,
     sendMove,
     leaveRoom,
-    connectToRoom, // 新しく追加
+    connectToRoom,
     setOnMove,
     setOnGameStart,
-    isConnected: gameState.connectionStatus === 'connected'
+    forceNewUser, // デバッグ用
+    isConnected: gameState.connectionStatus === 'connected',
+    currentUserId: user?.uid // デバッグ用
   };
 };
