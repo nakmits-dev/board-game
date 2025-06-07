@@ -8,18 +8,16 @@ import CrystalDisplay from './components/CrystalDisplay';
 import DeckBuilder from './components/DeckBuilder';
 import ShareButton from './components/ShareButton';
 import Tutorial from './components/Tutorial';
-import GameHistory from './components/GameHistory';
 import { useGame } from './context/GameContext';
 import { MonsterType } from './types/gameTypes';
 import { masterData } from './data/cardData';
-import { HelpCircle, Play, History } from 'lucide-react';
+import { HelpCircle, Play } from 'lucide-react';
 
 const GameContent = () => {
   const { state, dispatch, savedDecks } = useGame();
   const { gamePhase } = state;
   const [showDeckBuilder, setShowDeckBuilder] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
 
   const handleStartGame = (
     playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] },
@@ -87,14 +85,6 @@ const GameContent = () => {
                 <HelpCircle size={16} />
                 <span className="hidden sm:inline">遊び方</span>
               </button>
-              <button
-                onClick={() => setShowHistory(true)}
-                className="flex items-center gap-2 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
-                title="棋譜・履歴を見る"
-              >
-                <History size={16} />
-                <span className="hidden sm:inline">棋譜</span>
-              </button>
               <ShareButton />
             </div>
           </div>
@@ -156,11 +146,6 @@ const GameContent = () => {
       {/* チュートリアル */}
       {showTutorial && (
         <Tutorial onClose={() => setShowTutorial(false)} />
-      )}
-
-      {/* 棋譜・履歴 */}
-      {showHistory && (
-        <GameHistory onClose={() => setShowHistory(false)} />
       )}
     </div>
   );

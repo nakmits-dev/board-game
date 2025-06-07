@@ -86,48 +86,13 @@ export interface AnimationSequence {
   type: 'move' | 'attack' | 'damage' | 'heal' | 'ko' | 'crystal-gain' | 'turn-start' | 'evolve';
 }
 
-// 棋譜関連の型定義
-export interface GameMove {
-  id: string;
-  turn: number;
-  team: Team;
-  type: 'move' | 'attack' | 'skill' | 'end-turn';
-  characterId: string;
-  characterName: string;
-  from?: Position;
-  to?: Position;
-  targetId?: string;
-  targetName?: string;
-  skillId?: string;
-  skillName?: string;
-  damage?: number;
-  healing?: number;
-  timestamp: number;
-  crystalCost?: number;
-  evolution?: {
-    from: string;
-    to: string;
-  };
-}
-
-export interface GameRecord {
-  id: string;
-  startTime: number;
-  endTime?: number;
-  winner?: Team;
-  playerDeck: { master: keyof typeof import('../data/cardData').masterData; monsters: MonsterType[] };
-  enemyDeck: { master: keyof typeof import('../data/cardData').masterData; monsters: MonsterType[] };
-  moves: GameMove[];
-  finalState?: GameState;
-}
-
 export interface GameState {
   characters: Character[];
   currentTurn: number;
   selectedCharacter: Character | null;
   selectedAction: ActionType;
   selectedSkill: Skill | null;
-  gamePhase: 'preparation' | 'action' | 'result' | 'replay';
+  gamePhase: 'preparation' | 'action' | 'result';
   turnOrder: Character[];
   actionPoints: number;
   maxActionPoints: number;
@@ -141,10 +106,7 @@ export interface GameState {
     player?: { master: keyof typeof import('../data/cardData').masterData; monsters: MonsterType[] };
     enemy?: { master: keyof typeof import('../data/cardData').masterData; monsters: MonsterType[] };
   };
-  // 棋譜関連
-  gameRecord?: GameRecord;
-  moveHistory: GameMove[];
-  replayMode: boolean;
-  replayIndex: number;
+  // 待った機能用
+  previousState?: GameState;
   canUndo: boolean;
 }

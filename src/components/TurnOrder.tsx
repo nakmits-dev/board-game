@@ -1,12 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useGame } from '../context/GameContext';
-import { Pause, Play, Flag } from 'lucide-react';
+import { Pause, Play, Flag, RotateCcw } from 'lucide-react';
 
 const TURN_DURATION = 30; // 30 seconds per turn
 
 const TurnOrder: React.FC = () => {
   const { state, dispatch } = useGame();
-  const { currentTeam, gamePhase, animationTarget } = state;
+  const { currentTeam, gamePhase, animationTarget, canUndo } = state;
   const [timeLeft, setTimeLeft] = useState(TURN_DURATION);
   const [isPaused, setIsPaused] = useState(true); // デフォルトでストップ状態
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
@@ -67,6 +67,13 @@ const TurnOrder: React.FC = () => {
       setShowSurrenderConfirm(true);
     }
   };
+
+  const handleUndo = () => {
+    if (canUndo) {
+      dispatch({ type: 'UNDO_MOVE' });
+      setShowSurrenderConfirm(false);
+    }
+  };
   
   return (
     <div className="bg-white p-4 rounded-xl shadow-lg border border-blue-100">
@@ -99,6 +106,23 @@ const TurnOrder: React.FC = () => {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
+          {/* 待ったボタン */}
+          <button
+            onClick={handleUndo}
+            disabled={!canUndo}
+            className={`px-3 py-2 font-bold rounded transform transition text-sm sm:text-base ${
+              canUndo
+                ? 'bg-orange-600 hover:bg-orange-700 text-white hover:scale-105'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            }`}
+            title="1手戻る"
+          >
+            <div className="flex items-center gap-1.5">
+              <RotateCcw size={16} />
+              <span>待った</span>
+            </div>
+          </button>
+
           <button
             onClick={handleSurrender}
             className={`px-3 py-2 font-bold rounded transform transition text-sm sm:text-base ${

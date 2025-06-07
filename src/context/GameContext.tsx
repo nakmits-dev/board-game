@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, ReactNode, useEffect } from 'react';
-import { GameState, Character, Position, ActionType, Skill, Team, AnimationSequence, MonsterType, GameMove, GameRecord } from '../types/gameTypes';
+import { GameState, Character, Position, ActionType, Skill, Team, AnimationSequence, MonsterType } from '../types/gameTypes';
 import { createInitialGameState, getEvolvedMonsterType, monsterData } from '../data/initialGameState';
 import { skillData } from '../data/skillData';
 import { masterData } from '../data/cardData';
@@ -22,12 +22,7 @@ type GameAction =
   | { type: 'SET_PENDING_ANIMATIONS'; animations: AnimationSequence[] }
   | { type: 'REMOVE_DEFEATED_CHARACTERS'; targetId: string }
   | { type: 'EVOLVE_CHARACTER'; characterId: string }
-  | { type: 'UNDO_MOVE' }
-  | { type: 'START_REPLAY' }
-  | { type: 'STOP_REPLAY' }
-  | { type: 'REPLAY_NEXT_MOVE' }
-  | { type: 'REPLAY_PREVIOUS_MOVE' }
-  | { type: 'LOAD_GAME_RECORD'; gameRecord: GameRecord };
+  | { type: 'UNDO_MOVE' };
 
 interface GameContextType {
   state: GameState;
@@ -47,10 +42,6 @@ const GameContext = createContext<GameContextType | undefined>(undefined);
 const MAX_CRYSTALS = 8;
 const ANIMATION_DURATION = 300;
 
-const generateMoveId = (): string => {
-  return Math.random().toString(36).substring(2, 9);
-};
-
 const checkMasterStatus = (characters: Character[]): { playerMasterAlive: boolean; enemyMasterAlive: boolean } => {
   const playerMaster = characters.find(char => char.team === 'player' && char.type === 'master');
   const enemyMaster = characters.find(char => char.team === 'enemy' && char.type === 'master');
@@ -61,45 +52,18 @@ const checkMasterStatus = (characters: Character[]): { playerMasterAlive: boolea
   };
 };
 
-const createGameMove = (
-  type: GameMove['type'],
-  character: Character,
-  turn: number,
-  team: Team,
-  options: {
-    from?: Position;
-    to?: Position;
-    targetId?: string;
-    targetName?: string;
-    skillId?: string;
-    skillName?: string;
-    damage?: number;
-    healing?: number;
-    crystalCost?: number;
-    evolution?: { from: string; to: string };
-  } = {}
-): GameMove => {
-  return {
-    id: generateMoveId(),
-    turn,
-    team,
-    type,
-    characterId: character.id,
-    characterName: character.name,
-    timestamp: Date.now(),
-    ...options
-  };
-};
-
-const deepCloneGameState = (state: GameState): GameState => {
+// 状態の深いコピーを作成する関数
+const deepCloneState = (state: GameState): GameState => {
   return JSON.parse(JSON.stringify({
     ...state,
+    // アニメーション関連は除外
     selectedCharacter: null,
     selectedAction: null,
     selectedSkill: null,
     pendingAction: { type: null },
     animationTarget: null,
-    pendingAnimations: []
+    pendingAnimations: [],
+    previousState: undefined // 無限ループを防ぐ
   }));
 };
 
@@ -148,7 +112,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'SET_PENDING_ACTION': {
-      if (state.gamePhase === 'preparation' || state.replayMode) return state;
+      if (state.gamePhase === 'preparation') return state;
       
       if (!state.selectedCharacter || state.selectedCharacter.team !== state.currentTeam) {
         return state;
@@ -175,24 +139,20 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'CONFIRM_ACTION': {
-      if (!state.selectedCharacter || !state.pendingAction.type || state.replayMode) return state;
+      if (!state.selectedCharacter || !state.pendingAction.type) return state;
       
       if (state.selectedCharacter.team !== state.currentTeam) {
         return state;
       }
 
+      // 現在の状態を保存（待った用）
+      const previousState = deepCloneState(state);
+
       let updatedCharacters = [...state.characters];
       let animations: AnimationSequence[] = [];
-      let newMoves = [...state.moveHistory];
 
       if (state.pendingAction.type === 'move' && state.pendingAction.position) {
         animations.push({ id: state.selectedCharacter.id, type: 'move' });
-        
-        const move = createGameMove('move', state.selectedCharacter, state.currentTurn, state.currentTeam, {
-          from: state.selectedCharacter.position,
-          to: state.pendingAction.position
-        });
-        newMoves.push(move);
         
         updatedCharacters = updatedCharacters.map(character => 
           character.id === state.selectedCharacter!.id
@@ -215,13 +175,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
           const damage = Math.max(0, state.selectedCharacter.attack - target.defense);
           const newHp = Math.max(0, target.hp - damage);
-
-          const move = createGameMove('attack', state.selectedCharacter, state.currentTurn, state.currentTeam, {
-            targetId: target.id,
-            targetName: target.name,
-            damage
-          });
-          newMoves.push(move);
 
           if (newHp === 0) {
             animations.push(
@@ -268,7 +221,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         pendingAction: { type: null },
         gamePhase: (!playerMasterAlive || !enemyMasterAlive) ? 'result' : 'action',
         pendingAnimations: animations,
-        moveHistory: newMoves,
+        previousState,
         canUndo: true,
       };
     }
@@ -307,7 +260,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'SELECT_SKILL': {
-      if (!state.selectedCharacter || state.selectedCharacter.team !== state.currentTeam || state.replayMode) {
+      if (!state.selectedCharacter || state.selectedCharacter.team !== state.currentTeam) {
         return state;
       }
 
@@ -325,14 +278,16 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'USE_SKILL': {
-      if (!state.selectedCharacter || !state.selectedSkill || state.replayMode) return state;
+      if (!state.selectedCharacter || !state.selectedSkill) return state;
+      
+      // 現在の状態を保存（待った用）
+      const previousState = deepCloneState(state);
       
       let updatedCharacters = [...state.characters];
       let animations: AnimationSequence[] = [];
       const target = updatedCharacters.find(char => char.id === action.targetId);
       let playerCrystals = state.playerCrystals;
       let enemyCrystals = state.enemyCrystals;
-      let newMoves = [...state.moveHistory];
       
       if (!target) return state;
 
@@ -342,22 +297,12 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         enemyCrystals -= state.selectedSkill.crystalCost;
       }
 
-      const move = createGameMove('skill', state.selectedCharacter, state.currentTurn, state.currentTeam, {
-        targetId: target.id,
-        targetName: target.name,
-        skillId: state.selectedSkill.id,
-        skillName: state.selectedSkill.name,
-        crystalCost: state.selectedSkill.crystalCost
-      });
-
       if (state.selectedSkill.healing) {
         const healing = state.selectedSkill.healing;
         animations.push(
           { id: state.selectedCharacter.id, type: 'attack' },
           { id: target.id, type: 'heal' }
         );
-
-        move.healing = healing;
 
         updatedCharacters = updatedCharacters.map(character => {
           if (character.id === target.id) {
@@ -377,20 +322,16 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         );
 
         let newHp: number;
-        let damage: number;
         
         // 呪いスキルの場合は防御力を無視してHPを直接1減らす
         if (state.selectedSkill.ignoreDefense) {
           newHp = Math.max(0, target.hp - 1);
-          damage = 1;
         } else {
           // 通常のダメージ計算
           const totalDamage = state.selectedCharacter.attack + state.selectedSkill.damage;
-          damage = Math.max(0, totalDamage - target.defense);
+          const damage = Math.max(0, totalDamage - target.defense);
           newHp = Math.max(0, target.hp - damage);
         }
-
-        move.damage = damage;
 
         if (newHp === 0) {
           animations.push(
@@ -415,15 +356,9 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           const evolvedType = getEvolvedMonsterType(target.monsterType);
           if (evolvedType) {
             animations.push({ id: target.id, type: 'evolve' });
-            move.evolution = {
-              from: target.name,
-              to: monsterData[evolvedType].name
-            };
           }
         }
       }
-
-      newMoves.push(move);
 
       updatedCharacters = updatedCharacters.map(character => {
         if (character.id === state.selectedCharacter!.id) {
@@ -448,7 +383,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         pendingAction: { type: null },
         gamePhase: (!playerMasterAlive || !enemyMasterAlive) ? 'result' : 'action',
         pendingAnimations: animations,
-        moveHistory: newMoves,
+        previousState,
         canUndo: true,
       };
     }
@@ -492,7 +427,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'END_TURN': {
-      if (state.gamePhase === 'preparation' || state.replayMode) return state;
+      if (state.gamePhase === 'preparation') return state;
+      
+      // 現在の状態を保存（待った用）
+      const previousState = deepCloneState(state);
       
       const nextTeam: Team = state.currentTeam === 'player' ? 'enemy' : 'player';
       
@@ -524,13 +462,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         animations.push({ id: 'enemy-crystal', type: 'crystal-gain' });
       }
 
-      // ターン終了の記録
-      const endTurnMove = createGameMove('end-turn', 
-        state.characters.find(char => char.team === state.currentTeam)!,
-        state.currentTurn,
-        state.currentTeam
-      );
-
       return {
         ...state,
         characters: refreshedCharacters,
@@ -544,7 +475,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         enemyCrystals,
         animationTarget: null,
         pendingAnimations: animations,
-        moveHistory: [...state.moveHistory, endTurnMove],
+        previousState,
         canUndo: true,
       };
     }
@@ -554,15 +485,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       
       // 新しいゲーム状態を作成（編成内容を反映）
       const newState = createInitialGameState(action.playerDeck, action.enemyDeck);
-      
-      // ゲーム記録を初期化
-      const gameRecord: GameRecord = {
-        id: generateMoveId(),
-        startTime: Date.now(),
-        playerDeck: action.playerDeck || { master: 'blue', monsters: ['bear', 'wolf', 'golem'] },
-        enemyDeck: action.enemyDeck || { master: 'red', monsters: ['bear', 'wolf', 'golem'] },
-        moves: []
-      };
       
       return {
         ...newState,
@@ -577,10 +499,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           player: action.playerDeck,
           enemy: action.enemyDeck
         },
-        gameRecord,
-        moveHistory: [],
-        replayMode: false,
-        replayIndex: -1,
         canUndo: false,
       };
     }
@@ -617,113 +535,18 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       return {
         ...newState,
         savedDecks: state.savedDecks,
-        moveHistory: [],
-        replayMode: false,
-        replayIndex: -1,
         canUndo: false,
       };
     }
 
     case 'UNDO_MOVE': {
-      if (!state.canUndo || state.moveHistory.length === 0 || state.replayMode) return state;
-
-      // 最後の手を取り除く
-      const newMoveHistory = [...state.moveHistory];
-      newMoveHistory.pop();
-
-      // ゲーム開始時の状態から再構築
-      let reconstructedState = createInitialGameState(state.savedDecks?.player, state.savedDecks?.enemy);
-      reconstructedState = {
-        ...reconstructedState,
-        gamePhase: 'action',
-        currentTeam: 'player',
-        characters: reconstructedState.characters.map(char => ({
-          ...char,
-          remainingActions: char.team === 'player' ? char.actions : 0,
-        })),
-        savedDecks: state.savedDecks,
-        moveHistory: newMoveHistory,
-        replayMode: false,
-        replayIndex: -1,
-        canUndo: newMoveHistory.length > 0,
-      };
-
-      // 手順を再実行（簡略化版）
-      // 実際の実装では、各手順を正確に再現する必要があります
-      
-      return reconstructedState;
-    }
-
-    case 'START_REPLAY': {
-      if (state.moveHistory.length === 0) return state;
-
-      // ゲーム開始時の状態に戻す
-      const initialState = createInitialGameState(state.savedDecks?.player, state.savedDecks?.enemy);
+      // 前の状態に戻る
+      if (!state.canUndo || !state.previousState) return state;
       
       return {
-        ...state,
-        ...initialState,
-        gamePhase: 'replay',
-        replayMode: true,
-        replayIndex: -1,
-        savedDecks: state.savedDecks,
-        moveHistory: state.moveHistory,
-        gameRecord: state.gameRecord,
-      };
-    }
-
-    case 'STOP_REPLAY': {
-      return {
-        ...state,
-        gamePhase: 'action',
-        replayMode: false,
-        replayIndex: -1,
-      };
-    }
-
-    case 'REPLAY_NEXT_MOVE': {
-      if (!state.replayMode || state.replayIndex >= state.moveHistory.length - 1) return state;
-
-      const nextIndex = state.replayIndex + 1;
-      // ここで実際の手順を再現する処理を実装
-      // 簡略化のため、インデックスのみ更新
-
-      return {
-        ...state,
-        replayIndex: nextIndex,
-      };
-    }
-
-    case 'REPLAY_PREVIOUS_MOVE': {
-      if (!state.replayMode || state.replayIndex <= 0) return state;
-
-      const prevIndex = state.replayIndex - 1;
-      // ここで前の状態に戻す処理を実装
-
-      return {
-        ...state,
-        replayIndex: prevIndex,
-      };
-    }
-
-    case 'LOAD_GAME_RECORD': {
-      const { gameRecord } = action;
-      
-      // ゲーム記録から初期状態を復元
-      const initialState = createInitialGameState(gameRecord.playerDeck, gameRecord.enemyDeck);
-      
-      return {
-        ...initialState,
-        gamePhase: 'preparation',
-        savedDecks: {
-          player: gameRecord.playerDeck,
-          enemy: gameRecord.enemyDeck
-        },
-        gameRecord,
-        moveHistory: gameRecord.moves,
-        replayMode: false,
-        replayIndex: -1,
-        canUndo: false,
+        ...state.previousState,
+        savedDecks: state.savedDecks, // 保存されたデッキは維持
+        canUndo: false, // 連続での待ったを防ぐ
       };
     }
 
@@ -735,9 +558,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(gameReducer, {
     ...createInitialGameState(),
-    moveHistory: [],
-    replayMode: false,
-    replayIndex: -1,
     canUndo: false,
   });
   const [savedDecks, setSavedDecks] = React.useState<{
@@ -788,7 +608,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const isValidMove = (position: Position): boolean => {
     if (!state.selectedCharacter || state.selectedCharacter.remainingActions <= 0) return false;
-    if (state.gamePhase === 'preparation' || state.replayMode) return false;
+    if (state.gamePhase === 'preparation') return false;
     if (state.selectedCharacter.team !== state.currentTeam) return false;
 
     const { x: srcX, y: srcY } = state.selectedCharacter.position;
@@ -809,7 +629,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const isValidAttack = (targetId: string): boolean => {
     if (!state.selectedCharacter || state.selectedCharacter.remainingActions <= 0) return false;
-    if (state.gamePhase === 'preparation' || state.replayMode) return false;
+    if (state.gamePhase === 'preparation') return false;
     if (state.selectedCharacter.team !== state.currentTeam) return false;
 
     const target = state.characters.find(char => char.id === targetId);
@@ -826,7 +646,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const isValidSkillTarget = (targetId: string): boolean => {
     if (!state.selectedCharacter || !state.selectedSkill || state.selectedCharacter.remainingActions <= 0) return false;
-    if (state.gamePhase === 'preparation' || state.replayMode) return false;
+    if (state.gamePhase === 'preparation') return false;
     if (state.selectedCharacter.team !== state.currentTeam) return false;
 
     const target = state.characters.find(char => char.id === targetId);
