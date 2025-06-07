@@ -269,10 +269,11 @@ const Tutorial: React.FC<TutorialProps> = ({ onClose }) => {
           
           <div className="space-y-3">
             <div className="bg-green-50 p-3 rounded-lg">
-              <h4 className="font-bold text-green-800 mb-2">キャラクター操作</h4>
-              <div className="space-y-1 text-sm">
-                <p><strong>キャラクター詳細:</strong> キャラクターをタップ</p>
-                <p><strong>移動・攻撃:</strong> 移動先や攻撃対象をタップ</p>
+              <h4 className="font-bold text-green-800 mb-2">移動・攻撃操作</h4>
+              <div className="space-y-2 text-sm">
+                <p><strong>キャラクター選択:</strong> キャラクターをタップ</p>
+                <p><strong>移動・攻撃:</strong> キャラクターを長押し→ドラッグで移動先や攻撃対象へ</p>
+                <p className="text-green-600 font-medium">💡 長押しでドラッグ操作が開始されます</p>
               </div>
             </div>
             
@@ -289,7 +290,7 @@ const Tutorial: React.FC<TutorialProps> = ({ onClose }) => {
             <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
               <h4 className="font-bold text-yellow-800 mb-2">⚠️ 重要なポイント</h4>
               <div className="space-y-1 text-sm text-yellow-700">
-                <p>• スマホではキャラクターカードがモーダル表示されます</p>
+                <p>• 移動・攻撃は長押し→ドラッグで操作</p>
                 <p>• スキルはモーダル内から選択してください</p>
                 <p>• 対戦中は画面スクロールが制限されます</p>
               </div>
@@ -360,7 +361,7 @@ const Tutorial: React.FC<TutorialProps> = ({ onClose }) => {
               <strong>困ったときは：</strong>
             </p>
             <div className="space-y-1 text-sm text-gray-600">
-              <p>• ゲーム画面右上の「？」ボタンでいつでもチュートリアルを確認</p>
+              <p>• ゲーム画面右上の「遊び方」ボタンでいつでもチュートリアルを確認</p>
               <p>• 一時停止ボタンで時間を止めて考えることができます</p>
               <p>• 最初は簡単な編成から始めてみましょう</p>
             </div>
