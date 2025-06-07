@@ -87,7 +87,7 @@ export const monsterData: Record<string, MonsterCard> = {
   },
   'whale': {
     name: 'ホエール',
-    hp: 5,
+    hp: 4,
     attack: 1,
     defense: 0,
     actions: 1,
@@ -98,7 +98,7 @@ export const monsterData: Record<string, MonsterCard> = {
   },
   'king-whale': {
     name: 'キングホエール',
-    hp: 5,
+    hp: 4,
     attack: 2,
     defense: 0,
     actions: 1,
