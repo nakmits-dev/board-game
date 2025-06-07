@@ -25,19 +25,6 @@ export const useFirebaseGame = () => {
   const unsubscribeRoom = useRef<(() => void) | null>(null);
   const unsubscribeActions = useRef<(() => void) | null>(null);
   const gameStartedRef = useRef(false);
-  
-  // Add refs to track current values for sendAction
-  const networkStateRef = useRef(networkState);
-  const userRef = useRef(user);
-
-  // Keep refs updated with current values
-  useEffect(() => {
-    networkStateRef.current = networkState;
-  }, [networkState]);
-
-  useEffect(() => {
-    userRef.current = user;
-  }, [user]);
 
   // Firebase認証
   useEffect(() => {
@@ -111,6 +98,7 @@ export const useFirebaseGame = () => {
     await set(newRoomRef, roomData);
     console.log('ルーム作成完了:', roomId);
 
+    // 状態を即座に更新
     setNetworkState(prev => ({
       ...prev,
       isOnline: true,
@@ -171,6 +159,7 @@ export const useFirebaseGame = () => {
 
           console.log('ルーム参加完了:', roomId);
 
+          // 状態を即座に更新
           setNetworkState(prev => ({
             ...prev,
             isOnline: true,
@@ -227,41 +216,38 @@ export const useFirebaseGame = () => {
     }
   }, [networkState.roomId, networkState.isHost]);
 
-  // アクション送信 - より堅牢なエラーハンドリング
+  // アクション送信 - 現在の状態を直接参照
   const sendAction = useCallback(async (action: Omit<GameAction, 'id' | 'timestamp' | 'playerId'>) => {
-    const currentNetworkState = networkStateRef.current;
-    const currentUser = userRef.current;
-    
     console.log('sendAction呼び出し:', {
       actionType: action.type,
-      roomId: currentNetworkState.roomId,
-      userId: currentUser?.uid,
-      isOnline: currentNetworkState.isOnline,
-      connectionStatus: currentNetworkState.connectionStatus,
-      isHost: currentNetworkState.isHost
+      roomId: networkState.roomId,
+      userId: user?.uid,
+      isOnline: networkState.isOnline,
+      connectionStatus: networkState.connectionStatus,
+      isHost: networkState.isHost
     });
     
-    // より詳細なエラーチェック
-    if (!currentNetworkState.roomId) {
+    // 詳細なエラーチェック
+    if (!networkState.roomId) {
       console.error('アクション送信失敗: ルームIDが未設定', {
-        networkState: currentNetworkState,
-        user: currentUser
+        networkState,
+        user
       });
       throw new Error('ルームIDが設定されていません');
     }
     
-    if (!currentUser?.uid) {
+    if (!user?.uid) {
       console.error('アクション送信失敗: ユーザーが未設定', {
-        networkState: currentNetworkState,
-        user: currentUser
+        networkState,
+        user
       });
       throw new Error('ユーザーが認証されていません');
     }
 
     // オンライン状態のチェック
-    if (!currentNetworkState.isOnline) {
+    if (!networkState.isOnline) {
       console.error('アクション送信失敗: オフライン状態', {
-        networkState: currentNetworkState
+        networkState
       });
       throw new Error('オフライン状態です');
     }
@@ -271,12 +257,12 @@ export const useFirebaseGame = () => {
         ...action,
         id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         timestamp: Date.now(),
-        playerId: currentUser.uid,
+        playerId: user.uid,
       };
 
       console.log('アクション送信開始:', actionData);
 
-      const actionsRef = ref(database, `rooms/${currentNetworkState.roomId}/actions`);
+      const actionsRef = ref(database, `rooms/${networkState.roomId}/actions`);
       await push(actionsRef, actionData);
       
       console.log('アクション送信完了');
@@ -284,7 +270,7 @@ export const useFirebaseGame = () => {
       console.error('アクション送信に失敗:', error);
       throw error;
     }
-  }, []); // 依存配列を空にして、refを通じて最新の値にアクセス
+  }, [networkState.roomId, networkState.isOnline, user]); // 依存配列に必要な値を追加
 
   // ルーム監視のクリーンアップ
   const cleanupRoomSubscription = useCallback(() => {

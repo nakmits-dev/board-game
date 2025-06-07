@@ -19,18 +19,22 @@ export const NetworkGameProvider: React.FC<NetworkGameProviderProps> = ({ childr
   const { state, dispatch } = useGame();
   const lastProcessedActionId = useRef<string>('');
 
-  // ネットワーク同期コールバックを設定
+  // ネットワーク同期コールバックを設定（ネットワークゲーム開始時に即座に設定）
   useEffect(() => {
-    if (state.isNetworkGame) {
+    if (state.isNetworkGame && state.roomId) {
+      console.log('ネットワーク同期コールバックを設定:', state.roomId);
       const syncCallback = (action: any) => {
         console.log('ネットワークアクション送信:', action);
-        sendAction(action).catch(console.error);
+        sendAction(action).catch((error) => {
+          console.error('ネットワークアクション送信失敗:', error);
+        });
       };
       dispatch({ type: 'SET_NETWORK_SYNC_CALLBACK', callback: syncCallback });
     } else {
+      console.log('ネットワーク同期コールバックをクリア');
       dispatch({ type: 'SET_NETWORK_SYNC_CALLBACK', callback: null });
     }
-  }, [state.isNetworkGame, sendAction, dispatch]);
+  }, [state.isNetworkGame, state.roomId, sendAction, dispatch]);
 
   // アクション受信コールバックを設定
   useEffect(() => {
