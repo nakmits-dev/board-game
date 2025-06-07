@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { GameProvider } from './context/GameContext';
-import { NetworkGameProvider } from './context/NetworkGameContext';
+import { SimpleNetworkProvider } from './context/SimpleNetworkContext';
 import GameBoard from './components/GameBoard';
 import CharacterPanel from './components/CharacterPanel';
 import ActionControls from './components/ActionControls';
@@ -9,7 +9,7 @@ import CrystalDisplay from './components/CrystalDisplay';
 import DeckBuilder from './components/DeckBuilder';
 import ShareButton from './components/ShareButton';
 import Tutorial from './components/Tutorial';
-import NetworkGameLobby from './components/NetworkGameLobby';
+import SimpleNetworkLobby from './components/SimpleNetworkLobby';
 import { useGame } from './context/GameContext';
 import { MonsterType } from './types/gameTypes';
 import { masterData } from './data/cardData';
@@ -196,7 +196,7 @@ const GameContent = () => {
 
       {/* ネットワークゲームロビー */}
       {showNetworkLobby && (
-        <NetworkGameLobby
+        <SimpleNetworkLobby
           onClose={() => setShowNetworkLobby(false)}
           onStartNetworkGame={handleStartNetworkGame}
         />
@@ -208,9 +208,9 @@ const GameContent = () => {
 function App() {
   return (
     <GameProvider>
-      <NetworkGameProvider>
+      <SimpleNetworkProvider>
         <GameContent />
-      </NetworkGameProvider>
+      </SimpleNetworkProvider>
     </GameProvider>
   );
 }
