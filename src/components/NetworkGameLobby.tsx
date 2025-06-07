@@ -12,7 +12,7 @@ interface NetworkGameLobbyProps {
 
 const NetworkGameLobby: React.FC<NetworkGameLobbyProps> = ({ onClose, onStartNetworkGame }) => {
   const { savedDecks } = useGame();
-  const { networkState, createRoom, joinRoom, updateReadyStatus, startGame, leaveRoom, isConnected } = useFirebaseGame();
+  const { networkState, createRoom, joinRoom, updateReadyStatus, startGame, leaveRoom, setOnGameStart, isConnected } = useFirebaseGame();
   
   const [mode, setMode] = useState<'menu' | 'create' | 'join' | 'waiting'>('menu');
   const [playerName, setPlayerName] = useState('プレイヤー');
@@ -24,6 +24,14 @@ const NetworkGameLobby: React.FC<NetworkGameLobbyProps> = ({ onClose, onStartNet
 
   // デッキが設定されているかチェック
   const hasValidDeck = savedDecks.player && savedDecks.enemy;
+
+  // ゲーム開始コールバックを設定
+  useEffect(() => {
+    setOnGameStart((roomId: string, isHost: boolean) => {
+      console.log('ゲーム開始コールバック実行:', { roomId, isHost });
+      onStartNetworkGame(roomId, isHost);
+    });
+  }, [setOnGameStart, onStartNetworkGame]);
 
   // ネットワーク状態の変化を監視
   useEffect(() => {
@@ -104,8 +112,10 @@ const NetworkGameLobby: React.FC<NetworkGameLobbyProps> = ({ onClose, onStartNet
     setError('');
 
     try {
+      console.log('ゲーム開始処理開始');
       await startGame();
-      onStartNetworkGame(networkState.roomId!, networkState.isHost);
+      console.log('ゲーム開始処理完了');
+      // ゲーム開始はFirebaseの監視で検出されるため、ここでは直接コールバックを呼ばない
     } catch (err: any) {
       setError(err.message || 'ゲームの開始に失敗しました');
       console.error('ゲーム開始エラー:', err);

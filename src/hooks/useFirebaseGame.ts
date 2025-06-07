@@ -18,6 +18,7 @@ export const useFirebaseGame = () => {
   });
 
   const [user, setUser] = useState<any>(null);
+  const [gameStartCallback, setGameStartCallback] = useState<((roomId: string, isHost: boolean) => void) | null>(null);
   const roomRef = useRef<any>(null);
   const actionsRef = useRef<any>(null);
   const unsubscribeRoom = useRef<(() => void) | null>(null);
@@ -40,6 +41,11 @@ export const useFirebaseGame = () => {
     });
 
     return unsubscribe;
+  }, []);
+
+  // ゲーム開始コールバックを設定
+  const setOnGameStart = useCallback((callback: (roomId: string, isHost: boolean) => void) => {
+    setGameStartCallback(() => callback);
   }, []);
 
   // ルーム作成
@@ -267,6 +273,18 @@ export const useFirebaseGame = () => {
           connected: opponent.connected,
         } : null,
       }));
+
+      // ゲーム開始の検出
+      if (roomData.status === 'playing' && gameStartCallback) {
+        console.log('ゲーム開始を検出:', {
+          roomId: networkState.roomId,
+          isHost: networkState.isHost,
+          status: roomData.status
+        });
+        
+        // ゲーム開始コールバックを実行
+        gameStartCallback(networkState.roomId!, networkState.isHost);
+      }
     }, (error) => {
       console.error('ルーム監視エラー:', error);
       setNetworkState(prev => ({
@@ -280,7 +298,7 @@ export const useFirebaseGame = () => {
     return () => {
       cleanupRoomSubscription();
     };
-  }, [networkState.roomId, user, cleanupRoomSubscription]);
+  }, [networkState.roomId, user, cleanupRoomSubscription, gameStartCallback, networkState.isHost]);
 
   // アクション監視
   useEffect(() => {
@@ -370,6 +388,9 @@ export const useFirebaseGame = () => {
         gameActions: [],
         lastSyncedTurn: 0,
       });
+
+      // ゲーム開始コールバックもクリア
+      setGameStartCallback(null);
     } catch (error) {
       console.error('ルーム退出に失敗:', error);
     }
@@ -391,6 +412,7 @@ export const useFirebaseGame = () => {
     startGame,
     sendAction,
     leaveRoom,
+    setOnGameStart,
     isConnected: !!user && networkState.connectionStatus === 'connected',
   };
 };
