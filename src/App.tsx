@@ -128,20 +128,7 @@ const GameContent = () => {
       
       <footer className="mt-8 py-6 bg-white border-t border-blue-100">
         <div className="container mx-auto px-4">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-sm text-blue-600">ボードdeモンスターズ &copy; 2025</p>
-            <div className="flex items-center gap-4">
-              <a 
-                href="https://board-game.nakmits.com/" 
-                className="text-sm text-blue-600 hover:text-blue-800 transition-colors"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                公式サイト
-              </a>
-              <ShareButton className="scale-90" />
-            </div>
-          </div>
+          <p className="text-center text-sm text-blue-600">ボードdeモンスターズ &copy; 2025</p>
         </div>
       </footer>
     </div>
