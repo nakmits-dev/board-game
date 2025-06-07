@@ -293,20 +293,18 @@ export const useSimpleGameSync = () => {
     }
   }, [gameState.roomId, gameState.isHost]);
 
-  // ルーム監視
-  useEffect(() => {
-    if (!gameState.roomId) {
-      if (roomUnsubscribe.current) {
-        console.log('ルーム監視停止');
-        roomUnsubscribe.current();
-        roomUnsubscribe.current = null;
-      }
-      return;
+  // ルーム監視を開始する関数
+  const startRoomMonitoring = useCallback((roomId: string) => {
+    console.log('ルーム監視開始:', roomId);
+
+    // 既存の監視を停止
+    if (roomUnsubscribe.current) {
+      console.log('既存のルーム監視を停止');
+      roomUnsubscribe.current();
+      roomUnsubscribe.current = null;
     }
 
-    console.log('ルーム監視開始:', gameState.roomId);
-
-    const roomRef = ref(database, `simple_rooms/${gameState.roomId}`);
+    const roomRef = ref(database, `simple_rooms/${roomId}`);
     
     const unsubscribe = onValue(roomRef, (snapshot) => {
       const roomData = snapshot.val() as SimpleRoom;
@@ -339,6 +337,7 @@ export const useSimpleGameSync = () => {
       // 状態を更新（ルームのstatusを反映）
       setGameState(prev => ({
         ...prev,
+        roomId: roomId, // ルームIDを確実に設定
         opponent: opponent ? {
           name: opponent.name,
           ready: opponent.ready,
@@ -354,7 +353,7 @@ export const useSimpleGameSync = () => {
       if (roomData.status === 'playing' && gameState.status !== 'playing') {
         console.log('ゲーム開始検出');
         if (onGameStartCallback.current) {
-          onGameStartCallback.current(gameState.roomId!, gameState.isHost);
+          onGameStartCallback.current(roomId, gameState.isHost);
         }
       }
 
@@ -386,6 +385,22 @@ export const useSimpleGameSync = () => {
     });
 
     roomUnsubscribe.current = unsubscribe;
+    return unsubscribe;
+  }, [gameState.isHost, gameState.status, stopHeartbeat]);
+
+  // ルーム監視（gameState.roomIdの変化を監視）
+  useEffect(() => {
+    if (!gameState.roomId) {
+      if (roomUnsubscribe.current) {
+        console.log('ルーム監視停止 - ルームIDなし');
+        roomUnsubscribe.current();
+        roomUnsubscribe.current = null;
+      }
+      return;
+    }
+
+    // ルーム監視を開始
+    startRoomMonitoring(gameState.roomId);
 
     return () => {
       if (roomUnsubscribe.current) {
@@ -394,7 +409,7 @@ export const useSimpleGameSync = () => {
         roomUnsubscribe.current = null;
       }
     };
-  }, [gameState.roomId, gameState.isHost, gameState.status, stopHeartbeat]);
+  }, [gameState.roomId, startRoomMonitoring]);
 
   // ルーム退出
   const leaveRoom = useCallback(async () => {
@@ -448,6 +463,22 @@ export const useSimpleGameSync = () => {
     console.log('ルーム退出完了');
   }, [gameState.roomId, gameState.isHost, gameState.connectionStatus, stopHeartbeat]);
 
+  // 外部からルーム監視を開始する関数を追加
+  const connectToRoom = useCallback((roomId: string, isHost: boolean, playerName: string) => {
+    console.log('外部からルーム接続:', { roomId, isHost, playerName });
+    
+    setGameState(prev => ({
+      ...prev,
+      roomId,
+      isHost,
+      playerName,
+      status: 'waiting'
+    }));
+
+    // ハートビート開始
+    startHeartbeat(roomId, isHost);
+  }, [startHeartbeat]);
+
   // コンポーネントアンマウント時のクリーンアップ
   useEffect(() => {
     return () => {
@@ -476,6 +507,7 @@ export const useSimpleGameSync = () => {
     startGame,
     sendMove,
     leaveRoom,
+    connectToRoom, // 新しく追加
     setOnMove,
     setOnGameStart,
     isConnected: gameState.connectionStatus === 'connected'

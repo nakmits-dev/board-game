@@ -13,10 +13,24 @@ interface SimpleNetworkProviderProps {
 }
 
 export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ children }) => {
-  const { gameState, sendMove, setOnMove, isConnected } = useSimpleGameSync();
+  const { gameState, sendMove, setOnMove, connectToRoom, isConnected } = useSimpleGameSync();
   const { state, dispatch } = useGame();
   const lastProcessedMoveId = useRef<string>('');
   const syncCallbackRef = useRef<((action: any) => void) | null>(null);
+
+  // ネットワークゲーム開始時にルーム接続を確立
+  useEffect(() => {
+    if (state.isNetworkGame && state.roomId && !gameState.roomId) {
+      console.log('ネットワークゲーム開始 - ルーム接続を確立:', {
+        gameRoomId: state.roomId,
+        networkRoomId: gameState.roomId,
+        isHost: state.isHost
+      });
+      
+      // ネットワーク層でルーム監視を開始
+      connectToRoom(state.roomId, state.isHost, state.isHost ? 'ホスト' : 'ゲスト');
+    }
+  }, [state.isNetworkGame, state.roomId, state.isHost, gameState.roomId, connectToRoom]);
 
   // ネットワーク同期コールバックを設定
   useEffect(() => {
@@ -122,7 +136,9 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
         gameStateRoomId: state.roomId, 
         networkStateRoomId: gameState.roomId 
       });
-      // この場合は何もしない（ネットワーク状態が正しい）
+      // ネットワーク層でルーム接続を再確立
+      console.log('ルーム接続を再確立します');
+      connectToRoom(state.roomId, state.isHost, state.isHost ? 'ホスト' : 'ゲスト');
     }
 
     // ネットワーク状態が'playing'でゲーム状態がネットワークゲームでない場合
@@ -130,7 +146,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
       console.log('ネットワークゲーム状態の復元が必要');
       // この場合は既にゲームが開始されているので、状態を復元する必要がある
     }
-  }, [state.isNetworkGame, state.roomId, state.isHost, state.gamePhase, state.currentTeam, gameState]);
+  }, [state.isNetworkGame, state.roomId, state.isHost, state.gamePhase, state.currentTeam, gameState, connectToRoom]);
 
   return (
     <SimpleNetworkContext.Provider 
