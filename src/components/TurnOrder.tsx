@@ -57,11 +57,9 @@ const TurnOrder: React.FC = () => {
   };
 
   const handleSurrender = () => {
-    const master = state.characters.find(char => char.team === currentTeam && char.type === 'master');
-    if (!master) return;
-
     if (showSurrenderConfirm) {
-      dispatch({ type: 'REMOVE_DEFEATED_CHARACTERS', targetId: master.id });
+      // 降参処理 - 新しいSURRENDERアクションを使用
+      dispatch({ type: 'SURRENDER', team: currentTeam });
       setShowSurrenderConfirm(false);
     } else {
       setShowSurrenderConfirm(true);

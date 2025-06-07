@@ -22,7 +22,8 @@ type GameAction =
   | { type: 'SET_PENDING_ANIMATIONS'; animations: AnimationSequence[] }
   | { type: 'REMOVE_DEFEATED_CHARACTERS'; targetId: string }
   | { type: 'EVOLVE_CHARACTER'; characterId: string }
-  | { type: 'UNDO_MOVE' };
+  | { type: 'UNDO_MOVE' }
+  | { type: 'SURRENDER'; team: Team };
 
 interface GameContextType {
   state: GameState;
@@ -499,6 +500,25 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       return {
         ...state,
         pendingAction: { type: null },
+      };
+    }
+
+    case 'SURRENDER': {
+      // 降参時は即座にゲーム終了（クリスタル獲得や進化は発生させない）
+      return {
+        ...state,
+        gamePhase: 'result',
+        selectedCharacter: null,
+        selectedAction: null,
+        selectedSkill: null,
+        pendingAction: { type: null },
+        animationTarget: null,
+        pendingAnimations: [],
+        // 降参したチームのマスターを削除してゲーム終了を示す
+        characters: state.characters.filter(char => 
+          !(char.team === action.team && char.type === 'master')
+        ),
+        canUndo: false, // 降参後は待ったできない
       };
     }
 
