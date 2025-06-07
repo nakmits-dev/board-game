@@ -59,14 +59,20 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
   ): PositionAssignment[] => {
     const positions = createEmptyAssignments(isPlayer);
 
-    return positions.map((pos, index) => {
+    return positions.map((pos) => {
       if (pos.type === 'master') {
         return { ...pos, id: deck.master };
       } else {
-        const monsterIndex = isPlayer 
-          ? [0, 2, 1][positions.filter((p, i) => p.type === 'monster' && i < index).length]
-          : [0, 2, 1][positions.filter((p, i) => p.type === 'monster' && i < index).length];
-        return { ...pos, id: deck.monsters[monsterIndex] };
+        // モンスターの配置順序を正しく設定
+        const monsterPositions = positions.filter(p => p.type === 'monster');
+        const currentMonsterIndex = monsterPositions.findIndex(p => 
+          p.position.x === pos.position.x && p.position.y === pos.position.y
+        );
+        
+        if (currentMonsterIndex < deck.monsters.length) {
+          return { ...pos, id: deck.monsters[currentMonsterIndex] };
+        }
+        return pos;
       }
     });
   };
@@ -91,6 +97,13 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
   const initialState = getInitialState();
   const [playerAssignments, setPlayerAssignments] = useState<PositionAssignment[]>(initialState.player);
   const [enemyAssignments, setEnemyAssignments] = useState<PositionAssignment[]>(initialState.enemy);
+  
+  // 初期値が変更された場合に状態を更新
+  useEffect(() => {
+    const newState = getInitialState();
+    setPlayerAssignments(newState.player);
+    setEnemyAssignments(newState.enemy);
+  }, [initialPlayerDeck, initialEnemyDeck]);
   
   const getTotalCost = (assignments: PositionAssignment[]) => {
     return assignments.reduce((total, assignment) => {
