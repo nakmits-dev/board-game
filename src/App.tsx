@@ -59,6 +59,9 @@ const GameContent = () => {
     return !!(currentDecks.player && currentDecks.enemy);
   };
 
+  // スマホでの対戦中かどうかを判定
+  const isMobileBattle = gamePhase === 'action' && window.innerWidth < 1024;
+
   if (showDeckBuilder) {
     return (
       <DeckBuilder 
@@ -72,14 +75,17 @@ const GameContent = () => {
 
   return (
     <div className="h-screen flex flex-col bg-blue-50 text-gray-900 overflow-hidden">
-      <header className="bg-white shadow-lg border-b border-blue-100 flex-shrink-0">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <h1 className="text-xl sm:text-2xl font-bold text-blue-900">ボードdeモンスターズ</h1>
-            <ShareButton />
+      {/* ヘッダー - スマホ対戦中は非表示 */}
+      {!isMobileBattle && (
+        <header className="bg-white shadow-lg border-b border-blue-100 flex-shrink-0">
+          <div className="container mx-auto px-4 py-3">
+            <div className="flex items-center justify-between">
+              <h1 className="text-xl sm:text-2xl font-bold text-blue-900">ボードdeモンスターズ</h1>
+              <ShareButton />
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
       
       <main className="flex-1 flex flex-col overflow-hidden">
         <div className="flex-1 flex flex-col lg:flex-row">
@@ -130,11 +136,14 @@ const GameContent = () => {
         </div>
       </main>
       
-      <footer className="bg-white border-t border-blue-100 flex-shrink-0">
-        <div className="container mx-auto px-4 py-3">
-          <p className="text-center text-xs sm:text-sm text-blue-600">ボードdeモンスターズ &copy; 2025</p>
-        </div>
-      </footer>
+      {/* フッター - スマホ対戦中は非表示 */}
+      {!isMobileBattle && (
+        <footer className="bg-white border-t border-blue-100 flex-shrink-0">
+          <div className="container mx-auto px-4 py-3">
+            <p className="text-center text-xs sm:text-sm text-blue-600">ボードdeモンスターズ &copy; 2025</p>
+          </div>
+        </footer>
+      )}
     </div>
   );
 };
