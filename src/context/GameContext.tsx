@@ -14,6 +14,7 @@ type GameAction =
   | { type: 'USE_SKILL'; targetId: string }
   | { type: 'END_TURN' }
   | { type: 'START_GAME'; playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }; enemyDeck?: { master: keyof typeof masterData; monsters: MonsterType[] } }
+  | { type: 'START_NETWORK_GAME'; roomId: string; isHost: boolean; playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }; enemyDeck?: { master: keyof typeof masterData; monsters: MonsterType[] } }
   | { type: 'RESET_GAME' }
   | { type: 'UPDATE_PREVIEW'; playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }; enemyDeck?: { master: keyof typeof masterData; monsters: MonsterType[] } }
   | { type: 'SET_SAVED_DECKS'; playerDeck: { master: keyof typeof masterData; monsters: MonsterType[] }; enemyDeck: { master: keyof typeof masterData; monsters: MonsterType[] } }
@@ -23,7 +24,9 @@ type GameAction =
   | { type: 'REMOVE_DEFEATED_CHARACTERS'; targetId: string }
   | { type: 'EVOLVE_CHARACTER'; characterId: string }
   | { type: 'UNDO_MOVE' }
-  | { type: 'SURRENDER'; team: Team };
+  | { type: 'SURRENDER'; team: Team }
+  | { type: 'SYNC_NETWORK_ACTION'; action: any }
+  | { type: 'SET_NETWORK_SYNC_CALLBACK'; callback: ((action: any) => void) | null };
 
 interface GameContextType {
   state: GameState;
@@ -81,6 +84,16 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         };
       }
 
+      // ネットワークゲームの場合、自分のターンかつ自分のチームのキャラクターのみ選択可能
+      if (state.isNetworkGame) {
+        const isMyTeam = state.isHost ? action.character.team === 'player' : action.character.team === 'enemy';
+        const isMyTurn = state.isHost ? state.currentTeam === 'player' : state.currentTeam === 'enemy';
+        
+        if (!isMyTeam || !isMyTurn) {
+          return state; // 選択を無効化
+        }
+      }
+
       if (action.character.team === state.currentTeam && action.character.remainingActions > 0) {
         return {
           ...state,
@@ -119,6 +132,14 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         return state;
       }
 
+      // ネットワークゲームの場合、自分のターンでない場合は操作を無効化
+      if (state.isNetworkGame) {
+        const isMyTurn = state.isHost ? state.currentTeam === 'player' : state.currentTeam === 'enemy';
+        if (!isMyTurn) {
+          return state;
+        }
+      }
+
       return {
         ...state,
         pendingAction: action.action,
@@ -146,11 +167,32 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         return state;
       }
 
+      // ネットワークゲームの場合、自分のターンでない場合は操作を無効化
+      if (state.isNetworkGame) {
+        const isMyTurn = state.isHost ? state.currentTeam === 'player' : state.currentTeam === 'enemy';
+        if (!isMyTurn) {
+          return state;
+        }
+      }
+
       // 現在の状態を保存（待った用）
       const previousState = deepCloneState(state);
 
       let updatedCharacters = [...state.characters];
       let animations: AnimationSequence[] = [];
+
+      // ネットワークゲームの場合、アクションを送信
+      if (state.isNetworkGame && state.networkSyncCallback) {
+        const networkAction = {
+          turn: state.currentTurn,
+          team: state.currentTeam,
+          type: state.pendingAction.type,
+          characterId: state.selectedCharacter.id,
+          targetId: state.pendingAction.targetId,
+          position: state.pendingAction.position,
+        };
+        state.networkSyncCallback(networkAction);
+      }
 
       if (state.pendingAction.type === 'move' && state.pendingAction.position) {
         animations.push({ id: state.selectedCharacter.id, type: 'move' });
@@ -206,7 +248,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
               gamePhase: 'result',
               pendingAnimations: animations,
               previousState,
-              canUndo: true,
+              canUndo: !state.isNetworkGame, // ネットワークゲームでは待ったを無効化
             };
           }
 
@@ -256,7 +298,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         gamePhase: (!playerMasterAlive || !enemyMasterAlive) ? 'result' : 'action',
         pendingAnimations: animations,
         previousState,
-        canUndo: true,
+        canUndo: !state.isNetworkGame, // ネットワークゲームでは待ったを無効化
       };
     }
 
@@ -298,6 +340,14 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         return state;
       }
 
+      // ネットワークゲームの場合、自分のターンでない場合は操作を無効化
+      if (state.isNetworkGame) {
+        const isMyTurn = state.isHost ? state.currentTeam === 'player' : state.currentTeam === 'enemy';
+        if (!isMyTurn) {
+          return state;
+        }
+      }
+
       const crystals = state.currentTeam === 'player' ? state.playerCrystals : state.enemyCrystals;
       if (crystals < action.skill.crystalCost) {
         return state;
@@ -314,8 +364,29 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     case 'USE_SKILL': {
       if (!state.selectedCharacter || !state.selectedSkill) return state;
       
+      // ネットワークゲームの場合、自分のターンでない場合は操作を無効化
+      if (state.isNetworkGame) {
+        const isMyTurn = state.isHost ? state.currentTeam === 'player' : state.currentTeam === 'enemy';
+        if (!isMyTurn) {
+          return state;
+        }
+      }
+
       // 現在の状態を保存（待った用）
       const previousState = deepCloneState(state);
+
+      // ネットワークゲームの場合、アクションを送信
+      if (state.isNetworkGame && state.networkSyncCallback) {
+        const networkAction = {
+          turn: state.currentTurn,
+          team: state.currentTeam,
+          type: 'skill',
+          characterId: state.selectedCharacter.id,
+          targetId: action.targetId,
+          skillId: state.selectedSkill.id,
+        };
+        state.networkSyncCallback(networkAction);
+      }
       
       let updatedCharacters = [...state.characters];
       let animations: AnimationSequence[] = [];
@@ -398,7 +469,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             gamePhase: 'result',
             pendingAnimations: animations,
             previousState,
-            canUndo: true,
+            canUndo: !state.isNetworkGame, // ネットワークゲームでは待ったを無効化
           };
         }
 
@@ -453,7 +524,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         gamePhase: (!playerMasterAlive || !enemyMasterAlive) ? 'result' : 'action',
         pendingAnimations: animations,
         previousState,
-        canUndo: true,
+        canUndo: !state.isNetworkGame, // ネットワークゲームでは待ったを無効化
       };
     }
 
@@ -525,8 +596,27 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     case 'END_TURN': {
       if (state.gamePhase === 'preparation') return state;
       
+      // ネットワークゲームの場合、自分のターンでない場合は操作を無効化
+      if (state.isNetworkGame) {
+        const isMyTurn = state.isHost ? state.currentTeam === 'player' : state.currentTeam === 'enemy';
+        if (!isMyTurn) {
+          return state;
+        }
+      }
+
       // 現在の状態を保存（待った用）
       const previousState = deepCloneState(state);
+
+      // ネットワークゲームの場合、アクションを送信
+      if (state.isNetworkGame && state.networkSyncCallback) {
+        const networkAction = {
+          turn: state.currentTurn,
+          team: state.currentTeam,
+          type: 'end_turn',
+          characterId: '',
+        };
+        state.networkSyncCallback(networkAction);
+      }
       
       const nextTeam: Team = state.currentTeam === 'player' ? 'enemy' : 'player';
       
@@ -572,7 +662,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         animationTarget: null,
         pendingAnimations: animations,
         previousState,
-        canUndo: true,
+        canUndo: !state.isNetworkGame, // ネットワークゲームでは待ったを無効化
       };
     }
 
@@ -596,6 +686,37 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           enemy: action.enemyDeck
         },
         canUndo: false,
+        isNetworkGame: false,
+        isHost: false,
+        roomId: null,
+        networkSyncCallback: null,
+      };
+    }
+
+    case 'START_NETWORK_GAME': {
+      const startingTeam: Team = 'player'; // ネットワークゲームでは常にプレイヤーから開始
+      
+      // 新しいゲーム状態を作成（編成内容を反映）
+      const newState = createInitialGameState(action.playerDeck, action.enemyDeck);
+      
+      return {
+        ...newState,
+        gamePhase: 'action',
+        currentTeam: startingTeam,
+        characters: newState.characters.map(char => ({
+          ...char,
+          remainingActions: char.team === startingTeam ? char.actions : 0,
+        })),
+        pendingAnimations: [{ id: startingTeam, type: 'turn-start' }],
+        savedDecks: {
+          player: action.playerDeck,
+          enemy: action.enemyDeck
+        },
+        canUndo: false,
+        isNetworkGame: true,
+        isHost: action.isHost,
+        roomId: action.roomId,
+        networkSyncCallback: null,
       };
     }
 
@@ -632,18 +753,231 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         ...newState,
         savedDecks: state.savedDecks,
         canUndo: false,
+        isNetworkGame: false,
+        isHost: false,
+        roomId: null,
+        networkSyncCallback: null,
       };
     }
 
     case 'UNDO_MOVE': {
-      // 前の状態に戻る
-      if (!state.canUndo || !state.previousState) return state;
+      // 前の状態に戻る（ネットワークゲームでは無効）
+      if (!state.canUndo || !state.previousState || state.isNetworkGame) return state;
       
       return {
         ...state.previousState,
         savedDecks: state.savedDecks, // 保存されたデッキは維持
         canUndo: false, // 連続での待ったを防ぐ
+        isNetworkGame: state.isNetworkGame,
+        isHost: state.isHost,
+        roomId: state.roomId,
+        networkSyncCallback: state.networkSyncCallback,
       };
+    }
+
+    case 'SET_NETWORK_SYNC_CALLBACK': {
+      return {
+        ...state,
+        networkSyncCallback: action.callback,
+      };
+    }
+
+    case 'SYNC_NETWORK_ACTION': {
+      // ネットワークアクションを受信して状態を同期
+      if (!state.isNetworkGame) return state;
+
+      const networkAction = action.action;
+      
+      // 相手のアクションのみ処理（自分のアクションは既に処理済み）
+      const isOpponentAction = state.isHost ? 
+        networkAction.team === 'enemy' : 
+        networkAction.team === 'player';
+      
+      if (!isOpponentAction) return state;
+
+      // ネットワークアクションをローカルアクションに変換して処理
+      switch (networkAction.type) {
+        case 'move':
+          // 移動アクションの処理
+          const moveCharacter = state.characters.find(char => char.id === networkAction.characterId);
+          if (moveCharacter && networkAction.position) {
+            const updatedCharacters = state.characters.map(char =>
+              char.id === networkAction.characterId
+                ? { ...char, position: networkAction.position!, remainingActions: char.remainingActions - 1 }
+                : char
+            );
+            return {
+              ...state,
+              characters: updatedCharacters,
+              pendingAnimations: [{ id: networkAction.characterId, type: 'move' }],
+            };
+          }
+          break;
+
+        case 'attack':
+          // 攻撃アクションの処理
+          const attacker = state.characters.find(char => char.id === networkAction.characterId);
+          const target = state.characters.find(char => char.id === networkAction.targetId);
+          if (attacker && target) {
+            const damage = Math.max(0, attacker.attack - target.defense);
+            const newHp = Math.max(0, target.hp - damage);
+            
+            const updatedCharacters = state.characters.map(char => {
+              if (char.id === networkAction.characterId) {
+                return { ...char, remainingActions: char.remainingActions - 1 };
+              }
+              if (char.id === networkAction.targetId) {
+                return { ...char, hp: newHp };
+              }
+              return char;
+            });
+
+            const animations = [
+              { id: attacker.id, type: 'attack' as const },
+              { id: target.id, type: 'damage' as const }
+            ];
+
+            if (newHp === 0) {
+              animations.push(
+                { id: target.id, type: 'ko' as const },
+                { id: target.team, type: 'crystal-gain' as const }
+              );
+            }
+
+            const { playerMasterAlive, enemyMasterAlive } = checkMasterStatus(updatedCharacters);
+
+            return {
+              ...state,
+              characters: updatedCharacters,
+              gamePhase: (!playerMasterAlive || !enemyMasterAlive) ? 'result' : 'action',
+              pendingAnimations: animations,
+            };
+          }
+          break;
+
+        case 'skill':
+          // スキルアクションの処理
+          const skillUser = state.characters.find(char => char.id === networkAction.characterId);
+          const skillTarget = state.characters.find(char => char.id === networkAction.targetId);
+          const skill = skillData[networkAction.skillId!];
+          
+          if (skillUser && skillTarget && skill) {
+            let updatedCharacters = [...state.characters];
+            let playerCrystals = state.playerCrystals;
+            let enemyCrystals = state.enemyCrystals;
+
+            // クリスタル消費
+            if (skillUser.team === 'player') {
+              playerCrystals -= skill.crystalCost;
+            } else {
+              enemyCrystals -= skill.crystalCost;
+            }
+
+            // スキル効果の適用
+            if (skill.healing) {
+              updatedCharacters = updatedCharacters.map(char =>
+                char.id === skillTarget.id
+                  ? { ...char, hp: Math.min(char.maxHp, char.hp + skill.healing!) }
+                  : char
+              );
+            }
+
+            if (skill.damage) {
+              let newHp: number;
+              if (skill.ignoreDefense) {
+                newHp = Math.max(0, skillTarget.hp - 1);
+              } else {
+                const totalDamage = skillUser.attack + skill.damage;
+                const damage = Math.max(0, totalDamage - skillTarget.defense);
+                newHp = Math.max(0, skillTarget.hp - damage);
+              }
+
+              updatedCharacters = updatedCharacters.map(char =>
+                char.id === skillTarget.id
+                  ? { ...char, hp: newHp }
+                  : char
+              );
+            }
+
+            // 使用者の行動回数を減らす
+            updatedCharacters = updatedCharacters.map(char =>
+              char.id === skillUser.id
+                ? { ...char, remainingActions: char.remainingActions - 1 }
+                : char
+            );
+
+            const animations = [
+              { id: skillUser.id, type: 'attack' as const },
+              { id: skillTarget.id, type: skill.healing ? 'heal' as const : 'damage' as const }
+            ];
+
+            const { playerMasterAlive, enemyMasterAlive } = checkMasterStatus(updatedCharacters);
+
+            return {
+              ...state,
+              characters: updatedCharacters,
+              playerCrystals,
+              enemyCrystals,
+              gamePhase: (!playerMasterAlive || !enemyMasterAlive) ? 'result' : 'action',
+              pendingAnimations: animations,
+            };
+          }
+          break;
+
+        case 'end_turn':
+          // ターン終了アクションの処理
+          const nextTeam: Team = state.currentTeam === 'player' ? 'enemy' : 'player';
+          
+          const refreshedCharacters = state.characters.map(character => {
+            if (character.team === nextTeam) {
+              return {
+                ...character,
+                remainingActions: character.actions,
+              };
+            }
+            return character;
+          });
+
+          const newPlayerCrystals = nextTeam === 'player' 
+            ? Math.min(MAX_CRYSTALS, state.playerCrystals + 1)
+            : state.playerCrystals;
+          
+          const newEnemyCrystals = nextTeam === 'enemy'
+            ? Math.min(MAX_CRYSTALS, state.enemyCrystals + 1)
+            : state.enemyCrystals;
+
+          const turnAnimations: AnimationSequence[] = [
+            { id: nextTeam, type: 'turn-start' }
+          ];
+          
+          if (nextTeam === 'player' && newPlayerCrystals > state.playerCrystals) {
+            turnAnimations.push({ id: 'player-crystal', type: 'crystal-gain' });
+          } else if (nextTeam === 'enemy' && newEnemyCrystals > state.enemyCrystals) {
+            turnAnimations.push({ id: 'enemy-crystal', type: 'crystal-gain' });
+          }
+
+          return {
+            ...state,
+            characters: refreshedCharacters,
+            currentTeam: nextTeam,
+            currentTurn: nextTeam === 'player' ? state.currentTurn + 1 : state.currentTurn,
+            playerCrystals: newPlayerCrystals,
+            enemyCrystals: newEnemyCrystals,
+            pendingAnimations: turnAnimations,
+          };
+
+        case 'surrender':
+          // 降参アクションの処理
+          return {
+            ...state,
+            gamePhase: 'result',
+            characters: state.characters.filter(char => 
+              !(char.team === networkAction.team && char.type === 'master')
+            ),
+          };
+      }
+
+      return state;
     }
 
     default:
@@ -655,6 +989,10 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [state, dispatch] = useReducer(gameReducer, {
     ...createInitialGameState(),
     canUndo: false,
+    isNetworkGame: false,
+    isHost: false,
+    roomId: null,
+    networkSyncCallback: null,
   });
   const [savedDecks, setSavedDecks] = React.useState<{
     player?: { master: keyof typeof masterData; monsters: MonsterType[] };
@@ -716,6 +1054,12 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (state.gamePhase === 'preparation') return false;
     if (state.selectedCharacter.team !== state.currentTeam) return false;
 
+    // ネットワークゲームの場合、自分のターンでない場合は無効
+    if (state.isNetworkGame) {
+      const isMyTurn = state.isHost ? state.currentTeam === 'player' : state.currentTeam === 'enemy';
+      if (!isMyTurn) return false;
+    }
+
     const { x: srcX, y: srcY } = state.selectedCharacter.position;
     const { x: destX, y: destY } = position;
 
@@ -737,6 +1081,12 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (state.gamePhase === 'preparation') return false;
     if (state.selectedCharacter.team !== state.currentTeam) return false;
 
+    // ネットワークゲームの場合、自分のターンでない場合は無効
+    if (state.isNetworkGame) {
+      const isMyTurn = state.isHost ? state.currentTeam === 'player' : state.currentTeam === 'enemy';
+      if (!isMyTurn) return false;
+    }
+
     const target = state.characters.find(char => char.id === targetId);
     if (!target || target.team === state.selectedCharacter.team) return false;
 
@@ -753,6 +1103,12 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!state.selectedCharacter || !state.selectedSkill || state.selectedCharacter.remainingActions <= 0) return false;
     if (state.gamePhase === 'preparation') return false;
     if (state.selectedCharacter.team !== state.currentTeam) return false;
+
+    // ネットワークゲームの場合、自分のターンでない場合は無効
+    if (state.isNetworkGame) {
+      const isMyTurn = state.isHost ? state.currentTeam === 'player' : state.currentTeam === 'enemy';
+      if (!isMyTurn) return false;
+    }
 
     const target = state.characters.find(char => char.id === targetId);
     if (!target) return false;

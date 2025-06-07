@@ -1,92 +1,62 @@
-import React, { createContext, useContext, useReducer, ReactNode, useEffect } from 'react';
-import { GameAction as LocalGameAction } from './GameContext';
-import { GameAction, NetworkGameState } from '../types/networkTypes';
+import React, { createContext, useContext, useEffect } from 'react';
 import { useFirebaseGame } from '../hooks/useFirebaseGame';
+import { useGame } from './GameContext';
+import { GameAction } from '../types/networkTypes';
 
 interface NetworkGameContextType {
-  networkState: NetworkGameState;
+  isConnected: boolean;
   sendGameAction: (action: Omit<GameAction, 'id' | 'timestamp' | 'playerId'>) => Promise<void>;
-  isNetworkGame: boolean;
-  isMyTurn: boolean;
-  syncWithNetwork: (localAction: LocalGameAction) => void;
 }
 
 const NetworkGameContext = createContext<NetworkGameContextType | undefined>(undefined);
 
 interface NetworkGameProviderProps {
-  children: ReactNode;
-  roomId?: string;
-  isHost?: boolean;
+  children: React.ReactNode;
 }
 
-export const NetworkGameProvider: React.FC<NetworkGameProviderProps> = ({ 
-  children, 
-  roomId, 
-  isHost = false 
-}) => {
-  const { networkState, sendAction } = useFirebaseGame();
-  const isNetworkGame = !!roomId;
+export const NetworkGameProvider: React.FC<NetworkGameProviderProps> = ({ children }) => {
+  const { networkState, sendAction, isConnected } = useFirebaseGame();
+  const { state, dispatch } = useGame();
 
-  // ローカルアクションをネットワークアクションに変換
-  const syncWithNetwork = (localAction: LocalGameAction) => {
-    if (!isNetworkGame) return;
-
-    // ローカルアクションをネットワーク用に変換
-    let networkAction: Omit<GameAction, 'id' | 'timestamp' | 'playerId'> | null = null;
-
-    switch (localAction.type) {
-      case 'CONFIRM_ACTION':
-        // 実際のアクションは pendingAction から取得する必要がある
-        // これは GameContext で処理される
-        break;
-      
-      case 'USE_SKILL':
-        networkAction = {
-          turn: 0, // 実際のターン数は GameContext から取得
-          team: 'player', // 実際のチームは GameContext から取得
-          type: 'skill',
-          characterId: '', // 実際のキャラクターIDは GameContext から取得
-          targetId: localAction.targetId,
-          skillId: '', // 実際のスキルIDは GameContext から取得
-        };
-        break;
-      
-      case 'END_TURN':
-        networkAction = {
-          turn: 0,
-          team: 'player',
-          type: 'end_turn',
-          characterId: '',
-        };
-        break;
+  // ネットワーク同期コールバックを設定
+  useEffect(() => {
+    if (state.isNetworkGame) {
+      const syncCallback = (action: any) => {
+        sendAction(action).catch(console.error);
+      };
+      dispatch({ type: 'SET_NETWORK_SYNC_CALLBACK', callback: syncCallback });
+    } else {
+      dispatch({ type: 'SET_NETWORK_SYNC_CALLBACK', callback: null });
     }
+  }, [state.isNetworkGame, sendAction, dispatch]);
 
-    if (networkAction) {
-      sendAction(networkAction);
-    }
-  };
+  // ネットワークアクションの監視と同期
+  useEffect(() => {
+    if (!state.isNetworkGame || networkState.gameActions.length === 0) return;
+
+    // 最新のアクションを取得
+    const latestAction = networkState.gameActions[networkState.gameActions.length - 1];
+    
+    // 自分のアクションは無視（既にローカルで処理済み）
+    const isMyAction = state.isHost ? 
+      latestAction.team === 'player' : 
+      latestAction.team === 'enemy';
+    
+    if (isMyAction) return;
+
+    // 相手のアクションを同期
+    dispatch({ type: 'SYNC_NETWORK_ACTION', action: latestAction });
+  }, [networkState.gameActions, state.isNetworkGame, state.isHost, dispatch]);
 
   const sendGameAction = async (action: Omit<GameAction, 'id' | 'timestamp' | 'playerId'>) => {
     await sendAction(action);
   };
 
-  const isMyTurn = () => {
-    if (!isNetworkGame) return true;
-    
-    // ホストは 'player' チーム、ゲストは 'enemy' チーム
-    const myTeam = isHost ? 'player' : 'enemy';
-    return networkState.gameActions.length === 0 || 
-           networkState.gameActions[networkState.gameActions.length - 1]?.team !== myTeam;
-  };
-
   return (
     <NetworkGameContext.Provider 
       value={{ 
-        networkState, 
-        sendGameAction, 
-        isNetworkGame,
-        isMyTurn: isMyTurn(),
-        syncWithNetwork
+        isConnected,
+        sendGameAction
       }}
     >
       {children}

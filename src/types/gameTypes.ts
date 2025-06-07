@@ -109,4 +109,9 @@ export interface GameState {
   // 待った機能用
   previousState?: GameState;
   canUndo: boolean;
+  // ネットワークゲーム用
+  isNetworkGame: boolean;
+  isHost: boolean;
+  roomId: string | null;
+  networkSyncCallback: ((action: any) => void) | null;
 }

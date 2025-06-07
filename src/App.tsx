@@ -17,14 +17,10 @@ import { HelpCircle, Play, Wifi } from 'lucide-react';
 
 const GameContent = () => {
   const { state, dispatch, savedDecks } = useGame();
-  const { gamePhase } = state;
+  const { gamePhase, isNetworkGame, roomId, isHost } = state;
   const [showDeckBuilder, setShowDeckBuilder] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [showNetworkLobby, setShowNetworkLobby] = useState(false);
-  const [networkGameInfo, setNetworkGameInfo] = useState<{
-    roomId: string;
-    isHost: boolean;
-  } | null>(null);
 
   const handleStartGame = (
     playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] },
@@ -43,15 +39,20 @@ const GameContent = () => {
   };
 
   const handleStartNetworkGame = (roomId: string, isHost: boolean) => {
-    setNetworkGameInfo({ roomId, isHost });
     setShowNetworkLobby(false);
     
-    // ネットワークゲーム用の初期化
     if (gamePhase === 'result') {
       dispatch({ type: 'RESET_GAME' });
     }
     
-    dispatch({ type: 'START_GAME', playerDeck: savedDecks.player, enemyDeck: savedDecks.enemy });
+    // ネットワークゲーム用の初期化
+    dispatch({ 
+      type: 'START_NETWORK_GAME', 
+      roomId, 
+      isHost, 
+      playerDeck: savedDecks.player, 
+      enemyDeck: savedDecks.enemy 
+    });
   };
 
   const handleShowDeckBuilder = () => {
@@ -94,7 +95,16 @@ const GameContent = () => {
       <header className="bg-white shadow-lg border-b border-blue-100">
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-blue-900">ボードdeモンスターズ</h1>
+            <div className="flex items-center gap-4">
+              <h1 className="text-2xl font-bold text-blue-900">ボードdeモンスターズ</h1>
+              {isNetworkGame && (
+                <div className="flex items-center gap-2 px-3 py-1 bg-purple-100 text-purple-800 rounded-lg text-sm">
+                  <Wifi size={16} />
+                  <span>オンライン対戦</span>
+                  <span className="text-xs">({isHost ? 'ホスト' : 'ゲスト'})</span>
+                </div>
+              )}
+            </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowTutorial(true)}
@@ -196,14 +206,9 @@ const GameContent = () => {
 };
 
 function App() {
-  const [networkGameInfo, setNetworkGameInfo] = useState<{
-    roomId: string;
-    isHost: boolean;
-  } | null>(null);
-
   return (
     <GameProvider>
-      <NetworkGameProvider roomId={networkGameInfo?.roomId} isHost={networkGameInfo?.isHost}>
+      <NetworkGameProvider>
         <GameContent />
       </NetworkGameProvider>
     </GameProvider>

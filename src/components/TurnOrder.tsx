@@ -6,16 +6,48 @@ const TURN_DURATION = 30; // 30 seconds per turn
 
 const TurnOrder: React.FC = () => {
   const { state, dispatch } = useGame();
-  const { currentTeam, gamePhase, animationTarget, canUndo } = state;
+  const { currentTeam, gamePhase, animationTarget, canUndo, isNetworkGame, isHost } = state;
   const [timeLeft, setTimeLeft] = useState(TURN_DURATION);
   const [isPaused, setIsPaused] = useState(true); // デフォルトでストップ状態
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
   const endTurnButtonRef = useRef<HTMLButtonElement>(null);
   const isEndingTurn = useRef(false);
+
+  // ネットワークゲームでの自分のターンかどうかを判定
+  const isMyTurn = () => {
+    if (!isNetworkGame) return true;
+    return isHost ? currentTeam === 'player' : currentTeam === 'enemy';
+  };
+
+  // ターン表示のテキストを決定
+  const getTurnText = () => {
+    if (!isNetworkGame) {
+      return currentTeam === 'player' ? 'あなたのターン' : '相手のターン';
+    }
+    
+    if (isMyTurn()) {
+      return 'あなたのターン';
+    } else {
+      return '相手のターン';
+    }
+  };
+
+  // ターンの色を決定
+  const getTurnColor = () => {
+    if (!isNetworkGame) {
+      return currentTeam === 'player' ? 'text-blue-600' : 'text-red-600';
+    }
+    
+    if (isMyTurn()) {
+      return 'text-blue-600';
+    } else {
+      return 'text-red-600';
+    }
+  };
   
   useEffect(() => {
-    // ゲームフェーズが'action'の時のみタイマーを動作させる
-    if (gamePhase !== 'action' || isPaused) {
+    // ゲームフェーズが'action'かつ自分のターンの時のみタイマーを動作させる
+    if (gamePhase !== 'action' || isPaused || (isNetworkGame && !isMyTurn())) {
       return;
     }
 
@@ -35,7 +67,7 @@ const TurnOrder: React.FC = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [gamePhase, currentTeam, dispatch, isPaused]);
+  }, [gamePhase, currentTeam, dispatch, isPaused, isNetworkGame, isHost]);
 
   useEffect(() => {
     // ターンが変わった時のみタイマーをリセット
@@ -49,9 +81,12 @@ const TurnOrder: React.FC = () => {
   if (gamePhase === 'preparation' || gamePhase === 'result') return null;
 
   const progressPercentage = (timeLeft / TURN_DURATION) * 100;
-  const isLowTime = timeLeft <= 5 && !isPaused;
+  const isLowTime = timeLeft <= 5 && !isPaused && (!isNetworkGame || isMyTurn());
   
   const handlePauseToggle = () => {
+    // ネットワークゲームでは相手のターン中はポーズできない
+    if (isNetworkGame && !isMyTurn()) return;
+    
     setIsPaused(!isPaused);
     setShowSurrenderConfirm(false);
   };
@@ -59,7 +94,8 @@ const TurnOrder: React.FC = () => {
   const handleSurrender = () => {
     if (showSurrenderConfirm) {
       // 降参処理 - 新しいSURRENDERアクションを使用
-      dispatch({ type: 'SURRENDER', team: currentTeam });
+      const surrenderTeam = isNetworkGame ? (isHost ? 'player' : 'enemy') : currentTeam;
+      dispatch({ type: 'SURRENDER', team: surrenderTeam });
       setShowSurrenderConfirm(false);
     } else {
       setShowSurrenderConfirm(true);
@@ -67,10 +103,18 @@ const TurnOrder: React.FC = () => {
   };
 
   const handleUndo = () => {
-    if (canUndo) {
+    if (canUndo && !isNetworkGame) {
       dispatch({ type: 'UNDO_MOVE' });
       setShowSurrenderConfirm(false);
     }
+  };
+
+  const handleEndTurn = () => {
+    // ネットワークゲームでは自分のターンでない場合は無効
+    if (isNetworkGame && !isMyTurn()) return;
+    
+    setShowSurrenderConfirm(false);
+    dispatch({ type: 'END_TURN' });
   };
   
   return (
@@ -78,10 +122,8 @@ const TurnOrder: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         {/* Turn Info */}
         <div className="flex items-center gap-3">
-          <h3 className={`text-xl font-bold ${
-            currentTeam === 'player' ? 'text-blue-600' : 'text-red-600'
-          } ${animationTarget?.id === currentTeam && animationTarget?.type === 'turn-start' ? 'character-turn-start' : ''}`}>
-            {currentTeam === 'player' ? 'あなたのターン' : '相手のターン'}
+          <h3 className={`text-xl font-bold ${getTurnColor()} ${animationTarget?.id === currentTeam && animationTarget?.type === 'turn-start' ? 'character-turn-start' : ''}`}>
+            {getTurnText()}
           </h3>
           <div className="flex items-center gap-2">
             <div className={`font-mono font-bold text-lg ${
@@ -89,12 +131,16 @@ const TurnOrder: React.FC = () => {
             }`}>
               {String(timeLeft).padStart(2, '0')}
             </div>
+            {/* ネットワークゲームでは相手のターン中はポーズボタンを無効化 */}
             <button
               onClick={handlePauseToggle}
+              disabled={isNetworkGame && !isMyTurn()}
               className={`p-2 rounded-lg transition-colors ${
-                isPaused 
-                  ? 'bg-green-100 text-green-600 hover:bg-green-200' 
-                  : 'bg-yellow-100 text-yellow-600 hover:bg-yellow-200'
+                isNetworkGame && !isMyTurn()
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : isPaused 
+                    ? 'bg-green-100 text-green-600 hover:bg-green-200' 
+                    : 'bg-yellow-100 text-yellow-600 hover:bg-yellow-200'
               }`}
             >
               {isPaused ? <Play size={20} /> : <Pause size={20} />}
@@ -104,22 +150,24 @@ const TurnOrder: React.FC = () => {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
-          {/* 待ったボタン */}
-          <button
-            onClick={handleUndo}
-            disabled={!canUndo}
-            className={`px-3 py-2 font-bold rounded transform transition text-sm sm:text-base ${
-              canUndo
-                ? 'bg-orange-600 hover:bg-orange-700 text-white hover:scale-105'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
-            title="1手戻る"
-          >
-            <div className="flex items-center gap-1.5">
-              <RotateCcw size={16} />
-              <span>待った</span>
-            </div>
-          </button>
+          {/* 待ったボタン（ローカルゲームのみ） */}
+          {!isNetworkGame && (
+            <button
+              onClick={handleUndo}
+              disabled={!canUndo}
+              className={`px-3 py-2 font-bold rounded transform transition text-sm sm:text-base ${
+                canUndo
+                  ? 'bg-orange-600 hover:bg-orange-700 text-white hover:scale-105'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
+              title="1手戻る"
+            >
+              <div className="flex items-center gap-1.5">
+                <RotateCcw size={16} />
+                <span>待った</span>
+              </div>
+            </button>
+          )}
 
           <button
             onClick={handleSurrender}
@@ -134,17 +182,18 @@ const TurnOrder: React.FC = () => {
               <span>{showSurrenderConfirm ? '降参する' : '降参'}</span>
             </div>
           </button>
+          
           <button
             ref={endTurnButtonRef}
-            className={`px-3 py-2 font-bold rounded transform transition hover:scale-105 text-sm sm:text-base ${
-              currentTeam === 'player'
-                ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                : 'bg-red-600 hover:bg-red-700 text-white'
+            onClick={handleEndTurn}
+            disabled={isNetworkGame && !isMyTurn()}
+            className={`px-3 py-2 font-bold rounded transform transition text-sm sm:text-base ${
+              isNetworkGame && !isMyTurn()
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : currentTeam === 'player' || (isNetworkGame && isMyTurn())
+                ? 'bg-blue-600 hover:bg-blue-700 text-white hover:scale-105'
+                : 'bg-red-600 hover:bg-red-700 text-white hover:scale-105'
             }`}
-            onClick={() => {
-              setShowSurrenderConfirm(false);
-              dispatch({ type: 'END_TURN' });
-            }}
           >
             ターン終了
           </button>
@@ -159,6 +208,10 @@ const TurnOrder: React.FC = () => {
               ? 'bg-yellow-500'
               : isLowTime
               ? 'bg-red-500 animate-pulse'
+              : isNetworkGame && isMyTurn()
+              ? 'bg-blue-500'
+              : isNetworkGame && !isMyTurn()
+              ? 'bg-red-500'
               : currentTeam === 'player'
               ? 'bg-blue-500'
               : 'bg-red-500'
@@ -166,6 +219,16 @@ const TurnOrder: React.FC = () => {
           style={{ width: `${progressPercentage}%` }}
         />
       </div>
+
+      {/* ネットワークゲーム用の追加情報 */}
+      {isNetworkGame && (
+        <div className="mt-2 text-center">
+          <p className="text-xs text-gray-600">
+            {isHost ? 'あなた: 青チーム' : 'あなた: 赤チーム'}
+            {!isMyTurn() && ' | 相手の行動を待機中...'}
+          </p>
+        </div>
+      )}
     </div>
   );
 };
