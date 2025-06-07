@@ -455,8 +455,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'UPDATE_PREVIEW': {
-      // 準備画面でのプレビュー更新
-      if (state.gamePhase !== 'preparation') return state;
+      // 準備画面または結果画面でのプレビュー更新
+      if (state.gamePhase !== 'preparation' && state.gamePhase !== 'result') return state;
       
       const newState = createInitialGameState(action.playerDeck, action.enemyDeck);
       
