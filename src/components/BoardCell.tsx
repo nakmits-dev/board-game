@@ -186,7 +186,9 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
               <img 
                 src={character.image} 
                 alt={character.name} 
-                className="w-full h-full object-cover"
+                className={`w-full h-full object-cover ${
+                  character.team === 'enemy' ? 'transform rotate-180' : ''
+                }`}
                 draggable={false}
               />
               <div className={`absolute inset-0 ${

@@ -337,7 +337,9 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
               <img 
                 src={cardData.image} 
                 alt={cardData.name} 
-                className="w-full h-full object-cover"
+                className={`w-full h-full object-cover ${
+                  !isPlayerTeam ? 'transform rotate-180' : ''
+                }`}
                 draggable={false}
               />
               <div className={`absolute inset-0 ${
