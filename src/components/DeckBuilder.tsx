@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { MonsterType, MasterCard, Position } from '../types/gameTypes';
 import { monsterData, masterData, generateTeamWithCost8 } from '../data/cardData';
 import { skillData } from '../data/skillData';
-import { Shield, Sword, Sparkle, Heart, Crown, Gitlab as GitLab, Play, X, Filter, Star, Shuffle, ArrowLeft, Trash2 } from 'lucide-react';
+import { Shield, Sword, Sparkle, Heart, Crown, Gitlab as GitLab, Play, X, Filter, Star, Shuffle, ArrowLeft, Trash2, Eye, EyeOff, HelpCircle } from 'lucide-react';
 import CharacterCard from './CharacterCard';
 
 interface DeckBuilderProps {
@@ -32,6 +32,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
 }) => {
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
   const [costFilter, setCostFilter] = useState<number | null>(null);
+  const [secretMode, setSecretMode] = useState(false);
   const cardSelectionRef = useRef<HTMLDivElement>(null);
   
   // 空の初期状態を作成する関数
@@ -266,6 +267,9 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
         : monsterData[assignment.id as MonsterType]
       : null;
 
+    // シークレットモードの場合、敵チームのカードを隠す
+    const shouldHideCard = secretMode && !isPlayerTeam && hasCard;
+
     let cellClassName = "w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center relative border transition-all duration-200";
     
     if (hasCard) {
@@ -300,56 +304,68 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
       >
         {hasCard && cardData ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <div className={`relative w-12 h-12 sm:w-16 sm:h-16 rounded-lg overflow-hidden ${
-              isPlayerTeam
-                ? 'ring-1 ring-blue-400 shadow-md shadow-blue-400/30' 
-                : 'ring-1 ring-red-400 shadow-md shadow-red-400/30'
-            }`}>
-              <img 
-                src={cardData.image} 
-                alt={cardData.name} 
-                className="w-full h-full object-cover"
-                draggable={false}
-              />
-              <div className={`absolute inset-0 ${
-                isPlayerTeam ? 'bg-blue-500' : 'bg-red-500'
-              } bg-opacity-10`}></div>
-              
-              {/* Stats overlay */}
-              <div className="absolute bottom-0 inset-x-0 flex justify-center gap-0.5 p-0.5">
-                {cardData.attack >= 2 && (
-                  <div className="w-3 h-3 sm:w-4 sm:h-4 bg-red-500/80 rounded flex items-center justify-center">
-                    <Sword size={8} className="text-white sm:w-[10px] sm:h-[10px]" />
-                  </div>
-                )}
-                {cardData.defense >= 1 && (
-                  <div className="w-3 h-3 sm:w-4 sm:h-4 bg-blue-500/80 rounded flex items-center justify-center">
-                    <Shield size={8} className="text-white sm:w-[10px] sm:h-[10px]" />
-                  </div>
-                )}
-                {cardData.actions >= 2 && (
-                  <div className="w-3 h-3 sm:w-4 sm:h-4 bg-yellow-500/80 rounded flex items-center justify-center">
-                    <Sparkle size={8} className="text-white sm:w-[10px] sm:h-[10px]" />
-                  </div>
-                )}
+            {shouldHideCard ? (
+              // シークレットモード時の？マーク表示
+              <div className={`relative w-12 h-12 sm:w-16 sm:h-16 rounded-lg overflow-hidden ${
+                'ring-1 ring-red-400 shadow-md shadow-red-400/30'
+              } bg-gray-800 flex items-center justify-center`}>
+                <HelpCircle size={24} className="text-red-400 sm:w-8 sm:h-8" />
+                <div className="absolute inset-0 bg-red-500 bg-opacity-10"></div>
               </div>
-            </div>
-            
-            {/* HP表示 */}
-            <div className="flex gap-0.5 mt-1">
-              {Array.from({ length: cardData.hp }, (_, i) => (
-                <div
-                  key={i}
-                  className={`w-2 h-2 sm:w-3 sm:h-3 flex items-center justify-center ${
-                    isPlayerTeam
-                      ? 'text-blue-500/90'
-                      : 'text-red-500/90'
-                  }`}
-                >
-                  <Heart size={8} fill="currentColor" className="sm:w-[12px] sm:h-[12px]" />
+            ) : (
+              <div className={`relative w-12 h-12 sm:w-16 sm:h-16 rounded-lg overflow-hidden ${
+                isPlayerTeam
+                  ? 'ring-1 ring-blue-400 shadow-md shadow-blue-400/30' 
+                  : 'ring-1 ring-red-400 shadow-md shadow-red-400/30'
+              }`}>
+                <img 
+                  src={cardData.image} 
+                  alt={cardData.name} 
+                  className="w-full h-full object-cover"
+                  draggable={false}
+                />
+                <div className={`absolute inset-0 ${
+                  isPlayerTeam ? 'bg-blue-500' : 'bg-red-500'
+                } bg-opacity-10`}></div>
+                
+                {/* Stats overlay */}
+                <div className="absolute bottom-0 inset-x-0 flex justify-center gap-0.5 p-0.5">
+                  {cardData.attack >= 2 && (
+                    <div className="w-3 h-3 sm:w-4 sm:h-4 bg-red-500/80 rounded flex items-center justify-center">
+                      <Sword size={8} className="text-white sm:w-[10px] sm:h-[10px]" />
+                    </div>
+                  )}
+                  {cardData.defense >= 1 && (
+                    <div className="w-3 h-3 sm:w-4 sm:h-4 bg-blue-500/80 rounded flex items-center justify-center">
+                      <Shield size={8} className="text-white sm:w-[10px] sm:h-[10px]" />
+                    </div>
+                  )}
+                  {cardData.actions >= 2 && (
+                    <div className="w-3 h-3 sm:w-4 sm:h-4 bg-yellow-500/80 rounded flex items-center justify-center">
+                      <Sparkle size={8} className="text-white sm:w-[10px] sm:h-[10px]" />
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
+            
+            {/* HP表示（シークレットモード時は隠す） */}
+            {!shouldHideCard && (
+              <div className="flex gap-0.5 mt-1">
+                {Array.from({ length: cardData.hp }, (_, i) => (
+                  <div
+                    key={i}
+                    className={`w-2 h-2 sm:w-3 sm:h-3 flex items-center justify-center ${
+                      isPlayerTeam
+                        ? 'text-blue-500/90'
+                        : 'text-red-500/90'
+                    }`}
+                  >
+                    <Heart size={8} fill="currentColor" className="sm:w-[12px] sm:h-[12px]" />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         ) : (
           <div className="text-center">
@@ -467,8 +483,36 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
               戻る
             </button>
             <h1 className="text-2xl sm:text-3xl font-bold text-blue-900">チーム編成</h1>
-            <div className="w-20"></div> {/* スペーサー */}
+            <div className="flex items-center gap-2">
+              {/* シークレットモード切り替えボタン */}
+              <button
+                onClick={() => setSecretMode(!secretMode)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                  secretMode 
+                    ? 'bg-purple-600 text-white hover:bg-purple-700' 
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+                title={secretMode ? 'シークレットモードON' : 'シークレットモードOFF'}
+              >
+                {secretMode ? <EyeOff size={16} /> : <Eye size={16} />}
+                <span className="hidden sm:inline text-sm">
+                  {secretMode ? 'シークレット' : '通常'}
+                </span>
+              </button>
+            </div>
           </div>
+          
+          {/* シークレットモードの説明 */}
+          {secretMode && (
+            <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+              <div className="flex items-center gap-2 text-purple-800">
+                <EyeOff size={16} />
+                <span className="text-sm font-medium">
+                  シークレットモード: 相手チームの編成が？マークで隠されます
+                </span>
+              </div>
+            </div>
+          )}
           
           {/* Cost Display - 1行にまとめる */}
           <div className="flex justify-center items-center gap-4 sm:gap-6 mb-4 sm:mb-6">
