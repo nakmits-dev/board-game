@@ -152,7 +152,7 @@ export const monsterData: Record<string, MonsterCard> = {
     attack: 1,
     defense: 0,
     actions: 1,
-    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%9B%E3%83%AF%E3%82%A4%E3%83%88%E3%83%89%E3%83%A9%E3%82%B4%E3%83%B3.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
+    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%9B%E3%83%AF%E3%82%A4%E3%83%88%E3%83%88%E3%82%99%E3%83%A9%E3%82%B3%E3%82%99%E3%83%B3.png?alt=media&token=bcf40507-a495-412c-be66-5b1a9a5c49c5',
     skillId: 'evolve',
     cost: 3
   },
@@ -162,7 +162,7 @@ export const monsterData: Record<string, MonsterCard> = {
     attack: 1,
     defense: 0,
     actions: 1,
-    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%96%E3%83%A9%E3%83%83%E3%82%AF%E3%83%89%E3%83%A9%E3%82%B4%E3%83%B3.png?alt=media&token=c1d2f5c4-c851-4f5c-9c2c-c3f2d5b0c9f0',
+    image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%95%E3%82%99%E3%83%A9%E3%83%83%E3%82%AF%E3%83%88%E3%82%99%E3%83%A9%E3%82%B3%E3%82%99%E3%83%B3.png?alt=media&token=0b8446bf-a0a0-40fc-9f87-ba8a493e9036',
     skillId: 'curse',
     cost: 3
   }
