@@ -13,8 +13,6 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
   const { selectedCharacter, currentTeam, gamePhase, animationTarget, selectedAction, selectedSkill, playerCrystals, enemyCrystals } = state;
   const [showModal, setShowModal] = React.useState(false);
   const [isDragOver, setIsDragOver] = React.useState(false);
-  const [isDragging, setIsDragging] = React.useState(false);
-  const [longPressTimer, setLongPressTimer] = React.useState<NodeJS.Timeout | null>(null);
   
   const character = getCharacterAt(position);
   const isSelected = selectedCharacter?.id === character?.id;
@@ -26,42 +24,6 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
   // スマホかどうかを判定
   const isMobile = window.innerWidth < 1024;
 
-  // 長押し検出（スマホ専用）
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (!isMobile || !character) return;
-    
-    // 長押しタイマーを設定（500ms）
-    const timer = setTimeout(() => {
-      setShowModal(true);
-      // 触覚フィードバック
-      if (navigator.vibrate) {
-        navigator.vibrate(50);
-      }
-    }, 500);
-    
-    setLongPressTimer(timer);
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (!isMobile) return;
-    
-    // 長押しタイマーをクリア
-    if (longPressTimer) {
-      clearTimeout(longPressTimer);
-      setLongPressTimer(null);
-    }
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isMobile) return;
-    
-    // タッチが移動した場合は長押しタイマーをクリア
-    if (longPressTimer) {
-      clearTimeout(longPressTimer);
-      setLongPressTimer(null);
-    }
-  };
-
   // PCドラッグイベントハンドラー（PC専用）
   const handleDragStart = (e: React.DragEvent) => {
     if (isMobile) return; // スマホでは無効
@@ -69,22 +31,15 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
     if (character && character.team === currentTeam && character.remainingActions > 0) {
       e.dataTransfer.setData('text/plain', character.id);
       e.dataTransfer.effectAllowed = 'move';
-      setIsDragging(true);
       dispatch({ type: 'SELECT_CHARACTER', character });
     }
-  };
-
-  const handleDragEnd = () => {
-    if (isMobile) return; // スマホでは無効
-    setIsDragging(false);
-    setIsDragOver(false);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
     if (isMobile) return; // スマホでは無効
     
     e.preventDefault();
-    if (!selectedCharacter || selectedAction === 'skill' || isDragging) return;
+    if (!selectedCharacter || selectedAction === 'skill') return;
     
     const isValidTarget = (!character && isValidMove(position)) || (character && isValidAttack(character.id));
     if (isValidTarget) {
@@ -105,7 +60,7 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
     e.preventDefault();
     setIsDragOver(false);
     
-    if (selectedAction === 'skill' || isDragging) return;
+    if (selectedAction === 'skill') return;
     
     const draggedCharacterId = e.dataTransfer.getData('text/plain');
     if (!draggedCharacterId || !selectedCharacter) return;
@@ -147,6 +102,18 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
       dispatch({ type: 'CONFIRM_ACTION' });
     } else if (!character && !canMoveTo && !canAttack && !canUseSkill) {
       dispatch({ type: 'SELECT_CHARACTER', character: null });
+    }
+  };
+
+  // スマホでの長押し処理（HTMLデフォルト機能を使用）
+  const handleContextMenu = (e: React.MouseEvent) => {
+    if (isMobile && character) {
+      e.preventDefault(); // デフォルトのコンテキストメニューを無効化
+      setShowModal(true);
+      // 触覚フィードバック
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
     }
   };
 
@@ -195,9 +162,6 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
   
   if (isDraggablePC) {
     cellClassName += " cursor-grab active:cursor-grabbing";
-    if (isDragging) {
-      cellClassName += " opacity-50";
-    }
   }
 
   return (
@@ -205,15 +169,12 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
       <div 
         className={`${cellClassName} ${animationTarget?.id === character?.id && animationTarget?.type ? `character-${animationTarget.type}` : ''} ${isActionable ? 'character-actionable' : ''}`}
         onClick={handleClick}
+        onContextMenu={handleContextMenu}
         draggable={isDraggablePC}
         onDragStart={isDraggablePC ? handleDragStart : undefined}
-        onDragEnd={isDraggablePC ? handleDragEnd : undefined}
         onDragOver={!isMobile ? handleDragOver : undefined}
         onDragLeave={!isMobile ? handleDragLeave : undefined}
         onDrop={!isMobile ? handleDrop : undefined}
-        onTouchStart={isMobile ? handleTouchStart : undefined}
-        onTouchEnd={isMobile ? handleTouchEnd : undefined}
-        onTouchMove={isMobile ? handleTouchMove : undefined}
       >
         {character && (
           <div className="absolute inset-0 flex flex-col items-center justify-center">
