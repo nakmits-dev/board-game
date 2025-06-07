@@ -267,8 +267,8 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
         : monsterData[assignment.id as MonsterType]
       : null;
 
-    // シークレットモードの場合、敵チームのカードを隠す
-    const shouldHideCard = secretMode && !isPlayerTeam && hasCard;
+    // シークレットモードの場合、お互いのカードを隠す
+    const shouldHideCard = secretMode && hasCard;
 
     let cellClassName = "w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center relative border transition-all duration-200";
     
@@ -307,10 +307,12 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
             {shouldHideCard ? (
               // シークレットモード時の？マーク表示
               <div className={`relative w-12 h-12 sm:w-16 sm:h-16 rounded-lg overflow-hidden ${
-                'ring-1 ring-red-400 shadow-md shadow-red-400/30'
+                isPlayerTeam
+                  ? 'ring-1 ring-blue-400 shadow-md shadow-blue-400/30'
+                  : 'ring-1 ring-red-400 shadow-md shadow-red-400/30'
               } bg-gray-800 flex items-center justify-center`}>
-                <HelpCircle size={24} className="text-red-400 sm:w-8 sm:h-8" />
-                <div className="absolute inset-0 bg-red-500 bg-opacity-10"></div>
+                <HelpCircle size={24} className={`${isPlayerTeam ? 'text-blue-400' : 'text-red-400'} sm:w-8 sm:h-8`} />
+                <div className={`absolute inset-0 ${isPlayerTeam ? 'bg-blue-500' : 'bg-red-500'} bg-opacity-10`}></div>
               </div>
             ) : (
               <div className={`relative w-12 h-12 sm:w-16 sm:h-16 rounded-lg overflow-hidden ${
@@ -508,7 +510,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
               <div className="flex items-center gap-2 text-purple-800">
                 <EyeOff size={16} />
                 <span className="text-sm font-medium">
-                  シークレットモード: 相手チームの編成が？マークで隠されます
+                  シークレットモード: お互いの編成が？マークで隠されます
                 </span>
               </div>
             </div>
@@ -550,33 +552,33 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
           </div>
           
           {/* ボタン配置 */}
-          <div className="flex justify-center gap-4">
+          <div className="flex justify-center gap-2">
             <button
               onClick={handleClearAll}
-              className="px-4 sm:px-6 py-2 sm:py-3 bg-gray-600 hover:bg-gray-700 text-white font-bold rounded-lg shadow-lg transform transition hover:scale-105 flex items-center gap-2"
+              className="px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg shadow transform transition hover:scale-105 flex items-center gap-1.5 text-sm"
             >
-              <Trash2 size={16} className="sm:w-5 sm:h-5" />
+              <Trash2 size={14} />
               クリア
             </button>
             
             <button
               onClick={handleRandomSelection}
-              className="px-4 sm:px-6 py-2 sm:py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg shadow-lg transform transition hover:scale-105 flex items-center gap-2"
+              className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg shadow transform transition hover:scale-105 flex items-center gap-1.5 text-sm"
             >
-              <Shuffle size={16} className="sm:w-5 sm:h-5" />
+              <Shuffle size={14} />
               ランダム
             </button>
             
             <button
               onClick={handleComplete}
               disabled={!canStartGame()}
-              className={`px-4 sm:px-6 py-2 sm:py-3 font-bold rounded-lg shadow-lg transform transition flex items-center gap-2 ${
+              className={`px-3 py-2 font-medium rounded-lg shadow transform transition flex items-center gap-1.5 text-sm ${
                 canStartGame()
                   ? 'bg-green-600 hover:bg-green-700 text-white hover:scale-105'
                   : 'bg-gray-400 text-gray-200 cursor-not-allowed'
               }`}
             >
-              <Play size={16} className="sm:w-5 sm:h-5" />
+              <Play size={14} />
               完了
             </button>
           </div>
