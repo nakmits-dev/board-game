@@ -398,7 +398,7 @@ const Tutorial: React.FC<TutorialProps> = ({ onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full h-[80vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 flex items-center justify-between flex-shrink-0">
           <h2 className="text-xl font-bold">チュートリアル</h2>
