@@ -3,7 +3,7 @@ import { useFirebaseGame } from '../hooks/useFirebaseGame';
 import { useGame } from '../context/GameContext';
 import { MonsterType } from '../types/gameTypes';
 import { masterData } from '../data/cardData';
-import { Wifi, WifiOff, Users, Copy, Check, X, Play, Clock, UserCheck, UserX } from 'lucide-react';
+import { Wifi, WifiOff, Users, Copy, Check, X, Play, Clock, UserCheck, UserX, RefreshCw } from 'lucide-react';
 
 interface NetworkGameLobbyProps {
   onClose: () => void;
@@ -25,19 +25,28 @@ const NetworkGameLobby: React.FC<NetworkGameLobbyProps> = ({ onClose, onStartNet
   // デッキが設定されているかチェック
   const hasValidDeck = savedDecks.player && savedDecks.enemy;
 
+  // ネットワーク状態の変化を監視
   useEffect(() => {
     if (networkState.isOnline && networkState.roomId) {
       setMode('waiting');
       setRoomId(networkState.roomId);
+      setError(''); // エラーをクリア
     }
   }, [networkState.isOnline, networkState.roomId]);
 
-  // 準備状態の変更を監視
+  // 準備状態の変更を監視して送信
   useEffect(() => {
-    if (mode === 'waiting' && networkState.roomId) {
+    if (mode === 'waiting' && networkState.roomId && isConnected) {
       updateReadyStatus(isReady);
     }
-  }, [isReady, mode, networkState.roomId, updateReadyStatus]);
+  }, [isReady, mode, networkState.roomId, isConnected, updateReadyStatus]);
+
+  // エラー状態の監視
+  useEffect(() => {
+    if (networkState.connectionStatus === 'error') {
+      setError('接続エラーが発生しました');
+    }
+  }, [networkState.connectionStatus]);
 
   const handleCreateRoom = async () => {
     if (!hasValidDeck || !savedDecks.player) {
@@ -53,9 +62,9 @@ const NetworkGameLobby: React.FC<NetworkGameLobbyProps> = ({ onClose, onStartNet
       setRoomId(newRoomId);
       setMode('waiting');
       setIsReady(true);
-    } catch (err) {
-      setError('ルームの作成に失敗しました');
-      console.error(err);
+    } catch (err: any) {
+      setError(err.message || 'ルームの作成に失敗しました');
+      console.error('ルーム作成エラー:', err);
     } finally {
       setLoading(false);
     }
@@ -76,6 +85,7 @@ const NetworkGameLobby: React.FC<NetworkGameLobbyProps> = ({ onClose, onStartNet
       setIsReady(true);
     } catch (err: any) {
       setError(err.message || 'ルームへの参加に失敗しました');
+      console.error('ルーム参加エラー:', err);
     } finally {
       setLoading(false);
     }
@@ -90,11 +100,17 @@ const NetworkGameLobby: React.FC<NetworkGameLobbyProps> = ({ onClose, onStartNet
       return;
     }
 
+    setLoading(true);
+    setError('');
+
     try {
       await startGame();
       onStartNetworkGame(networkState.roomId!, networkState.isHost);
-    } catch (err) {
-      setError('ゲームの開始に失敗しました');
+    } catch (err: any) {
+      setError(err.message || 'ゲームの開始に失敗しました');
+      console.error('ゲーム開始エラー:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -107,15 +123,31 @@ const NetworkGameLobby: React.FC<NetworkGameLobbyProps> = ({ onClose, onStartNet
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error('コピーに失敗しました:', err);
+      // フォールバック: テキストエリアを使用
+      const textArea = document.createElement('textarea');
+      textArea.value = roomId;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
   };
 
   const handleLeaveRoom = async () => {
-    await leaveRoom();
-    setMode('menu');
-    setRoomId('');
-    setError('');
-    setIsReady(true);
+    setLoading(true);
+    try {
+      await leaveRoom();
+      setMode('menu');
+      setRoomId('');
+      setError('');
+      setIsReady(true);
+    } catch (err) {
+      console.error('ルーム退出エラー:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const toggleReady = () => {
@@ -127,14 +159,26 @@ const NetworkGameLobby: React.FC<NetworkGameLobbyProps> = ({ onClose, onStartNet
                       networkState.opponent && 
                       isReady && 
                       networkState.opponent.ready &&
-                      networkState.opponent.connected;
+                      networkState.opponent.connected &&
+                      !loading;
 
-  if (!isConnected) {
+  // 接続状態の表示
+  const getConnectionStatus = () => {
+    if (!isConnected) return { text: '接続中...', color: 'text-yellow-600', icon: RefreshCw };
+    if (networkState.connectionStatus === 'error') return { text: '接続エラー', color: 'text-red-600', icon: WifiOff };
+    return { text: '接続済み', color: 'text-green-600', icon: Wifi };
+  };
+
+  const connectionStatus = getConnectionStatus();
+
+  if (!isConnected && networkState.connectionStatus !== 'error') {
     return (
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
           <div className="text-center">
-            <WifiOff size={48} className="text-red-500 mx-auto mb-4" />
+            <div className="animate-spin">
+              <RefreshCw size={48} className="text-blue-500 mx-auto mb-4" />
+            </div>
             <h2 className="text-xl font-bold text-gray-800 mb-2">接続中...</h2>
             <p className="text-gray-600 mb-4">Firebaseに接続しています</p>
             <button
@@ -155,12 +199,16 @@ const NetworkGameLobby: React.FC<NetworkGameLobbyProps> = ({ onClose, onStartNet
         {/* ヘッダー */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
-            <Wifi size={24} className="text-green-500" />
-            <h2 className="text-xl font-bold text-gray-800">オンライン対戦</h2>
+            <connectionStatus.icon size={24} className={connectionStatus.color} />
+            <div>
+              <h2 className="text-xl font-bold text-gray-800">オンライン対戦</h2>
+              <p className={`text-sm ${connectionStatus.color}`}>{connectionStatus.text}</p>
+            </div>
           </div>
           <button
             onClick={mode === 'waiting' ? handleLeaveRoom : onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            disabled={loading}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
           >
             <X size={20} />
           </button>
@@ -196,14 +244,15 @@ const NetworkGameLobby: React.FC<NetworkGameLobbyProps> = ({ onClose, onStartNet
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="プレイヤー名を入力"
                 maxLength={20}
+                disabled={loading}
               />
             </div>
 
             <button
               onClick={() => setMode('create')}
-              disabled={!hasValidDeck || loading}
+              disabled={!hasValidDeck || loading || !isConnected}
               className={`w-full py-3 rounded-lg font-medium transition-colors ${
-                hasValidDeck && !loading
+                hasValidDeck && !loading && isConnected
                   ? 'bg-blue-600 text-white hover:bg-blue-700'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
@@ -213,9 +262,9 @@ const NetworkGameLobby: React.FC<NetworkGameLobbyProps> = ({ onClose, onStartNet
 
             <button
               onClick={() => setMode('join')}
-              disabled={!hasValidDeck || loading}
+              disabled={!hasValidDeck || loading || !isConnected}
               className={`w-full py-3 rounded-lg font-medium transition-colors ${
-                hasValidDeck && !loading
+                hasValidDeck && !loading && isConnected
                   ? 'bg-green-600 text-white hover:bg-green-700'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
@@ -238,9 +287,9 @@ const NetworkGameLobby: React.FC<NetworkGameLobbyProps> = ({ onClose, onStartNet
 
             <button
               onClick={handleCreateRoom}
-              disabled={loading}
+              disabled={loading || !isConnected}
               className={`w-full py-3 rounded-lg font-medium transition-colors ${
-                loading
+                loading || !isConnected
                   ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   : 'bg-blue-600 text-white hover:bg-blue-700'
               }`}
@@ -250,7 +299,8 @@ const NetworkGameLobby: React.FC<NetworkGameLobbyProps> = ({ onClose, onStartNet
 
             <button
               onClick={() => setMode('menu')}
-              className="w-full py-2 text-gray-600 hover:text-gray-800 transition-colors"
+              disabled={loading}
+              className="w-full py-2 text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50"
             >
               戻る
             </button>
@@ -278,14 +328,15 @@ const NetworkGameLobby: React.FC<NetworkGameLobbyProps> = ({ onClose, onStartNet
                 onChange={(e) => setRoomId(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 placeholder="ルームIDを入力"
+                disabled={loading}
               />
             </div>
 
             <button
               onClick={handleJoinRoom}
-              disabled={loading || !roomId.trim()}
+              disabled={loading || !roomId.trim() || !isConnected}
               className={`w-full py-3 rounded-lg font-medium transition-colors ${
-                loading || !roomId.trim()
+                loading || !roomId.trim() || !isConnected
                   ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   : 'bg-green-600 text-white hover:bg-green-700'
               }`}
@@ -295,7 +346,8 @@ const NetworkGameLobby: React.FC<NetworkGameLobbyProps> = ({ onClose, onStartNet
 
             <button
               onClick={() => setMode('menu')}
-              className="w-full py-2 text-gray-600 hover:text-gray-800 transition-colors"
+              disabled={loading}
+              className="w-full py-2 text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50"
             >
               戻る
             </button>
@@ -348,7 +400,8 @@ const NetworkGameLobby: React.FC<NetworkGameLobbyProps> = ({ onClose, onStartNet
                 </div>
                 <button
                   onClick={toggleReady}
-                  className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                  disabled={loading}
+                  className={`px-3 py-1 rounded text-sm font-medium transition-colors disabled:opacity-50 ${
                     isReady 
                       ? 'bg-green-600 text-white hover:bg-green-700' 
                       : 'bg-yellow-600 text-white hover:bg-yellow-700'
@@ -384,7 +437,7 @@ const NetworkGameLobby: React.FC<NetworkGameLobbyProps> = ({ onClose, onStartNet
                     </span>
                     <div className={`w-2 h-2 rounded-full ${
                       networkState.opponent.connected ? 'bg-green-500' : 'bg-red-500'
-                    }`}></div>
+                    }`} title={networkState.opponent.connected ? '接続中' : '切断中'}></div>
                   </div>
                 </div>
               ) : (
@@ -407,7 +460,7 @@ const NetworkGameLobby: React.FC<NetworkGameLobbyProps> = ({ onClose, onStartNet
                 }`}
               >
                 <Play size={20} />
-                {canStartGame ? 'ゲーム開始' : '両プレイヤーの準備完了を待機中'}
+                {loading ? 'ゲーム開始中...' : canStartGame ? 'ゲーム開始' : '両プレイヤーの準備完了を待機中'}
               </button>
             )}
 
@@ -421,9 +474,10 @@ const NetworkGameLobby: React.FC<NetworkGameLobbyProps> = ({ onClose, onStartNet
 
             <button
               onClick={handleLeaveRoom}
-              className="w-full py-2 text-red-600 hover:text-red-800 transition-colors"
+              disabled={loading}
+              className="w-full py-2 text-red-600 hover:text-red-800 transition-colors disabled:opacity-50"
             >
-              ルームを退出
+              {loading ? '退出中...' : 'ルームを退出'}
             </button>
           </div>
         )}

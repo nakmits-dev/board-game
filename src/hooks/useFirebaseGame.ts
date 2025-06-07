@@ -20,6 +20,8 @@ export const useFirebaseGame = () => {
   const [user, setUser] = useState<any>(null);
   const roomRef = useRef<any>(null);
   const actionsRef = useRef<any>(null);
+  const unsubscribeRoom = useRef<(() => void) | null>(null);
+  const unsubscribeActions = useRef<(() => void) | null>(null);
 
   // Firebase認証
   useEffect(() => {
@@ -154,49 +156,84 @@ export const useFirebaseGame = () => {
   const updateReadyStatus = useCallback(async (ready: boolean) => {
     if (!networkState.roomId || !user) return;
 
-    const playerRef = ref(database, `rooms/${networkState.roomId}/players/${user.uid}`);
-    await update(playerRef, { 
-      ready,
-      lastSeen: Date.now()
-    });
-    
-    // ルーム全体の更新時刻も更新
-    await update(ref(database, `rooms/${networkState.roomId}`), { 
-      updatedAt: Date.now() 
-    });
+    try {
+      const playerRef = ref(database, `rooms/${networkState.roomId}/players/${user.uid}`);
+      await update(playerRef, { 
+        ready,
+        lastSeen: Date.now()
+      });
+      
+      // ルーム全体の更新時刻も更新
+      await update(ref(database, `rooms/${networkState.roomId}`), { 
+        updatedAt: Date.now() 
+      });
+    } catch (error) {
+      console.error('準備状態の更新に失敗:', error);
+    }
   }, [networkState.roomId, user]);
 
   // ゲーム開始
   const startGame = useCallback(async () => {
     if (!networkState.roomId || !networkState.isHost) return;
 
-    const updates = {
-      [`rooms/${networkState.roomId}/status`]: 'playing',
-      [`rooms/${networkState.roomId}/gameState/startTime`]: Date.now(),
-      [`rooms/${networkState.roomId}/updatedAt`]: Date.now(),
-    };
+    try {
+      const updates = {
+        [`rooms/${networkState.roomId}/status`]: 'playing',
+        [`rooms/${networkState.roomId}/gameState/startTime`]: Date.now(),
+        [`rooms/${networkState.roomId}/updatedAt`]: Date.now(),
+      };
 
-    await update(ref(database), updates);
+      await update(ref(database), updates);
+    } catch (error) {
+      console.error('ゲーム開始に失敗:', error);
+      throw error;
+    }
   }, [networkState.roomId, networkState.isHost]);
 
   // アクション送信
   const sendAction = useCallback(async (action: Omit<GameAction, 'id' | 'timestamp' | 'playerId'>) => {
     if (!networkState.roomId || !user) return;
 
-    const actionData: GameAction = {
-      ...action,
-      id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      timestamp: Date.now(),
-      playerId: user.uid,
-    };
+    try {
+      const actionData: GameAction = {
+        ...action,
+        id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        timestamp: Date.now(),
+        playerId: user.uid,
+      };
 
-    const actionsRef = ref(database, `rooms/${networkState.roomId}/actions`);
-    await push(actionsRef, actionData);
+      const actionsRef = ref(database, `rooms/${networkState.roomId}/actions`);
+      await push(actionsRef, actionData);
+    } catch (error) {
+      console.error('アクション送信に失敗:', error);
+    }
   }, [networkState.roomId, user]);
+
+  // ルーム監視のクリーンアップ
+  const cleanupRoomSubscription = useCallback(() => {
+    if (unsubscribeRoom.current) {
+      unsubscribeRoom.current();
+      unsubscribeRoom.current = null;
+    }
+  }, []);
+
+  // アクション監視のクリーンアップ
+  const cleanupActionsSubscription = useCallback(() => {
+    if (unsubscribeActions.current) {
+      unsubscribeActions.current();
+      unsubscribeActions.current = null;
+    }
+  }, []);
 
   // ルーム監視
   useEffect(() => {
-    if (!networkState.roomId) return;
+    if (!networkState.roomId || !user) {
+      cleanupRoomSubscription();
+      return;
+    }
+
+    // 既存の監視をクリーンアップ
+    cleanupRoomSubscription();
 
     roomRef.current = ref(database, `rooms/${networkState.roomId}`);
     
@@ -208,14 +245,15 @@ export const useFirebaseGame = () => {
           ...prev,
           isOnline: false,
           roomId: null,
-          connectionStatus: 'error'
+          connectionStatus: 'error',
+          opponent: null,
         }));
         return;
       }
 
       // 対戦相手の情報を更新
       const players = Object.values(roomData.players);
-      const opponent = players.find(p => p.id !== user?.uid);
+      const opponent = players.find(p => p.id !== user.uid);
 
       setNetworkState(prev => ({
         ...prev,
@@ -229,14 +267,30 @@ export const useFirebaseGame = () => {
           connected: opponent.connected,
         } : null,
       }));
+    }, (error) => {
+      console.error('ルーム監視エラー:', error);
+      setNetworkState(prev => ({
+        ...prev,
+        connectionStatus: 'error'
+      }));
     });
 
-    return unsubscribe;
-  }, [networkState.roomId, user]);
+    unsubscribeRoom.current = unsubscribe;
+
+    return () => {
+      cleanupRoomSubscription();
+    };
+  }, [networkState.roomId, user, cleanupRoomSubscription]);
 
   // アクション監視
   useEffect(() => {
-    if (!networkState.roomId) return;
+    if (!networkState.roomId) {
+      cleanupActionsSubscription();
+      return;
+    }
+
+    // 既存の監視をクリーンアップ
+    cleanupActionsSubscription();
 
     actionsRef.current = ref(database, `rooms/${networkState.roomId}/actions`);
     
@@ -251,11 +305,22 @@ export const useFirebaseGame = () => {
           ...prev,
           gameActions: sortedActions,
         }));
+      } else {
+        setNetworkState(prev => ({
+          ...prev,
+          gameActions: [],
+        }));
       }
+    }, (error) => {
+      console.error('アクション監視エラー:', error);
     });
 
-    return unsubscribe;
-  }, [networkState.roomId]);
+    unsubscribeActions.current = unsubscribe;
+
+    return () => {
+      cleanupActionsSubscription();
+    };
+  }, [networkState.roomId, cleanupActionsSubscription]);
 
   // 接続状態管理
   useEffect(() => {
@@ -267,17 +332,17 @@ export const useFirebaseGame = () => {
     update(playerRef, {
       connected: true,
       lastSeen: Date.now(),
-    });
+    }).catch(console.error);
 
     // 切断時の処理
     onDisconnect(playerRef).update({
       connected: false,
       lastSeen: Date.now(),
-    });
+    }).catch(console.error);
 
     // 定期的にlastSeenを更新
     const interval = setInterval(() => {
-      update(playerRef, { lastSeen: Date.now() });
+      update(playerRef, { lastSeen: Date.now() }).catch(console.error);
     }, 30000); // 30秒ごと
 
     return () => clearInterval(interval);
@@ -287,20 +352,36 @@ export const useFirebaseGame = () => {
   const leaveRoom = useCallback(async () => {
     if (!networkState.roomId || !user) return;
 
-    const playerRef = ref(database, `rooms/${networkState.roomId}/players/${user.uid}`);
-    await remove(playerRef);
+    try {
+      // 監視を停止
+      cleanupRoomSubscription();
+      cleanupActionsSubscription();
 
-    setNetworkState({
-      isOnline: false,
-      roomId: null,
-      playerId: null,
-      isHost: false,
-      opponent: null,
-      connectionStatus: 'disconnected',
-      gameActions: [],
-      lastSyncedTurn: 0,
-    });
-  }, [networkState.roomId, user]);
+      const playerRef = ref(database, `rooms/${networkState.roomId}/players/${user.uid}`);
+      await remove(playerRef);
+
+      setNetworkState({
+        isOnline: false,
+        roomId: null,
+        playerId: user?.uid || null,
+        isHost: false,
+        opponent: null,
+        connectionStatus: user ? 'connected' : 'disconnected',
+        gameActions: [],
+        lastSyncedTurn: 0,
+      });
+    } catch (error) {
+      console.error('ルーム退出に失敗:', error);
+    }
+  }, [networkState.roomId, user, cleanupRoomSubscription, cleanupActionsSubscription]);
+
+  // コンポーネントのアンマウント時のクリーンアップ
+  useEffect(() => {
+    return () => {
+      cleanupRoomSubscription();
+      cleanupActionsSubscription();
+    };
+  }, [cleanupRoomSubscription, cleanupActionsSubscription]);
 
   return {
     networkState,
