@@ -195,7 +195,9 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
                 character.team === 'player' ? 'bg-blue-500' : 'bg-red-500'
               } bg-opacity-10`}></div>
               
-              <div className="absolute bottom-0 inset-x-0 flex justify-center gap-0.5 p-0.5">
+              <div className={`absolute bottom-0 inset-x-0 flex justify-center gap-0.5 p-0.5 ${
+                character.team === 'enemy' ? 'transform rotate-180' : ''
+              }`}>
                 {character.attack >= 2 && (
                   <div className="w-4 h-4 bg-red-500/80 rounded flex items-center justify-center">
                     <Sword size={10} className="text-white" />
@@ -214,13 +216,17 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
               </div>
               
               {gamePhase === 'action' && character.team === currentTeam && character.remainingActions > 0 && (
-                <div className="absolute top-0 right-0 w-5 h-5 bg-green-500/90 rounded flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                <div className={`absolute top-0 right-0 w-5 h-5 bg-green-500/90 rounded flex items-center justify-center text-white text-xs font-bold shadow-sm ${
+                  character.team === 'enemy' ? 'transform rotate-180' : ''
+                }`}>
                   {character.remainingActions}
                 </div>
               )}
             </div>
             
-            <div className="flex gap-0.5 mt-1">
+            <div className={`flex gap-0.5 mt-1 ${
+              character.team === 'enemy' ? 'transform rotate-180' : ''
+            }`}>
               {Array.from({ length: character.maxHp }, (_, i) => (
                 <div
                   key={i}

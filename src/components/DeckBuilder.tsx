@@ -347,7 +347,9 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
               } bg-opacity-10`}></div>
               
               {/* Stats overlay */}
-              <div className="absolute bottom-0 inset-x-0 flex justify-center gap-0.5 p-0.5">
+              <div className={`absolute bottom-0 inset-x-0 flex justify-center gap-0.5 p-0.5 ${
+                !isPlayerTeam ? 'transform rotate-180' : ''
+              }`}>
                 {cardData.attack >= 2 && (
                   <div className="w-3 h-3 sm:w-4 sm:h-4 bg-red-500/80 rounded flex items-center justify-center">
                     <Sword size={8} className="text-white sm:w-[10px] sm:h-[10px]" />
@@ -367,7 +369,9 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
             </div>
             
             {/* HP表示 */}
-            <div className="flex gap-0.5 mt-1">
+            <div className={`flex gap-0.5 mt-1 ${
+              !isPlayerTeam ? 'transform rotate-180' : ''
+            }`}>
               {Array.from({ length: cardData.hp }, (_, i) => (
                 <div
                   key={i}
