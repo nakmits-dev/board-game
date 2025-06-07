@@ -8,7 +8,7 @@ const TurnOrder: React.FC = () => {
   const { state, dispatch } = useGame();
   const { currentTeam, gamePhase, animationTarget } = state;
   const [timeLeft, setTimeLeft] = useState(TURN_DURATION);
-  const [isPaused, setIsPaused] = useState(false);
+  const [isPaused, setIsPaused] = useState(true); // デフォルトでストップ状態
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
   const endTurnButtonRef = useRef<HTMLButtonElement>(null);
   const isEndingTurn = useRef(false);
@@ -42,6 +42,7 @@ const TurnOrder: React.FC = () => {
     if (gamePhase === 'action') {
       setTimeLeft(TURN_DURATION);
       setShowSurrenderConfirm(false);
+      // ターンが変わってもポーズ状態は維持
     }
   }, [currentTeam, gamePhase]);
   
