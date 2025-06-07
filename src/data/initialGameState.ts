@@ -186,8 +186,8 @@ export const createInitialGameState = (
     // 敵チーム
     characters.push(createMaster(defaultEnemyDeck.master, { x: 1, y: 0 }, 'enemy'));
     const enemyPositions = [
-      { x: 2, y: 0 }, // 右：ウルフ
-      { x: 0, y: 0 }, // 左：ベアー
+      { x: 2, y: 0 }, // 右：ベアー
+      { x: 0, y: 0 }, // 左：ウルフ
       { x: 1, y: 1 }  // 下：ゴーレム
     ];
     
