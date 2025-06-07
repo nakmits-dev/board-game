@@ -22,35 +22,6 @@ const GameContent = () => {
   // スマホでの対戦中かどうかを判定
   const isMobileBattle = gamePhase === 'action' && window.innerWidth < 1024;
 
-  // スマホ対戦中のスクロール制御
-  useEffect(() => {
-    if (isMobileBattle) {
-      // スクロールを禁止
-      document.body.classList.add('mobile-battle-no-scroll');
-      // ゲームボードエリアのドラッグを有効化
-      const gameBoard = document.querySelector('.game-board-container');
-      if (gameBoard) {
-        gameBoard.classList.add('mobile-drag-enabled');
-      }
-    } else {
-      // スクロール制限を解除
-      document.body.classList.remove('mobile-battle-no-scroll');
-      const gameBoard = document.querySelector('.game-board-container');
-      if (gameBoard) {
-        gameBoard.classList.remove('mobile-drag-enabled');
-      }
-    }
-
-    // クリーンアップ
-    return () => {
-      document.body.classList.remove('mobile-battle-no-scroll');
-      const gameBoard = document.querySelector('.game-board-container');
-      if (gameBoard) {
-        gameBoard.classList.remove('mobile-drag-enabled');
-      }
-    };
-  }, [isMobileBattle]);
-
   const handleStartGame = (
     playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] },
     enemyDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }
@@ -128,13 +99,13 @@ const GameContent = () => {
       <main className={`container mx-auto p-4 max-w-7xl ${isMobileBattle ? 'pt-2' : ''}`}>
         {/* スマホ対戦中の浮かび上がるヘルプボタン */}
         {isMobileBattle && (
-          <div className="fixed top-4 right-16 z-30">
+          <div className="fixed top-4 right-4 z-30">
             <button
               onClick={() => setShowTutorial(true)}
-              className="floating-help-button w-12 h-12 text-white rounded-full flex items-center justify-center transition-all duration-300"
+              className="floating-help-button w-10 h-10 text-white rounded-full flex items-center justify-center transition-all duration-300"
               title="遊び方を見る"
             >
-              <HelpCircle size={20} />
+              <HelpCircle size={18} />
             </button>
           </div>
         )}
@@ -167,7 +138,7 @@ const GameContent = () => {
               </div>
             )}
             
-            <div className="flex justify-center mb-4 relative game-board-container">
+            <div className="flex justify-center mb-4 relative">
               <CrystalDisplay />
               <GameBoard />
             </div>

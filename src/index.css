@@ -6,20 +6,6 @@
   perspective: 1000px;
 }
 
-/* スマホ対戦中のスクロール禁止 */
-.mobile-battle-no-scroll {
-  overflow: hidden;
-  position: fixed;
-  width: 100%;
-  height: 100%;
-  touch-action: none; /* タッチによるスクロールを完全に無効化 */
-}
-
-/* ドラッグ操作を有効にするためのスタイル */
-.mobile-drag-enabled {
-  touch-action: none; /* ゲームボード内では全てのタッチ操作をJavaScriptで制御 */
-}
-
 /* 行動可能なキャラクターのアニメーション */
 .character-actionable {
   animation: actionable 1s ease-in-out infinite;
@@ -159,29 +145,12 @@
   }
 }
 
-/* ドラッグ中の視覚的フィードバック */
-.dragging-feedback {
-  opacity: 0.7 !important;
-  transform: scale(1.1) !important;
-  z-index: 1000 !important;
-  pointer-events: none !important;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3) !important;
-}
-
-/* ドラッグホバー時のハイライト */
-.drag-hover {
-  background-color: rgba(34, 197, 94, 0.2) !important;
-  border-color: rgb(34, 197, 94) !important;
-  border-width: 2px !important;
-  transform: scale(1.05) !important;
-}
-
 /* 浮かび上がるヘルプボタンのスタイル */
 .floating-help-button {
   background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
   box-shadow: 
-    0 8px 25px rgba(22, 163, 74, 0.4),
-    0 4px 12px rgba(0, 0, 0, 0.15),
+    0 4px 12px rgba(22, 163, 74, 0.3),
+    0 2px 6px rgba(0, 0, 0, 0.1),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
   border: 1px solid rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(10px);
@@ -191,16 +160,16 @@
 .floating-help-button:hover {
   background: linear-gradient(135deg, #15803d 0%, #166534 100%);
   box-shadow: 
-    0 12px 35px rgba(22, 163, 74, 0.5),
-    0 6px 16px rgba(0, 0, 0, 0.2),
+    0 6px 16px rgba(22, 163, 74, 0.4),
+    0 3px 8px rgba(0, 0, 0, 0.15),
     inset 0 1px 0 rgba(255, 255, 255, 0.3);
-  transform: translateY(-2px) scale(1.05);
+  transform: translateY(-1px) scale(1.05);
 }
 
 .floating-help-button:active {
   transform: translateY(0) scale(0.98);
   box-shadow: 
-    0 6px 20px rgba(22, 163, 74, 0.3),
-    0 3px 8px rgba(0, 0, 0, 0.15),
+    0 3px 8px rgba(22, 163, 74, 0.2),
+    0 1px 4px rgba(0, 0, 0, 0.1),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
