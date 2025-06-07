@@ -517,9 +517,9 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     player?: { master: keyof typeof masterData; monsters: MonsterType[] };
     enemy?: { master: keyof typeof masterData; monsters: MonsterType[] };
   }>({
-    // デフォルト編成を設定
-    player: { master: 'blue', monsters: ['wolf', 'bear', 'golem'] },
-    enemy: { master: 'red', monsters: ['wolf', 'bear', 'golem'] }
+    // デフォルト編成を設定（ベアーとウルフを逆に）
+    player: { master: 'blue', monsters: ['bear', 'wolf', 'golem'] },
+    enemy: { master: 'red', monsters: ['bear', 'wolf', 'golem'] }
   });
 
   // 初期化時にデフォルト編成を設定

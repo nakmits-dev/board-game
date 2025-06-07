@@ -165,15 +165,15 @@ export const createInitialGameState = (
       }
     });
   } else {
-    // デフォルト編成（ブルーマスター + ウルフ、ベアー、ゴーレム）
-    const defaultPlayerDeck = { master: 'blue' as keyof typeof masterData, monsters: ['wolf', 'bear', 'golem'] as MonsterType[] };
-    const defaultEnemyDeck = { master: 'red' as keyof typeof masterData, monsters: ['wolf', 'bear', 'golem'] as MonsterType[] };
+    // デフォルト編成（ブルーマスター + ベアー、ウルフ、ゴーレム）
+    const defaultPlayerDeck = { master: 'blue' as keyof typeof masterData, monsters: ['bear', 'wolf', 'golem'] as MonsterType[] };
+    const defaultEnemyDeck = { master: 'red' as keyof typeof masterData, monsters: ['bear', 'wolf', 'golem'] as MonsterType[] };
     
     // プレイヤーチーム
     characters.push(createMaster(defaultPlayerDeck.master, { x: 1, y: 3 }, 'player'));
     const playerPositions = [
-      { x: 0, y: 3 }, // 左：ウルフ
-      { x: 2, y: 3 }, // 右：ベアー  
+      { x: 0, y: 3 }, // 左：ベアー
+      { x: 2, y: 3 }, // 右：ウルフ  
       { x: 1, y: 2 }  // 上：ゴーレム
     ];
     
@@ -186,8 +186,8 @@ export const createInitialGameState = (
     // 敵チーム
     characters.push(createMaster(defaultEnemyDeck.master, { x: 1, y: 0 }, 'enemy'));
     const enemyPositions = [
-      { x: 0, y: 0 }, // 左：ウルフ
-      { x: 2, y: 0 }, // 右：ベアー
+      { x: 0, y: 0 }, // 左：ベアー
+      { x: 2, y: 0 }, // 右：ウルフ
       { x: 1, y: 1 }  // 下：ゴーレム
     ];
     
