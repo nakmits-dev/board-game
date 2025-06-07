@@ -106,8 +106,8 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
     const currentTime = Date.now();
     const timeDiff = currentTime - dragStartTime;
     
-    // より短い距離と時間でドラッグとして認識（3ピクセルまたは100ms経過）
-    if ((deltaX > 3 || deltaY > 3) || timeDiff > 100) {
+    // ドラッグ検出時間を300msに延長（3ピクセルまたは300ms経過）
+    if ((deltaX > 3 || deltaY > 3) || timeDiff > 300) {
       if (!isDragging) {
         setIsDragging(true);
         // より強い振動フィードバック
@@ -146,8 +146,8 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
     setTouchStartPos(null);
     setDragStartTime(0);
     
-    // 短い移動かつ短時間の場合はタップとして処理
-    if ((deltaX <= 3 && deltaY <= 3) && timeDiff < 200) {
+    // タップ判定時間も300msに延長（短い移動かつ短時間の場合はタップとして処理）
+    if ((deltaX <= 3 && deltaY <= 3) && timeDiff < 300) {
       handleClick();
       return;
     }
