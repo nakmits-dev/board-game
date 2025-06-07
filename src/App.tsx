@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { GameProvider } from './context/GameContext';
+import { NetworkGameProvider } from './context/NetworkGameContext';
 import GameBoard from './components/GameBoard';
 import CharacterPanel from './components/CharacterPanel';
 import ActionControls from './components/ActionControls';
@@ -8,16 +9,22 @@ import CrystalDisplay from './components/CrystalDisplay';
 import DeckBuilder from './components/DeckBuilder';
 import ShareButton from './components/ShareButton';
 import Tutorial from './components/Tutorial';
+import NetworkGameLobby from './components/NetworkGameLobby';
 import { useGame } from './context/GameContext';
 import { MonsterType } from './types/gameTypes';
 import { masterData } from './data/cardData';
-import { HelpCircle, Play } from 'lucide-react';
+import { HelpCircle, Play, Wifi } from 'lucide-react';
 
 const GameContent = () => {
   const { state, dispatch, savedDecks } = useGame();
   const { gamePhase } = state;
   const [showDeckBuilder, setShowDeckBuilder] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [showNetworkLobby, setShowNetworkLobby] = useState(false);
+  const [networkGameInfo, setNetworkGameInfo] = useState<{
+    roomId: string;
+    isHost: boolean;
+  } | null>(null);
 
   const handleStartGame = (
     playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] },
@@ -33,6 +40,18 @@ const GameContent = () => {
     
     dispatch({ type: 'START_GAME', playerDeck: finalPlayerDeck, enemyDeck: finalEnemyDeck });
     setShowDeckBuilder(false);
+  };
+
+  const handleStartNetworkGame = (roomId: string, isHost: boolean) => {
+    setNetworkGameInfo({ roomId, isHost });
+    setShowNetworkLobby(false);
+    
+    // ネットワークゲーム用の初期化
+    if (gamePhase === 'result') {
+      dispatch({ type: 'RESET_GAME' });
+    }
+    
+    dispatch({ type: 'START_GAME', playerDeck: savedDecks.player, enemyDeck: savedDecks.enemy });
   };
 
   const handleShowDeckBuilder = () => {
@@ -111,7 +130,24 @@ const GameContent = () => {
                   onClick={() => canStartGame() && handleStartGame()}
                   disabled={!canStartGame()}
                 >
-                  {gamePhase === 'preparation' ? '対戦開始' : 'もう一度プレイ'}
+                  <div className="flex items-center gap-2">
+                    <Play size={16} />
+                    {gamePhase === 'preparation' ? 'ローカル対戦' : 'もう一度プレイ'}
+                  </div>
+                </button>
+                <button
+                  className={`px-6 py-3 font-bold rounded-lg shadow-lg transform transition ${
+                    canStartGame()
+                      ? 'bg-purple-600 hover:bg-purple-700 text-white hover:scale-105'
+                      : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                  }`}
+                  onClick={() => canStartGame() && setShowNetworkLobby(true)}
+                  disabled={!canStartGame()}
+                >
+                  <div className="flex items-center gap-2">
+                    <Wifi size={16} />
+                    オンライン対戦
+                  </div>
                 </button>
               </div>
             ) : (
@@ -147,14 +183,29 @@ const GameContent = () => {
       {showTutorial && (
         <Tutorial onClose={() => setShowTutorial(false)} />
       )}
+
+      {/* ネットワークゲームロビー */}
+      {showNetworkLobby && (
+        <NetworkGameLobby
+          onClose={() => setShowNetworkLobby(false)}
+          onStartNetworkGame={handleStartNetworkGame}
+        />
+      )}
     </div>
   );
 };
 
 function App() {
+  const [networkGameInfo, setNetworkGameInfo] = useState<{
+    roomId: string;
+    isHost: boolean;
+  } | null>(null);
+
   return (
     <GameProvider>
-      <GameContent />
+      <NetworkGameProvider roomId={networkGameInfo?.roomId} isHost={networkGameInfo?.isHost}>
+        <GameContent />
+      </NetworkGameProvider>
     </GameProvider>
   );
 }
