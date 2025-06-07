@@ -136,9 +136,9 @@ export const createInitialGameState = (
     // モンスターを指定された位置に配置
     // 左：ウルフ、右：ベアー、上：ゴーレム
     const playerPositions = [
-      { x: 0, y: 3 }, // 左：ウルフ
-      { x: 2, y: 3 }, // 右：ベアー  
-      { x: 1, y: 2 }  // 上：ゴーレム
+      { x: 0, y: 3 }, // 左：1番目のモンスター
+      { x: 2, y: 3 }, // 右：2番目のモンスター  
+      { x: 1, y: 2 }  // 上：3番目のモンスター
     ];
     
     playerDeck.monsters.forEach((monster, index) => {
@@ -154,9 +154,9 @@ export const createInitialGameState = (
     // モンスターを反転配置
     // プレイヤーの左→敵の右、プレイヤーの右→敵の左、プレイヤーの上→敵の下
     const enemyPositions = [
-      { x: 2, y: 0 }, // 右：ウルフ（プレイヤーの左の反転）
-      { x: 0, y: 0 }, // 左：ベアー（プレイヤーの右の反転）
-      { x: 1, y: 1 }  // 下：ゴーレム（プレイヤーの上の反転）
+      { x: 2, y: 0 }, // 右：1番目のモンスター（プレイヤーの左の反転）
+      { x: 0, y: 0 }, // 左：2番目のモンスター（プレイヤーの右の反転）
+      { x: 1, y: 1 }  // 下：3番目のモンスター（プレイヤーの上の反転）
     ];
     
     enemyDeck.monsters.forEach((monster, index) => {
@@ -165,9 +165,9 @@ export const createInitialGameState = (
       }
     });
   } else {
-    // デフォルト編成（ブルーマスター + ウルフ、ゴーレム、ベアー）
-    const defaultPlayerDeck = { master: 'blue' as keyof typeof masterData, monsters: ['wolf', 'golem', 'bear'] as MonsterType[] };
-    const defaultEnemyDeck = { master: 'red' as keyof typeof masterData, monsters: ['wolf', 'golem', 'bear'] as MonsterType[] };
+    // デフォルト編成（ブルーマスター + ウルフ、ベアー、ゴーレム）
+    const defaultPlayerDeck = { master: 'blue' as keyof typeof masterData, monsters: ['wolf', 'bear', 'golem'] as MonsterType[] };
+    const defaultEnemyDeck = { master: 'red' as keyof typeof masterData, monsters: ['wolf', 'bear', 'golem'] as MonsterType[] };
     
     // プレイヤーチーム
     characters.push(createMaster(defaultPlayerDeck.master, { x: 1, y: 3 }, 'player'));

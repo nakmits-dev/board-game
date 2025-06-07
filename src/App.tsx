@@ -14,18 +14,10 @@ import { masterData } from './data/cardData';
 import { HelpCircle } from 'lucide-react';
 
 const GameContent = () => {
-  const { state, dispatch } = useGame();
+  const { state, dispatch, savedDecks } = useGame();
   const { gamePhase } = state;
   const [showDeckBuilder, setShowDeckBuilder] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
-  const [currentDecks, setCurrentDecks] = useState<{
-    player?: { master: keyof typeof masterData; monsters: MonsterType[] };
-    enemy?: { master: keyof typeof masterData; monsters: MonsterType[] };
-  }>({
-    // デフォルト編成を設定
-    player: { master: 'blue', monsters: ['wolf', 'golem', 'bear'] },
-    enemy: { master: 'red', monsters: ['wolf', 'golem', 'bear'] }
-  });
 
   // スマホでの対戦中かどうかを判定
   const isMobileBattle = gamePhase === 'action' && window.innerWidth < 1024;
@@ -80,9 +72,9 @@ const GameContent = () => {
       dispatch({ type: 'RESET_GAME' });
     }
     
-    // デッキが指定されている場合は保存
-    const finalPlayerDeck = playerDeck || currentDecks.player;
-    const finalEnemyDeck = enemyDeck || currentDecks.enemy;
+    // デッキが指定されている場合は保存、そうでなければ現在保存されているデッキを使用
+    const finalPlayerDeck = playerDeck || savedDecks.player;
+    const finalEnemyDeck = enemyDeck || savedDecks.enemy;
     
     dispatch({ type: 'START_GAME', playerDeck: finalPlayerDeck, enemyDeck: finalEnemyDeck });
     setShowDeckBuilder(false);
@@ -98,7 +90,7 @@ const GameContent = () => {
   ) => {
     // 編成内容を保存
     if (playerDeck && enemyDeck) {
-      setCurrentDecks({ player: playerDeck, enemy: enemyDeck });
+      dispatch({ type: 'SET_SAVED_DECKS', playerDeck, enemyDeck });
       
       // 準備画面でのプレビューを更新
       dispatch({ type: 'UPDATE_PREVIEW', playerDeck, enemyDeck });
@@ -108,7 +100,7 @@ const GameContent = () => {
 
   // 対戦開始ボタンの活性化条件をチェック
   const canStartGame = () => {
-    return !!(currentDecks.player && currentDecks.enemy);
+    return !!(savedDecks.player && savedDecks.enemy);
   };
 
   if (showDeckBuilder) {
@@ -116,8 +108,8 @@ const GameContent = () => {
       <DeckBuilder 
         onStartGame={handleStartGame} 
         onClose={handleCloseDeckBuilder}
-        initialPlayerDeck={currentDecks.player}
-        initialEnemyDeck={currentDecks.enemy}
+        initialPlayerDeck={savedDecks.player}
+        initialEnemyDeck={savedDecks.enemy}
       />
     );
   }

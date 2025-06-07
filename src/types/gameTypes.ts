@@ -102,4 +102,8 @@ export interface GameState {
   enemyCrystals: number;
   animationTarget?: { id: string; type: 'move' | 'attack' | 'damage' | 'heal' | 'ko' | 'crystal-gain' | 'turn-start' | 'evolve' } | null;
   pendingAnimations: AnimationSequence[];
+  savedDecks?: {
+    player?: { master: keyof typeof import('../data/cardData').masterData; monsters: MonsterType[] };
+    enemy?: { master: keyof typeof import('../data/cardData').masterData; monsters: MonsterType[] };
+  };
 }

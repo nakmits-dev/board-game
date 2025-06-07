@@ -16,6 +16,7 @@ type GameAction =
   | { type: 'START_GAME'; playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }; enemyDeck?: { master: keyof typeof masterData; monsters: MonsterType[] } }
   | { type: 'RESET_GAME' }
   | { type: 'UPDATE_PREVIEW'; playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }; enemyDeck?: { master: keyof typeof masterData; monsters: MonsterType[] } }
+  | { type: 'SET_SAVED_DECKS'; playerDeck: { master: keyof typeof masterData; monsters: MonsterType[] }; enemyDeck: { master: keyof typeof masterData; monsters: MonsterType[] } }
   | { type: 'ADD_CRYSTAL'; team: Team }
   | { type: 'SET_ANIMATION_TARGET'; target: { id: string; type: 'move' | 'attack' | 'damage' | 'heal' | 'ko' | 'crystal-gain' | 'turn-start' | 'evolve' } | null }
   | { type: 'SET_PENDING_ANIMATIONS'; animations: AnimationSequence[] }
@@ -29,6 +30,10 @@ interface GameContextType {
   isValidAttack: (targetId: string) => boolean;
   isValidSkillTarget: (targetId: string) => boolean;
   getCharacterAt: (position: Position) => Character | undefined;
+  savedDecks: {
+    player?: { master: keyof typeof masterData; monsters: MonsterType[] };
+    enemy?: { master: keyof typeof masterData; monsters: MonsterType[] };
+  };
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -459,6 +464,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           remainingActions: char.team === startingTeam ? char.actions : 0,
         })),
         pendingAnimations: [{ id: startingTeam, type: 'turn-start' }],
+        savedDecks: {
+          player: action.playerDeck,
+          enemy: action.enemyDeck
+        }
       };
     }
 
@@ -471,11 +480,30 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       return {
         ...state,
         characters: newState.characters,
+        savedDecks: {
+          player: action.playerDeck,
+          enemy: action.enemyDeck
+        }
+      };
+    }
+
+    case 'SET_SAVED_DECKS': {
+      return {
+        ...state,
+        savedDecks: {
+          player: action.playerDeck,
+          enemy: action.enemyDeck
+        }
       };
     }
 
     case 'RESET_GAME': {
-      return createInitialGameState();
+      // 保存されたデッキがある場合はそれを使用してリセット
+      const newState = createInitialGameState(state.savedDecks?.player, state.savedDecks?.enemy);
+      return {
+        ...newState,
+        savedDecks: state.savedDecks
+      };
     }
 
     default:
@@ -485,6 +513,28 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
 export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(gameReducer, createInitialGameState());
+  const [savedDecks, setSavedDecks] = React.useState<{
+    player?: { master: keyof typeof masterData; monsters: MonsterType[] };
+    enemy?: { master: keyof typeof masterData; monsters: MonsterType[] };
+  }>({
+    // デフォルト編成を設定
+    player: { master: 'blue', monsters: ['wolf', 'bear', 'golem'] },
+    enemy: { master: 'red', monsters: ['wolf', 'bear', 'golem'] }
+  });
+
+  // 初期化時にデフォルト編成を設定
+  React.useEffect(() => {
+    dispatch({ 
+      type: 'SET_SAVED_DECKS', 
+      playerDeck: savedDecks.player!, 
+      enemyDeck: savedDecks.enemy! 
+    });
+    dispatch({ 
+      type: 'UPDATE_PREVIEW', 
+      playerDeck: savedDecks.player, 
+      enemyDeck: savedDecks.enemy 
+    });
+  }, []);
 
   useEffect(() => {
     if (state.pendingAnimations.length > 0) {
@@ -591,7 +641,8 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         isValidMove, 
         isValidAttack, 
         isValidSkillTarget,
-        getCharacterAt
+        getCharacterAt,
+        savedDecks: state.savedDecks || savedDecks
       }}
     >
       {children}
