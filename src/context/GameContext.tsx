@@ -176,6 +176,39 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           const damage = Math.max(0, state.selectedCharacter.attack - target.defense);
           const newHp = Math.max(0, target.hp - damage);
 
+          // マスターが倒される場合は即座にゲーム終了
+          if (newHp === 0 && target.type === 'master') {
+            updatedCharacters = updatedCharacters.map(character => {
+              if (character.id === state.selectedCharacter!.id) {
+                return {
+                  ...character,
+                  remainingActions: character.remainingActions - 1,
+                };
+              }
+              if (character.id === target.id) {
+                return {
+                  ...character,
+                  hp: newHp,
+                };
+              }
+              return character;
+            });
+
+            // マスターが倒された場合は即座に結果画面へ
+            return {
+              ...state,
+              characters: updatedCharacters,
+              selectedCharacter: null,
+              selectedAction: null,
+              selectedSkill: null,
+              pendingAction: { type: null },
+              gamePhase: 'result',
+              pendingAnimations: animations,
+              previousState,
+              canUndo: true,
+            };
+          }
+
           if (newHp === 0) {
             animations.push(
               { id: target.id, type: 'ko' },
@@ -333,6 +366,41 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           newHp = Math.max(0, target.hp - damage);
         }
 
+        // マスターが倒される場合は即座にゲーム終了
+        if (newHp === 0 && target.type === 'master') {
+          updatedCharacters = updatedCharacters.map(character => {
+            if (character.id === state.selectedCharacter!.id) {
+              return {
+                ...character,
+                remainingActions: character.remainingActions - 1,
+              };
+            }
+            if (character.id === target.id) {
+              return {
+                ...character,
+                hp: newHp,
+              };
+            }
+            return character;
+          });
+
+          // マスターが倒された場合は即座に結果画面へ
+          return {
+            ...state,
+            characters: updatedCharacters,
+            playerCrystals,
+            enemyCrystals,
+            selectedCharacter: null,
+            selectedAction: null,
+            selectedSkill: null,
+            pendingAction: { type: null },
+            gamePhase: 'result',
+            pendingAnimations: animations,
+            previousState,
+            canUndo: true,
+          };
+        }
+
         if (newHp === 0) {
           animations.push(
             { id: target.id, type: 'ko' },
@@ -395,16 +463,24 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       let playerCrystals = state.playerCrystals;
       let enemyCrystals = state.enemyCrystals;
 
+      // ゲームが既に終了している場合はクリスタル獲得をスキップ
+      if (state.gamePhase === 'result') {
+        return {
+          ...state,
+          characters: updatedCharacters,
+        };
+      }
+
       if (defeatedCharacter) {
         // 倒されたキャラクターのコスト分のクリスタルを獲得
         const crystalGain = defeatedCharacter.cost;
         
         if (defeatedCharacter.team === 'player') {
-          // プレイヤーのキャラクターが倒された場合、プレイヤーがクリスタルを獲得
-          playerCrystals = Math.min(MAX_CRYSTALS, playerCrystals + crystalGain);
-        } else {
-          // 敵のキャラクターが倒された場合、敵がクリスタルを獲得
+          // プレイヤーのキャラクターが倒された場合、敵がクリスタルを獲得
           enemyCrystals = Math.min(MAX_CRYSTALS, enemyCrystals + crystalGain);
+        } else {
+          // 敵のキャラクターが倒された場合、プレイヤーがクリスタルを獲得
+          playerCrystals = Math.min(MAX_CRYSTALS, playerCrystals + crystalGain);
         }
       }
 
@@ -589,6 +665,15 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         for (const animation of state.pendingAnimations) {
           dispatch({ type: 'SET_ANIMATION_TARGET', target: animation });
           await new Promise(resolve => setTimeout(resolve, ANIMATION_DURATION));
+          
+          // ゲームが既に終了している場合は追加処理をスキップ
+          if (state.gamePhase === 'result') {
+            if (animation.type === 'ko') {
+              await new Promise(resolve => setTimeout(resolve, 100));
+              dispatch({ type: 'REMOVE_DEFEATED_CHARACTERS', targetId: animation.id });
+            }
+            continue;
+          }
           
           if (animation.type === 'ko') {
             await new Promise(resolve => setTimeout(resolve, 100));
