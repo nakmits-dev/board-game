@@ -20,4 +20,10 @@ const app = initializeApp(firebaseConfig);
 export const database = getDatabase(app);
 export const auth = getAuth(app);
 
+// デバッグ用
+console.log('Firebase初期化完了:', {
+  projectId: firebaseConfig.projectId,
+  databaseURL: firebaseConfig.databaseURL
+});
+
 export default app;
