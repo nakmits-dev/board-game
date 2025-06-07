@@ -5,7 +5,7 @@ import { Diamond } from 'lucide-react';
 const CrystalDisplay: React.FC = () => {
   const { state } = useGame();
   const { playerCrystals, enemyCrystals, currentTeam, animationTarget, selectedCharacter, selectedSkill } = state;
-  const maxCrystals = 7;
+  const maxCrystals = 8;
 
   const skillCost = selectedSkill?.crystalCost || 0;
   const isSkillMode = selectedCharacter && selectedSkill;

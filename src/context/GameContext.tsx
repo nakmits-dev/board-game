@@ -33,7 +33,7 @@ interface GameContextType {
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
-const MAX_CRYSTALS = 7;
+const MAX_CRYSTALS = 8;
 const ANIMATION_DURATION = 300;
 
 const checkMasterStatus = (characters: Character[]): { playerMasterAlive: boolean; enemyMasterAlive: boolean } => {
