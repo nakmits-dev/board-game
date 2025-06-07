@@ -102,7 +102,7 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
     }
   };
 
-  let cellClassName = "w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center relative border transition-all duration-200";
+  let cellClassName = "w-20 h-20 flex items-center justify-center relative border transition-all duration-200";
   
   if (character) {
     cellClassName += character.team === 'player' 
@@ -163,7 +163,7 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
       >
         {character && (
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <div className={`relative w-12 h-12 sm:w-16 sm:h-16 rounded-lg overflow-hidden ${
+            <div className={`relative w-16 h-16 rounded-lg overflow-hidden ${
               character.team === 'player' 
                 ? 'ring-1 ring-blue-400 shadow-md shadow-blue-400/30' 
                 : 'ring-1 ring-red-400 shadow-md shadow-red-400/30'
@@ -180,24 +180,24 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
               
               <div className="absolute bottom-0 inset-x-0 flex justify-center gap-0.5 p-0.5">
                 {character.attack >= 2 && (
-                  <div className="w-3 h-3 sm:w-4 sm:h-4 bg-red-500/80 rounded flex items-center justify-center">
-                    <Sword size={8} className="text-white sm:w-[10px] sm:h-[10px]" />
+                  <div className="w-4 h-4 bg-red-500/80 rounded flex items-center justify-center">
+                    <Sword size={10} className="text-white" />
                   </div>
                 )}
                 {character.defense >= 1 && (
-                  <div className="w-3 h-3 sm:w-4 sm:h-4 bg-blue-500/80 rounded flex items-center justify-center">
-                    <Shield size={8} className="text-white sm:w-[10px] sm:h-[10px]" />
+                  <div className="w-4 h-4 bg-blue-500/80 rounded flex items-center justify-center">
+                    <Shield size={10} className="text-white" />
                   </div>
                 )}
                 {character.actions >= 2 && (
-                  <div className="w-3 h-3 sm:w-4 sm:h-4 bg-yellow-500/80 rounded flex items-center justify-center">
-                    <Sparkle size={8} className="text-white sm:w-[10px] sm:h-[10px]" />
+                  <div className="w-4 h-4 bg-yellow-500/80 rounded flex items-center justify-center">
+                    <Sparkle size={10} className="text-white" />
                   </div>
                 )}
               </div>
               
               {gamePhase === 'action' && character.team === currentTeam && character.remainingActions > 0 && (
-                <div className="absolute top-0 right-0 w-4 h-4 sm:w-5 sm:h-5 bg-green-500/90 rounded flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                <div className="absolute top-0 right-0 w-5 h-5 bg-green-500/90 rounded flex items-center justify-center text-white text-xs font-bold shadow-sm">
                   {character.remainingActions}
                 </div>
               )}
@@ -207,7 +207,7 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
               {Array.from({ length: character.maxHp }, (_, i) => (
                 <div
                   key={i}
-                  className={`w-2 h-2 sm:w-3 sm:h-3 flex items-center justify-center ${
+                  className={`w-3 h-3 flex items-center justify-center ${
                     i < character.hp 
                       ? character.team === 'player'
                         ? 'text-blue-500/90'
@@ -215,7 +215,7 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
                       : 'text-gray-300/50'
                   }`}
                 >
-                  <Heart size={8} fill="currentColor" className="sm:w-[12px] sm:h-[12px]" />
+                  <Heart size={12} fill="currentColor" />
                 </div>
               ))}
             </div>

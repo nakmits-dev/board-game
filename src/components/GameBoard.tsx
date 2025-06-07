@@ -18,7 +18,7 @@ const GameBoard: React.FC = () => {
   }
   
   return (
-    <div className="bg-white rounded-xl shadow-lg p-2 sm:p-4 border border-blue-100 flex-shrink-0">
+    <div className="bg-white rounded-xl shadow-lg p-4 border border-blue-100">
       <div className="grid grid-rows-4 gap-1">
         {grid.map((row, rowIndex) => (
           <div key={`row-${rowIndex}`} className="grid grid-cols-3 gap-1">
