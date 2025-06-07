@@ -227,19 +227,21 @@ export const useFirebaseGame = () => {
     }
   }, [networkState.roomId, networkState.isHost]);
 
-  // アクション送信 - より詳細なデバッグ情報を追加
+  // アクション送信 - より堅牢なエラーハンドリング
   const sendAction = useCallback(async (action: Omit<GameAction, 'id' | 'timestamp' | 'playerId'>) => {
     const currentNetworkState = networkStateRef.current;
     const currentUser = userRef.current;
     
     console.log('sendAction呼び出し:', {
-      action: action.type,
+      actionType: action.type,
       roomId: currentNetworkState.roomId,
       userId: currentUser?.uid,
       isOnline: currentNetworkState.isOnline,
-      connectionStatus: currentNetworkState.connectionStatus
+      connectionStatus: currentNetworkState.connectionStatus,
+      isHost: currentNetworkState.isHost
     });
     
+    // より詳細なエラーチェック
     if (!currentNetworkState.roomId) {
       console.error('アクション送信失敗: ルームIDが未設定', {
         networkState: currentNetworkState,
@@ -248,12 +250,20 @@ export const useFirebaseGame = () => {
       throw new Error('ルームIDが設定されていません');
     }
     
-    if (!currentUser) {
+    if (!currentUser?.uid) {
       console.error('アクション送信失敗: ユーザーが未設定', {
         networkState: currentNetworkState,
         user: currentUser
       });
       throw new Error('ユーザーが認証されていません');
+    }
+
+    // オンライン状態のチェック
+    if (!currentNetworkState.isOnline) {
+      console.error('アクション送信失敗: オフライン状態', {
+        networkState: currentNetworkState
+      });
+      throw new Error('オフライン状態です');
     }
 
     try {
