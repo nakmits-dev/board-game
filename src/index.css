@@ -144,32 +144,3 @@
     filter: brightness(1) drop-shadow(0 0 0 rgba(255, 255, 255, 0));
   }
 }
-
-/* 浮かび上がるヘルプボタンのスタイル */
-.floating-help-button {
-  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
-  box-shadow: 
-    0 4px 12px rgba(22, 163, 74, 0.3),
-    0 2px 6px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.floating-help-button:hover {
-  background: linear-gradient(135deg, #15803d 0%, #166534 100%);
-  box-shadow: 
-    0 6px 16px rgba(22, 163, 74, 0.4),
-    0 3px 8px rgba(0, 0, 0, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
-  transform: translateY(-1px) scale(1.05);
-}
-
-.floating-help-button:active {
-  transform: translateY(0) scale(0.98);
-  box-shadow: 
-    0 3px 8px rgba(22, 163, 74, 0.2),
-    0 1px 4px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
-}

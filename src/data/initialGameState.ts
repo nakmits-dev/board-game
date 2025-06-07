@@ -130,11 +130,11 @@ export const createInitialGameState = (
   // デッキが指定されている場合のみキャラクターを配置
   if (playerDeck && enemyDeck) {
     // プレイヤーチーム - 指定された配置
-    // ブルーマスターを中央前に配置
+    // マスターを中央前に配置
     characters.push(createMaster(playerDeck.master, { x: 1, y: 3 }, 'player'));
 
     // モンスターを指定された位置に配置
-    // 左：ウルフ、右：ベアー、上：ゴーレム
+    // 左：1番目のモンスター、右：2番目のモンスター、上：3番目のモンスター
     const playerPositions = [
       { x: 0, y: 3 }, // 左：1番目のモンスター
       { x: 2, y: 3 }, // 右：2番目のモンスター  
@@ -147,16 +147,16 @@ export const createInitialGameState = (
       }
     });
 
-    // 敵チーム - プレイヤーの反転配置
+    // 敵チーム - プレイヤーと同じ配置（左右反転なし）
     // マスターを中央前に配置
     characters.push(createMaster(enemyDeck.master, { x: 1, y: 0 }, 'enemy'));
 
-    // モンスターを反転配置
-    // プレイヤーの左→敵の右、プレイヤーの右→敵の左、プレイヤーの上→敵の下
+    // モンスターを同じ配置
+    // 左：1番目のモンスター、右：2番目のモンスター、下：3番目のモンスター
     const enemyPositions = [
-      { x: 2, y: 0 }, // 右：1番目のモンスター（プレイヤーの左の反転）
-      { x: 0, y: 0 }, // 左：2番目のモンスター（プレイヤーの右の反転）
-      { x: 1, y: 1 }  // 下：3番目のモンスター（プレイヤーの上の反転）
+      { x: 0, y: 0 }, // 左：1番目のモンスター
+      { x: 2, y: 0 }, // 右：2番目のモンスター
+      { x: 1, y: 1 }  // 下：3番目のモンスター
     ];
     
     enemyDeck.monsters.forEach((monster, index) => {
@@ -186,8 +186,8 @@ export const createInitialGameState = (
     // 敵チーム
     characters.push(createMaster(defaultEnemyDeck.master, { x: 1, y: 0 }, 'enemy'));
     const enemyPositions = [
-      { x: 2, y: 0 }, // 右：ウルフ
-      { x: 0, y: 0 }, // 左：ベアー
+      { x: 0, y: 0 }, // 左：ウルフ
+      { x: 2, y: 0 }, // 右：ベアー
       { x: 1, y: 1 }  // 下：ゴーレム
     ];
     
