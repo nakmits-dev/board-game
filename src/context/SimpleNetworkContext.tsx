@@ -98,7 +98,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.isNetworkGame, state.isHost, setOnMove, dispatch]);
 
-  // ゲーム状態とネットワーク状態の同期
+  // ゲーム状態とネットワーク状態の同期を改善
   useEffect(() => {
     console.log('ゲーム状態とネットワーク状態の同期チェック');
     console.log('ゲーム状態:', {
