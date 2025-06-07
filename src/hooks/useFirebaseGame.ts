@@ -227,14 +227,33 @@ export const useFirebaseGame = () => {
     }
   }, [networkState.roomId, networkState.isHost]);
 
-  // アクション送信 - useRefを使用して最新の値にアクセス
+  // アクション送信 - より詳細なデバッグ情報を追加
   const sendAction = useCallback(async (action: Omit<GameAction, 'id' | 'timestamp' | 'playerId'>) => {
     const currentNetworkState = networkStateRef.current;
     const currentUser = userRef.current;
     
-    if (!currentNetworkState.roomId || !currentUser) {
-      console.error('アクション送信失敗: ルームIDまたはユーザーが未設定');
-      return;
+    console.log('sendAction呼び出し:', {
+      action: action.type,
+      roomId: currentNetworkState.roomId,
+      userId: currentUser?.uid,
+      isOnline: currentNetworkState.isOnline,
+      connectionStatus: currentNetworkState.connectionStatus
+    });
+    
+    if (!currentNetworkState.roomId) {
+      console.error('アクション送信失敗: ルームIDが未設定', {
+        networkState: currentNetworkState,
+        user: currentUser
+      });
+      throw new Error('ルームIDが設定されていません');
+    }
+    
+    if (!currentUser) {
+      console.error('アクション送信失敗: ユーザーが未設定', {
+        networkState: currentNetworkState,
+        user: currentUser
+      });
+      throw new Error('ユーザーが認証されていません');
     }
 
     try {
@@ -245,7 +264,7 @@ export const useFirebaseGame = () => {
         playerId: currentUser.uid,
       };
 
-      console.log('アクション送信:', actionData);
+      console.log('アクション送信開始:', actionData);
 
       const actionsRef = ref(database, `rooms/${currentNetworkState.roomId}/actions`);
       await push(actionsRef, actionData);
@@ -253,6 +272,7 @@ export const useFirebaseGame = () => {
       console.log('アクション送信完了');
     } catch (error) {
       console.error('アクション送信に失敗:', error);
+      throw error;
     }
   }, []); // 依存配列を空にして、refを通じて最新の値にアクセス
 
