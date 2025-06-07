@@ -10,6 +10,7 @@ import DeckBuilder from './components/DeckBuilder';
 import ShareButton from './components/ShareButton';
 import Tutorial from './components/Tutorial';
 import SimpleNetworkLobby from './components/SimpleNetworkLobby';
+import DebugPanel from './components/DebugPanel';
 import { useGame } from './context/GameContext';
 import { MonsterType } from './types/gameTypes';
 import { masterData } from './data/cardData';
@@ -102,6 +103,11 @@ const GameContent = () => {
                   <Wifi size={16} />
                   <span>オンライン対戦</span>
                   <span className="text-xs">({isHost ? 'ホスト' : 'ゲスト'})</span>
+                  {roomId && (
+                    <span className="text-xs font-mono bg-purple-200 px-1 rounded">
+                      {roomId.slice(-6)}
+                    </span>
+                  )}
                 </div>
               )}
             </div>
@@ -201,6 +207,9 @@ const GameContent = () => {
           onStartNetworkGame={handleStartNetworkGame}
         />
       )}
+
+      {/* デバッグパネル */}
+      <DebugPanel />
     </div>
   );
 };
