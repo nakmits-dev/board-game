@@ -282,10 +282,11 @@ const Tutorial: React.FC<TutorialProps> = ({ onClose }) => {
           
           <div className="space-y-3">
             <div className="bg-green-50 p-3 rounded-lg">
-              <h4 className="font-bold text-green-800 mb-2">移動・攻撃操作</h4>
+              <h4 className="font-bold text-green-800 mb-2">基本操作</h4>
               <div className="space-y-2 text-sm">
                 <p><strong>キャラクター選択:</strong> キャラクターをタップ</p>
-                <p><strong>移動、攻撃:</strong> タップ</p>
+                <p><strong>移動、攻撃:</strong> 移動先や攻撃対象をタップ</p>
+                <p><strong>キャラクター詳細:</strong> キャラクターをダブルタップ</p>
               </div>
             </div>
             
@@ -305,6 +306,7 @@ const Tutorial: React.FC<TutorialProps> = ({ onClose }) => {
                 <p>• ダブルタップでキャラクター詳細を確認</p>
                 <p>• スキルはモーダル内から選択してください</p>
                 <p>• 素早いタップで移動・攻撃が可能</p>
+                <p>• ダブルタップ時に軽い振動でフィードバック</p>
               </div>
             </div>
           </div>
