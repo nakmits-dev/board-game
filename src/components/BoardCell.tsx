@@ -21,6 +21,9 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
   const canAttack = selectedCharacter && gamePhase === 'action' && character && isValidAttack(character.id) && selectedAction !== 'skill';
   const canUseSkill = selectedCharacter && gamePhase === 'action' && character && selectedAction === 'skill' && isValidSkillTarget(character.id);
 
+  // スマホかどうかを判定
+  const isMobile = window.innerWidth < 1024;
+
   const handleDragStart = (e: React.DragEvent) => {
     if (character && character.team === currentTeam && character.remainingActions > 0) {
       e.dataTransfer.setData('text/plain', character.id);
@@ -87,7 +90,7 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
         dispatch({ type: 'USE_SKILL', targetId: character.id });
       } else {
         dispatch({ type: 'SELECT_CHARACTER', character });
-        if (window.innerWidth < 1024) {
+        if (isMobile) {
           setShowModal(true);
         }
       }
@@ -142,7 +145,10 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
     }
   }
 
-  if (isActionable && selectedAction !== 'skill') {
+  // ドラッグ可能な条件を調整（スマホでも有効）
+  const isDraggable = isActionable && selectedAction !== 'skill';
+  
+  if (isDraggable) {
     cellClassName += " cursor-grab active:cursor-grabbing";
     if (isDragging) {
       cellClassName += " opacity-50";
@@ -154,12 +160,16 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
       <div 
         className={`${cellClassName} ${animationTarget?.id === character?.id && animationTarget?.type ? `character-${animationTarget.type}` : ''} ${isActionable ? 'character-actionable' : ''}`}
         onClick={handleClick}
-        draggable={isActionable && selectedAction !== 'skill'}
+        draggable={isDraggable}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
+        style={{
+          // スマホでのタッチ操作を最適化
+          touchAction: isDraggable ? 'manipulation' : 'auto'
+        }}
       >
         {character && (
           <div className="absolute inset-0 flex flex-col items-center justify-center">

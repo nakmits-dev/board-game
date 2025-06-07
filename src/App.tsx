@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GameProvider } from './context/GameContext';
 import GameBoard from './components/GameBoard';
 import CharacterPanel from './components/CharacterPanel';
@@ -19,6 +19,38 @@ const GameContent = () => {
     player?: { master: keyof typeof masterData; monsters: MonsterType[] };
     enemy?: { master: keyof typeof masterData; monsters: MonsterType[] };
   }>({});
+
+  // スマホでの対戦中かどうかを判定
+  const isMobileBattle = gamePhase === 'action' && window.innerWidth < 1024;
+
+  // スマホ対戦中のスクロール制御
+  useEffect(() => {
+    if (isMobileBattle) {
+      // スクロールを禁止
+      document.body.classList.add('mobile-battle-no-scroll');
+      // ゲームボードエリアのドラッグを有効化
+      const gameBoard = document.querySelector('.game-board-container');
+      if (gameBoard) {
+        gameBoard.classList.add('mobile-drag-enabled');
+      }
+    } else {
+      // スクロール制限を解除
+      document.body.classList.remove('mobile-battle-no-scroll');
+      const gameBoard = document.querySelector('.game-board-container');
+      if (gameBoard) {
+        gameBoard.classList.remove('mobile-drag-enabled');
+      }
+    }
+
+    // クリーンアップ
+    return () => {
+      document.body.classList.remove('mobile-battle-no-scroll');
+      const gameBoard = document.querySelector('.game-board-container');
+      if (gameBoard) {
+        gameBoard.classList.remove('mobile-drag-enabled');
+      }
+    };
+  }, [isMobileBattle]);
 
   const handleStartGame = (
     playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] },
@@ -58,9 +90,6 @@ const GameContent = () => {
   const canStartGame = () => {
     return !!(currentDecks.player && currentDecks.enemy);
   };
-
-  // スマホでの対戦中かどうかを判定
-  const isMobileBattle = gamePhase === 'action' && window.innerWidth < 1024;
 
   if (showDeckBuilder) {
     return (
@@ -116,7 +145,7 @@ const GameContent = () => {
               </div>
             )}
             
-            <div className="flex justify-center mb-4 relative">
+            <div className="flex justify-center mb-4 relative game-board-container">
               <CrystalDisplay />
               <GameBoard />
             </div>
