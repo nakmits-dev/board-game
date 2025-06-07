@@ -299,14 +299,6 @@ const Tutorial: React.FC<TutorialProps> = ({ onClose }) => {
               </div>
             </div>
             
-            <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
-              <h4 className="font-bold text-yellow-800 mb-2">⚠️ 重要なポイント</h4>
-              <div className="space-y-1 text-sm text-yellow-700">
-                <p>• 移動・攻撃は長押し→ドラッグで操作</p>
-                <p>• スキルはモーダル内から選択してください</p>
-                <p>• 対戦中は画面スクロールが制限されます</p>
-              </div>
-            </div>
           </div>
         </div>
       )

@@ -693,61 +693,63 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
               </div>
             </div>
             
-            <div 
-              ref={cardSelectionRef}
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-            >
-              {selectedAssignment.type === 'master' 
-                ? getFilteredCards('master').map(([id, data]) => {
-                    const character = createCharacterForCard('master', id, data);
-                    const canSelect = canAssign(id, 'master');
-                    
-                    return (
-                      <div
-                        key={id}
-                        className={`relative transition-all duration-200 cursor-pointer ${
-                          canSelect
-                            ? 'opacity-100'
-                            : 'opacity-50 cursor-not-allowed'
-                        }`}
-                        onClick={() => canSelect ? assignCard(id, 'master') : undefined}
-                      >
-                        <CharacterCard
-                          character={character}
-                          currentTeam="player"
-                          playerCrystals={0}
-                          enemyCrystals={0}
-                          variant="panel"
-                        />
-                      </div>
-                    );
-                  })
-                : getFilteredCards('monster').map(monster => {
-                    const data = monsterData[monster];
-                    const character = createCharacterForCard('monster', monster, data);
-                    const canSelect = canAssign(monster, 'monster');
-                    
-                    return (
-                      <div
-                        key={monster}
-                        className={`relative transition-all duration-200 cursor-pointer ${
-                          canSelect
-                            ? 'opacity-100'
-                            : 'opacity-50 cursor-not-allowed'
-                        }`}
-                        onClick={() => canSelect ? assignCard(monster, 'monster') : undefined}
-                      >
-                        <CharacterCard
-                          character={character}
-                          currentTeam="player"
-                          playerCrystals={0}
-                          enemyCrystals={0}
-                          variant="panel"
-                        />
-                      </div>
-                    );
-                  })
-              }
+            <div className="flex justify-center">
+              <div 
+                ref={cardSelectionRef}
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl"
+              >
+                {selectedAssignment.type === 'master' 
+                  ? getFilteredCards('master').map(([id, data]) => {
+                      const character = createCharacterForCard('master', id, data);
+                      const canSelect = canAssign(id, 'master');
+                      
+                      return (
+                        <div
+                          key={id}
+                          className={`relative transition-all duration-200 cursor-pointer ${
+                            canSelect
+                              ? 'opacity-100'
+                              : 'opacity-50 cursor-not-allowed'
+                          }`}
+                          onClick={() => canSelect ? assignCard(id, 'master') : undefined}
+                        >
+                          <CharacterCard
+                            character={character}
+                            currentTeam="player"
+                            playerCrystals={0}
+                            enemyCrystals={0}
+                            variant="panel"
+                          />
+                        </div>
+                      );
+                    })
+                  : getFilteredCards('monster').map(monster => {
+                      const data = monsterData[monster];
+                      const character = createCharacterForCard('monster', monster, data);
+                      const canSelect = canAssign(monster, 'monster');
+                      
+                      return (
+                        <div
+                          key={monster}
+                          className={`relative transition-all duration-200 cursor-pointer ${
+                            canSelect
+                              ? 'opacity-100'
+                              : 'opacity-50 cursor-not-allowed'
+                          }`}
+                          onClick={() => canSelect ? assignCard(monster, 'monster') : undefined}
+                        >
+                          <CharacterCard
+                            character={character}
+                            currentTeam="player"
+                            playerCrystals={0}
+                            enemyCrystals={0}
+                            variant="panel"
+                          />
+                        </div>
+                      );
+                    })
+                }
+              </div>
             </div>
           </div>
         )}
