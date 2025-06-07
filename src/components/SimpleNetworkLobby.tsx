@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSimpleGameSync } from '../hooks/useSimpleGameSync';
 import { useGame } from '../context/GameContext';
-import { Wifi, Users, Copy, Check, X, Play, Clock, UserCheck, UserX } from 'lucide-react';
+import { Wifi, Users, Copy, Check, X, Play, Clock, UserCheck, UserX, WifiOff, AlertCircle } from 'lucide-react';
 
 interface SimpleNetworkLobbyProps {
   onClose: () => void;
@@ -54,6 +54,11 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
       return;
     }
 
+    if (!isConnected) {
+      setError('サーバーに接続されていません');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
@@ -74,6 +79,11 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
   const handleJoinRoom = async () => {
     if (!hasValidDeck || !roomId.trim()) {
       setError('ルームIDを入力し、チーム編成を完了してください');
+      return;
+    }
+
+    if (!isConnected) {
+      setError('サーバーに接続されていません');
       return;
     }
 
@@ -146,9 +156,22 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
     }
   };
 
-  const canStartGame = gameState.isHost && gameState.opponent && !loading;
+  const canStartGame = gameState.isHost && gameState.opponent && gameState.opponent.connected && !loading;
 
-  if (!isConnected) {
+  // 接続状態の表示
+  const getConnectionStatus = () => {
+    if (!isConnected) {
+      return { icon: WifiOff, text: '未接続', color: 'text-red-600' };
+    }
+    if (gameState.connectionStatus === 'connecting') {
+      return { icon: AlertCircle, text: '接続中', color: 'text-yellow-600' };
+    }
+    return { icon: Wifi, text: '接続済み', color: 'text-green-600' };
+  };
+
+  const connectionStatus = getConnectionStatus();
+
+  if (!isConnected && gameState.connectionStatus === 'connecting') {
     return (
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
@@ -176,10 +199,10 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
         {/* ヘッダー */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
-            <Wifi size={24} className="text-green-600" />
+            <connectionStatus.icon size={24} className={connectionStatus.color} />
             <div>
               <h2 className="text-xl font-bold text-gray-800">オンライン対戦</h2>
-              <p className="text-sm text-green-600">接続済み</p>
+              <p className={`text-sm ${connectionStatus.color}`}>{connectionStatus.text}</p>
             </div>
           </div>
           <button
@@ -190,6 +213,18 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
             <X size={20} />
           </button>
         </div>
+
+        {/* 接続エラー表示 */}
+        {!isConnected && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-center gap-2">
+              <WifiOff size={16} className="text-red-600" />
+              <p className="text-red-700 text-sm">
+                サーバーに接続できません。ネットワーク接続を確認してください。
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* エラー表示 */}
         {error && (
@@ -211,10 +246,13 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
         {process.env.NODE_ENV === 'development' && (
           <div className="mb-4 p-2 bg-gray-100 rounded text-xs">
             <p>デバッグ: {JSON.stringify({
+              connectionStatus: gameState.connectionStatus,
+              isConnected,
               status: gameState.status,
               roomId: gameState.roomId,
               isHost: gameState.isHost,
-              hasOpponent: !!gameState.opponent
+              hasOpponent: !!gameState.opponent,
+              opponentConnected: gameState.opponent?.connected
             })}</p>
           </div>
         )}
@@ -233,15 +271,15 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="プレイヤー名を入力"
                 maxLength={20}
-                disabled={loading}
+                disabled={loading || !isConnected}
               />
             </div>
 
             <button
               onClick={handleCreateRoom}
-              disabled={!hasValidDeck || loading}
+              disabled={!hasValidDeck || loading || !isConnected}
               className={`w-full py-3 rounded-lg font-medium transition-colors ${
-                hasValidDeck && !loading
+                hasValidDeck && !loading && isConnected
                   ? 'bg-blue-600 text-white hover:bg-blue-700'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
@@ -268,15 +306,15 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
                 onChange={(e) => setRoomId(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 placeholder="ルームIDを入力"
-                disabled={loading}
+                disabled={loading || !isConnected}
               />
             </div>
 
             <button
               onClick={handleJoinRoom}
-              disabled={loading || !roomId.trim() || !hasValidDeck}
+              disabled={loading || !roomId.trim() || !hasValidDeck || !isConnected}
               className={`w-full py-3 rounded-lg font-medium transition-colors ${
-                loading || !roomId.trim() || !hasValidDeck
+                loading || !roomId.trim() || !hasValidDeck || !isConnected
                   ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   : 'bg-green-600 text-white hover:bg-green-700'
               }`}
@@ -326,14 +364,28 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
               </div>
               
               {gameState.opponent ? (
-                <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                <div className={`flex items-center justify-between p-3 border rounded-lg ${
+                  gameState.opponent.connected 
+                    ? 'bg-green-50 border-green-200' 
+                    : 'bg-red-50 border-red-200'
+                }`}>
                   <div className="flex items-center gap-2">
-                    <UserCheck size={20} className="text-green-600" />
-                    <span className="font-medium text-green-800">
+                    {gameState.opponent.connected ? (
+                      <UserCheck size={20} className="text-green-600" />
+                    ) : (
+                      <UserX size={20} className="text-red-600" />
+                    )}
+                    <span className={`font-medium ${
+                      gameState.opponent.connected ? 'text-green-800' : 'text-red-800'
+                    }`}>
                       {gameState.opponent.name}
                     </span>
                   </div>
-                  <span className="text-sm text-green-600">準備完了</span>
+                  <span className={`text-sm ${
+                    gameState.opponent.connected ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {gameState.opponent.connected ? '準備完了' : '切断中'}
+                  </span>
                 </div>
               ) : (
                 <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
@@ -355,7 +407,10 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
                 }`}
               >
                 <Play size={20} />
-                {loading ? 'ゲーム開始中...' : canStartGame ? 'ゲーム開始' : '対戦相手を待機中'}
+                {loading ? 'ゲーム開始中...' : canStartGame ? 'ゲーム開始' : 
+                  !gameState.opponent ? '対戦相手を待機中' : 
+                  !gameState.opponent.connected ? '相手の再接続を待機中' : 
+                  'ゲーム開始'}
               </button>
             )}
 

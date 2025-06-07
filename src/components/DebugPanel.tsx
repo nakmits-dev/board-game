@@ -1,25 +1,45 @@
 import React, { useState } from 'react';
 import { useGame } from '../context/GameContext';
 import { useSimpleGameSync } from '../hooks/useSimpleGameSync';
-import { Bug, Eye, EyeOff, Clock, Users, Wifi, Database } from 'lucide-react';
+import { Bug, Eye, EyeOff, Clock, Users, Wifi, Database, WifiOff, AlertCircle } from 'lucide-react';
 
 const DebugPanel: React.FC = () => {
   const { state } = useGame();
-  const { gameState: networkState } = useSimpleGameSync();
+  const { gameState: networkState, isConnected } = useSimpleGameSync();
   const [isExpanded, setIsExpanded] = useState(false);
 
   if (state.gamePhase === 'preparation') return null;
+
+  // 接続状態のアイコンを決定
+  const getConnectionIcon = () => {
+    if (!isConnected) return WifiOff;
+    if (networkState.connectionStatus === 'connecting') return AlertCircle;
+    return Wifi;
+  };
+
+  const ConnectionIcon = getConnectionIcon();
 
   return (
     <div className="fixed bottom-4 right-4 z-40">
       {/* 折りたたみボタン */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="mb-2 p-2 bg-gray-800 text-white rounded-lg shadow-lg hover:bg-gray-700 transition-colors"
+        className="mb-2 p-2 bg-gray-800 text-white rounded-lg shadow-lg hover:bg-gray-700 transition-colors flex items-center gap-1"
         title="デバッグ情報を表示/非表示"
       >
         {isExpanded ? <EyeOff size={20} /> : <Eye size={20} />}
-        <Bug size={16} className="ml-1" />
+        <Bug size={16} />
+        {/* 接続状態インジケーター */}
+        {state.isNetworkGame && (
+          <ConnectionIcon 
+            size={12} 
+            className={`${
+              !isConnected ? 'text-red-400' : 
+              networkState.connectionStatus === 'connecting' ? 'text-yellow-400' : 
+              'text-green-400'
+            }`} 
+          />
+        )}
       </button>
 
       {/* デバッグパネル */}
@@ -47,14 +67,23 @@ const DebugPanel: React.FC = () => {
             {state.isNetworkGame && (
               <div>
                 <h3 className="text-sm font-bold text-purple-400 mb-2 flex items-center gap-1">
-                  <Wifi size={14} />
+                  <ConnectionIcon size={14} />
                   ネットワーク状態
                 </h3>
                 <div className="text-xs space-y-1">
+                  <div>Firebase接続: <span className={`${isConnected ? 'text-green-300' : 'text-red-300'}`}>
+                    {isConnected ? 'Connected' : 'Disconnected'}
+                  </span></div>
+                  <div>接続状態: <span className="text-blue-300">{networkState.connectionStatus}</span></div>
                   <div>ルームID: <span className="text-yellow-300">{state.roomId || 'なし'}</span></div>
                   <div>ホスト: <span className="text-green-300">{state.isHost ? 'Yes' : 'No'}</span></div>
-                  <div>接続状態: <span className="text-blue-300">{networkState.status}</span></div>
+                  <div>ゲーム状態: <span className="text-blue-300">{networkState.status}</span></div>
                   <div>対戦相手: <span className="text-cyan-300">{networkState.opponent?.name || 'なし'}</span></div>
+                  {networkState.opponent && (
+                    <div>相手接続: <span className={`${networkState.opponent.connected ? 'text-green-300' : 'text-red-300'}`}>
+                      {networkState.opponent.connected ? 'Connected' : 'Disconnected'}
+                    </span></div>
+                  )}
                   <div>同期コールバック: <span className="text-orange-300">{state.networkSyncCallback ? 'Set' : 'None'}</span></div>
                 </div>
               </div>
