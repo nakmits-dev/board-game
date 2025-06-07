@@ -13,6 +13,8 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
   const { selectedCharacter, currentTeam, gamePhase, animationTarget, selectedAction, selectedSkill, playerCrystals, enemyCrystals } = state;
   const [showModal, setShowModal] = React.useState(false);
   const [isDragOver, setIsDragOver] = React.useState(false);
+  const [isDragging, setIsDragging] = React.useState(false);
+  const [touchStart, setTouchStart] = React.useState<{ x: number; y: number; time: number } | null>(null);
   const [lastTap, setLastTap] = React.useState(0);
   
   const character = getCharacterAt(position);
@@ -25,6 +27,108 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
   // スマホかどうかを判定
   const isMobile = window.innerWidth < 1024;
 
+  // スマホタッチイベント
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!isMobile) return;
+    
+    const touch = e.touches[0];
+    const currentTime = Date.now();
+    
+    setTouchStart({
+      x: touch.clientX,
+      y: touch.clientY,
+      time: currentTime
+    });
+
+    // キャラクターを選択
+    if (character && character.team === currentTeam && character.remainingActions > 0) {
+      dispatch({ type: 'SELECT_CHARACTER', character });
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isMobile || !touchStart) return;
+    
+    const touch = e.touches[0];
+    const deltaX = Math.abs(touch.clientX - touchStart.x);
+    const deltaY = Math.abs(touch.clientY - touchStart.y);
+    
+    // 一定距離以上動いたらドラッグとみなす
+    if (deltaX > 10 || deltaY > 10) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!isMobile || !touchStart) return;
+    
+    const currentTime = Date.now();
+    const touchDuration = currentTime - touchStart.time;
+    const wasLongPress = touchDuration > 500;
+    const wasDrag = isDragging;
+    
+    // ドラッグ終了処理
+    if (wasDrag && selectedCharacter && selectedCharacter.team === currentTeam) {
+      // ドロップ先の要素を取得
+      const touch = e.changedTouches[0];
+      const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+      const cellElement = elementBelow?.closest('[data-position]');
+      
+      if (cellElement) {
+        const positionData = cellElement.getAttribute('data-position');
+        if (positionData) {
+          const [x, y] = positionData.split(',').map(Number);
+          const targetPosition = { x, y };
+          const targetCharacter = getCharacterAt(targetPosition);
+          
+          if (!targetCharacter && isValidMove(targetPosition) && selectedAction !== 'skill') {
+            // 移動
+            dispatch({
+              type: 'SET_PENDING_ACTION',
+              action: { type: 'move', position: targetPosition }
+            });
+            dispatch({ type: 'CONFIRM_ACTION' });
+          } else if (targetCharacter && isValidAttack(targetCharacter.id) && selectedAction !== 'skill') {
+            // 攻撃
+            dispatch({
+              type: 'SET_PENDING_ACTION',
+              action: { type: 'attack', targetId: targetCharacter.id }
+            });
+            dispatch({ type: 'CONFIRM_ACTION' });
+          }
+        }
+      }
+    }
+    // 長押し（キャラクター詳細表示）
+    else if (wasLongPress && character && !wasDrag) {
+      setShowModal(true);
+      // 触覚フィードバック
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+    }
+    // ダブルタップ検出
+    else if (!wasDrag && character) {
+      const tapLength = currentTime - lastTap;
+      if (tapLength < 500 && tapLength > 0) {
+        e.preventDefault();
+        setShowModal(true);
+        if (navigator.vibrate) {
+          navigator.vibrate(50);
+        }
+      }
+      setLastTap(currentTime);
+    }
+    // 通常のタップ
+    else if (!wasDrag) {
+      handleClick();
+    }
+    
+    // 状態リセット
+    setTouchStart(null);
+    setIsDragging(false);
+  };
+
   // PCドラッグイベントハンドラー（PC専用）
   const handleDragStart = (e: React.DragEvent) => {
     if (isMobile) return; // スマホでは無効
@@ -32,15 +136,22 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
     if (character && character.team === currentTeam && character.remainingActions > 0) {
       e.dataTransfer.setData('text/plain', character.id);
       e.dataTransfer.effectAllowed = 'move';
+      setIsDragging(true);
       dispatch({ type: 'SELECT_CHARACTER', character });
     }
+  };
+
+  const handleDragEnd = () => {
+    if (isMobile) return; // スマホでは無効
+    setIsDragging(false);
+    setIsDragOver(false);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
     if (isMobile) return; // スマホでは無効
     
     e.preventDefault();
-    if (!selectedCharacter || selectedAction === 'skill') return;
+    if (!selectedCharacter || selectedAction === 'skill' || isDragging) return;
     
     const isValidTarget = (!character && isValidMove(position)) || (character && isValidAttack(character.id));
     if (isValidTarget) {
@@ -61,7 +172,7 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
     e.preventDefault();
     setIsDragOver(false);
     
-    if (selectedAction === 'skill') return;
+    if (selectedAction === 'skill' || isDragging) return;
     
     const draggedCharacterId = e.dataTransfer.getData('text/plain');
     if (!draggedCharacterId || !selectedCharacter) return;
@@ -79,26 +190,6 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
       });
       dispatch({ type: 'CONFIRM_ACTION' });
     }
-  };
-
-  // ダブルタップ検出（スマホ専用）
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (!isMobile || !character) return;
-    
-    const currentTime = new Date().getTime();
-    const tapLength = currentTime - lastTap;
-    
-    if (tapLength < 500 && tapLength > 0) {
-      // ダブルタップ検出
-      e.preventDefault();
-      setShowModal(true);
-      // 触覚フィードバック
-      if (navigator.vibrate) {
-        navigator.vibrate(50);
-      }
-    }
-    
-    setLastTap(currentTime);
   };
 
   const handleClick = () => {
@@ -165,24 +256,36 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
     }
   }
 
-  // ドラッグ可能な条件（PC専用）
+  // ドラッグ可能な条件
   const isDraggablePC = !isMobile && isActionable && selectedAction !== 'skill';
+  const isDraggableMobile = isMobile && isActionable && selectedAction !== 'skill';
   
   if (isDraggablePC) {
     cellClassName += " cursor-grab active:cursor-grabbing";
+    if (isDragging) {
+      cellClassName += " opacity-50";
+    }
+  }
+
+  if (isDraggableMobile && isDragging) {
+    cellClassName += " opacity-50 scale-110";
   }
 
   return (
     <>
       <div 
         className={`${cellClassName} ${animationTarget?.id === character?.id && animationTarget?.type ? `character-${animationTarget.type}` : ''} ${isActionable ? 'character-actionable' : ''}`}
-        onClick={handleClick}
-        onTouchEnd={isMobile ? handleTouchEnd : undefined}
+        onClick={!isMobile ? handleClick : undefined}
+        data-position={`${position.x},${position.y}`}
         draggable={isDraggablePC}
         onDragStart={isDraggablePC ? handleDragStart : undefined}
+        onDragEnd={isDraggablePC ? handleDragEnd : undefined}
         onDragOver={!isMobile ? handleDragOver : undefined}
         onDragLeave={!isMobile ? handleDragLeave : undefined}
         onDrop={!isMobile ? handleDrop : undefined}
+        onTouchStart={isMobile ? handleTouchStart : undefined}
+        onTouchMove={isMobile ? handleTouchMove : undefined}
+        onTouchEnd={isMobile ? handleTouchEnd : undefined}
       >
         {character && (
           <div className="absolute inset-0 flex flex-col items-center justify-center">
