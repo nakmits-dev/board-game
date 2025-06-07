@@ -24,19 +24,29 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
 
   // ゲーム開始コールバックを設定
   useEffect(() => {
+    console.log('ゲーム開始コールバック設定');
     setOnGameStart((roomId: string, isHost: boolean) => {
+      console.log('ゲーム開始コールバック実行:', { roomId, isHost });
       onStartNetworkGame(roomId, isHost);
     });
   }, [setOnGameStart, onStartNetworkGame]);
 
   // ゲーム状態の変化を監視
   useEffect(() => {
+    console.log('ゲーム状態監視:', gameState);
+    
     if (gameState.status === 'waiting' && gameState.roomId) {
       setMode('waiting');
       setRoomId(gameState.roomId);
       setError('');
     }
-  }, [gameState.status, gameState.roomId]);
+    
+    if (gameState.status === 'playing') {
+      console.log('ゲーム開始状態検出');
+      // ゲーム開始時はロビーを閉じる
+      onClose();
+    }
+  }, [gameState.status, gameState.roomId, onClose]);
 
   const handleCreateRoom = async () => {
     if (!hasValidDeck) {
@@ -48,10 +58,13 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
     setError('');
 
     try {
+      console.log('ルーム作成開始');
       const newRoomId = await createRoom(playerName);
+      console.log('ルーム作成完了:', newRoomId);
       setRoomId(newRoomId);
       setMode('waiting');
     } catch (err: any) {
+      console.error('ルーム作成エラー:', err);
       setError(err.message || 'ルームの作成に失敗しました');
     } finally {
       setLoading(false);
@@ -68,9 +81,12 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
     setError('');
 
     try {
+      console.log('ルーム参加開始:', roomId.trim());
       await joinRoom(roomId.trim(), playerName);
+      console.log('ルーム参加完了');
       setMode('waiting');
     } catch (err: any) {
+      console.error('ルーム参加エラー:', err);
       setError(err.message || 'ルームへの参加に失敗しました');
     } finally {
       setLoading(false);
@@ -84,8 +100,11 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
     setError('');
 
     try {
+      console.log('ゲーム開始処理開始');
       await startGame();
+      console.log('ゲーム開始処理完了');
     } catch (err: any) {
+      console.error('ゲーム開始エラー:', err);
       setError(err.message || 'ゲームの開始に失敗しました');
       setLoading(false);
     }
@@ -114,7 +133,9 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
   const handleLeaveRoom = async () => {
     setLoading(true);
     try {
+      console.log('ルーム退出処理開始');
       await leaveRoom();
+      console.log('ルーム退出処理完了');
       setMode('menu');
       setRoomId('');
       setError('');
@@ -183,6 +204,18 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
             <p className="text-yellow-700 text-sm">
               ⚠️ 先にチーム編成を完了してください
             </p>
+          </div>
+        )}
+
+        {/* デバッグ情報 */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="mb-4 p-2 bg-gray-100 rounded text-xs">
+            <p>デバッグ: {JSON.stringify({
+              status: gameState.status,
+              roomId: gameState.roomId,
+              isHost: gameState.isHost,
+              hasOpponent: !!gameState.opponent
+            })}</p>
           </div>
         )}
 

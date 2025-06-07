@@ -16,27 +16,41 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
   const { gameState, sendMove, setOnMove, isConnected } = useSimpleGameSync();
   const { state, dispatch } = useGame();
   const lastProcessedMoveId = useRef<string>('');
+  const syncCallbackRef = useRef<((action: any) => void) | null>(null);
 
   // ネットワーク同期コールバックを設定
   useEffect(() => {
     if (state.isNetworkGame && state.roomId) {
-      const syncCallback = (action: any) => {
-        // ゲームアクションを棋譜形式に変換
-        const move = {
-          turn: action.turn,
-          action: action.type,
-          from: action.characterId ? state.characters.find(c => c.id === action.characterId)?.position : undefined,
-          to: action.position,
-          target: action.targetId,
-          skill: action.skillId
-        };
+      console.log('ネットワーク同期コールバック設定:', { roomId: state.roomId, isHost: state.isHost });
+      
+      const syncCallback = async (action: any) => {
+        console.log('アクション送信:', action);
+        
+        try {
+          // ゲームアクションを棋譜形式に変換
+          const move = {
+            turn: action.turn,
+            action: action.type,
+            characterId: action.characterId || '',
+            from: action.characterId ? state.characters.find(c => c.id === action.characterId)?.position : undefined,
+            to: action.position,
+            target: action.targetId,
+            skill: action.skillId
+          };
 
-        sendMove(move).catch((error) => {
-          console.error('手の送信失敗:', error);
-        });
+          console.log('送信する手:', move);
+          await sendMove(move);
+          console.log('手の送信完了');
+        } catch (error) {
+          console.error('アクション送信失敗:', error);
+        }
       };
+      
+      syncCallbackRef.current = syncCallback;
       dispatch({ type: 'SET_NETWORK_SYNC_CALLBACK', callback: syncCallback });
     } else {
+      console.log('ネットワーク同期コールバック解除');
+      syncCallbackRef.current = null;
       dispatch({ type: 'SET_NETWORK_SYNC_CALLBACK', callback: null });
     }
   }, [state.isNetworkGame, state.roomId, sendMove, dispatch, state.characters]);
@@ -44,9 +58,14 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
   // 手の受信コールバックを設定
   useEffect(() => {
     if (state.isNetworkGame) {
+      console.log('手の受信コールバック設定');
+      
       const moveCallback = (move: any) => {
+        console.log('手を受信:', move);
+        
         // 既に処理済みの手はスキップ
         if (move.id === lastProcessedMoveId.current) {
+          console.log('既に処理済みの手をスキップ:', move.id);
           return;
         }
 
@@ -55,21 +74,34 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
           turn: move.turn,
           team: state.isHost ? 'enemy' : 'player',
           type: move.action,
-          characterId: '', // 棋譜から復元
+          characterId: move.characterId || '',
           targetId: move.target,
           position: move.to,
           skillId: move.skill
         };
 
+        console.log('ネットワークアクション同期:', networkAction);
         dispatch({ type: 'SYNC_NETWORK_ACTION', action: networkAction });
         lastProcessedMoveId.current = move.id;
       };
 
       setOnMove(moveCallback);
     } else {
+      console.log('手の受信コールバック解除');
       setOnMove(() => {});
     }
   }, [state.isNetworkGame, state.isHost, setOnMove, dispatch]);
+
+  // ゲーム状態の変化をログ出力
+  useEffect(() => {
+    console.log('ゲーム状態変化:', {
+      isNetworkGame: state.isNetworkGame,
+      roomId: state.roomId,
+      isHost: state.isHost,
+      gamePhase: state.gamePhase,
+      currentTeam: state.currentTeam
+    });
+  }, [state.isNetworkGame, state.roomId, state.isHost, state.gamePhase, state.currentTeam]);
 
   return (
     <SimpleNetworkContext.Provider 

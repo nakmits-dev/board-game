@@ -9,6 +9,7 @@ interface GameMove {
   turn: number;
   player: 'host' | 'guest';
   action: 'move' | 'attack' | 'skill' | 'end_turn' | 'surrender';
+  characterId?: string;
   from?: { x: number; y: number };
   to?: { x: number; y: number };
   target?: string;
@@ -55,6 +56,7 @@ export const useSimpleGameSync = () => {
   const roomUnsubscribe = useRef<(() => void) | null>(null);
   const onMoveCallback = useRef<((move: GameMove) => void) | null>(null);
   const onGameStartCallback = useRef<((roomId: string, isHost: boolean) => void) | null>(null);
+  const processedMoves = useRef<Set<string>>(new Set());
 
   // Firebase認証（シンプル）
   useEffect(() => {
@@ -105,6 +107,7 @@ export const useSimpleGameSync = () => {
       await set(newRoomRef, roomData);
       console.log('ルーム作成成功:', roomId);
 
+      // 状態を即座に更新
       setGameState(prev => ({
         ...prev,
         roomId,
@@ -159,6 +162,7 @@ export const useSimpleGameSync = () => {
 
       console.log('ルーム参加成功:', roomId);
 
+      // 状態を即座に更新
       setGameState(prev => ({
         ...prev,
         roomId,
@@ -196,7 +200,8 @@ export const useSimpleGameSync = () => {
   // 手を送信
   const sendMove = useCallback(async (move: Omit<GameMove, 'id' | 'timestamp' | 'player'>) => {
     if (!gameState.roomId) {
-      console.error('ルームに接続されていません');
+      console.error('ルームに接続されていません - roomId:', gameState.roomId);
+      console.error('現在のゲーム状態:', gameState);
       throw new Error('ルームに接続されていません');
     }
 
@@ -208,6 +213,7 @@ export const useSimpleGameSync = () => {
     };
 
     console.log('手を送信:', moveData);
+    console.log('送信先ルーム:', gameState.roomId);
 
     try {
       const movesRef = ref(database, `simple_rooms/${gameState.roomId}/moves`);
@@ -215,6 +221,8 @@ export const useSimpleGameSync = () => {
       console.log('手の送信成功');
     } catch (error: any) {
       console.error('手の送信エラー:', error);
+      console.error('エラーコード:', error.code);
+      console.error('エラーメッセージ:', error.message);
       throw new Error(`手の送信に失敗しました: ${error.message}`);
     }
   }, [gameState.roomId, gameState.isHost]);
@@ -223,6 +231,7 @@ export const useSimpleGameSync = () => {
   useEffect(() => {
     if (!gameState.roomId) {
       if (roomUnsubscribe.current) {
+        console.log('ルーム監視停止');
         roomUnsubscribe.current();
         roomUnsubscribe.current = null;
       }
@@ -238,7 +247,13 @@ export const useSimpleGameSync = () => {
       
       if (!roomData) {
         console.log('ルームが削除されました');
-        setGameState(prev => ({ ...prev, status: 'disconnected', roomId: null }));
+        setGameState(prev => ({ 
+          ...prev, 
+          status: 'disconnected', 
+          roomId: null,
+          opponent: null,
+          moves: []
+        }));
         return;
       }
 
@@ -247,34 +262,43 @@ export const useSimpleGameSync = () => {
       // 対戦相手情報を更新
       const opponent = gameState.isHost ? roomData.guest : { name: roomData.host.name, ready: roomData.host.ready };
       
+      // 手の履歴を更新
+      const moves = roomData.moves ? Object.values(roomData.moves) : [];
+      
       setGameState(prev => ({
         ...prev,
         opponent: opponent || null,
-        moves: roomData.moves ? Object.values(roomData.moves) : []
+        moves: moves,
+        status: roomData.status === 'playing' ? 'playing' : prev.status
       }));
 
       // ゲーム開始検出
       if (roomData.status === 'playing' && gameState.status === 'waiting') {
         console.log('ゲーム開始検出');
-        setGameState(prev => ({ ...prev, status: 'playing' }));
         if (onGameStartCallback.current) {
           onGameStartCallback.current(gameState.roomId!, gameState.isHost);
         }
       }
 
-      // 新しい手の検出
+      // 新しい手の検出と処理
       if (roomData.moves) {
-        const moves = Object.values(roomData.moves) as GameMove[];
-        const latestMove = moves[moves.length - 1];
+        const allMoves = Object.values(roomData.moves) as GameMove[];
         
-        if (latestMove && onMoveCallback.current) {
+        // 未処理の手のみを処理
+        const newMoves = allMoves.filter(move => !processedMoves.current.has(move.id));
+        
+        newMoves.forEach(move => {
           // 相手の手のみ通知
-          const isOpponentMove = gameState.isHost ? latestMove.player === 'guest' : latestMove.player === 'host';
-          if (isOpponentMove) {
-            console.log('相手の手を検出:', latestMove);
-            onMoveCallback.current(latestMove);
+          const isOpponentMove = gameState.isHost ? move.player === 'guest' : move.player === 'host';
+          
+          if (isOpponentMove && onMoveCallback.current) {
+            console.log('相手の手を検出:', move);
+            onMoveCallback.current(move);
           }
-        }
+          
+          // 処理済みとしてマーク
+          processedMoves.current.add(move.id);
+        });
       }
     }, (error) => {
       console.error('ルーム監視エラー:', error);
@@ -286,6 +310,7 @@ export const useSimpleGameSync = () => {
 
     return () => {
       if (roomUnsubscribe.current) {
+        console.log('ルーム監視クリーンアップ');
         roomUnsubscribe.current();
         roomUnsubscribe.current = null;
       }
@@ -314,6 +339,9 @@ export const useSimpleGameSync = () => {
       console.error('ルーム退出エラー:', error);
     }
 
+    // 処理済み手の履歴をクリア
+    processedMoves.current.clear();
+
     setGameState({
       roomId: null,
       isHost: false,
@@ -328,10 +356,12 @@ export const useSimpleGameSync = () => {
 
   // コールバック設定
   const setOnMove = useCallback((callback: (move: GameMove) => void) => {
+    console.log('手の受信コールバック設定');
     onMoveCallback.current = callback;
   }, []);
 
   const setOnGameStart = useCallback((callback: (roomId: string, isHost: boolean) => void) => {
+    console.log('ゲーム開始コールバック設定');
     onGameStartCallback.current = callback;
   }, []);
 
