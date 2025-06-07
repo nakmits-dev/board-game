@@ -787,13 +787,19 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       if (!state.isNetworkGame) return state;
 
       const networkAction = action.action;
+      console.log('ネットワークアクション同期:', networkAction);
       
       // 相手のアクションのみ処理（自分のアクションは既に処理済み）
       const isOpponentAction = state.isHost ? 
         networkAction.team === 'enemy' : 
         networkAction.team === 'player';
       
-      if (!isOpponentAction) return state;
+      if (!isOpponentAction) {
+        console.log('自分のアクションなのでスキップ');
+        return state;
+      }
+
+      console.log('相手のアクションを処理:', networkAction.type);
 
       // ネットワークアクションをローカルアクションに変換して処理
       switch (networkAction.type) {
@@ -801,6 +807,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           // 移動アクションの処理
           const moveCharacter = state.characters.find(char => char.id === networkAction.characterId);
           if (moveCharacter && networkAction.position) {
+            console.log('移動処理:', moveCharacter.name, networkAction.position);
             const updatedCharacters = state.characters.map(char =>
               char.id === networkAction.characterId
                 ? { ...char, position: networkAction.position!, remainingActions: char.remainingActions - 1 }
@@ -819,6 +826,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           const attacker = state.characters.find(char => char.id === networkAction.characterId);
           const target = state.characters.find(char => char.id === networkAction.targetId);
           if (attacker && target) {
+            console.log('攻撃処理:', attacker.name, '->', target.name);
             const damage = Math.max(0, attacker.attack - target.defense);
             const newHp = Math.max(0, target.hp - damage);
             
@@ -862,6 +870,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           const skill = skillData[networkAction.skillId!];
           
           if (skillUser && skillTarget && skill) {
+            console.log('スキル処理:', skillUser.name, skill.name, '->', skillTarget.name);
             let updatedCharacters = [...state.characters];
             let playerCrystals = state.playerCrystals;
             let enemyCrystals = state.enemyCrystals;
@@ -926,6 +935,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
         case 'end_turn':
           // ターン終了アクションの処理
+          console.log('ターン終了処理');
           const nextTeam: Team = state.currentTeam === 'player' ? 'enemy' : 'player';
           
           const refreshedCharacters = state.characters.map(character => {
@@ -968,6 +978,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
         case 'surrender':
           // 降参アクションの処理
+          console.log('降参処理:', networkAction.team);
           return {
             ...state,
             gamePhase: 'result',
@@ -977,6 +988,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           };
       }
 
+      console.log('未対応のアクションタイプ:', networkAction.type);
       return state;
     }
 
