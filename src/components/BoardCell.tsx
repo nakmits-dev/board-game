@@ -186,24 +186,6 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
       >
         {character && (
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            {/* 赤チームの場合は体力を上に表示 */}
-            {character.team === 'enemy' && (
-              <div className="flex gap-0.5 mb-1">
-                {Array.from({ length: character.maxHp }, (_, i) => (
-                  <div
-                    key={i}
-                    className={`w-3 h-3 flex items-center justify-center transform rotate-180 ${
-                      i < character.hp 
-                        ? 'text-red-500/90'
-                        : 'text-gray-300/50'
-                    }`}
-                  >
-                    <Heart size={12} fill="currentColor" />
-                  </div>
-                ))}
-              </div>
-            )}
-
             <div className={`relative w-16 h-16 rounded-lg overflow-hidden ${
               character.team === 'player' 
                 ? 'ring-1 ring-blue-400 shadow-md shadow-blue-400/30' 
@@ -212,71 +194,54 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
               <img 
                 src={character.image} 
                 alt={character.name} 
-                className={`w-full h-full object-cover ${
-                  character.team === 'enemy' ? 'transform rotate-180' : ''
-                }`}
+                className="w-full h-full object-cover"
                 draggable={false}
               />
               <div className={`absolute inset-0 ${
                 character.team === 'player' ? 'bg-blue-500' : 'bg-red-500'
               } bg-opacity-10`}></div>
               
-              {/* ステータスアイコン - 赤チームは上に、青チームは下に */}
-              <div className={`absolute ${
-                character.team === 'enemy' ? 'top-0' : 'bottom-0'
-              } inset-x-0 flex justify-center gap-0.5 p-0.5`}>
+              <div className="absolute bottom-0 inset-x-0 flex justify-center gap-0.5 p-0.5">
                 {character.attack >= 2 && (
-                  <div className={`w-4 h-4 bg-red-500/80 rounded flex items-center justify-center ${
-                    character.team === 'enemy' ? 'transform rotate-180' : ''
-                  }`}>
+                  <div className="w-4 h-4 bg-red-500/80 rounded flex items-center justify-center">
                     <Sword size={10} className="text-white" />
                   </div>
                 )}
                 {character.defense >= 1 && (
-                  <div className={`w-4 h-4 bg-blue-500/80 rounded flex items-center justify-center ${
-                    character.team === 'enemy' ? 'transform rotate-180' : ''
-                  }`}>
+                  <div className="w-4 h-4 bg-blue-500/80 rounded flex items-center justify-center">
                     <Shield size={10} className="text-white" />
                   </div>
                 )}
                 {character.actions >= 2 && (
-                  <div className={`w-4 h-4 bg-yellow-500/80 rounded flex items-center justify-center ${
-                    character.team === 'enemy' ? 'transform rotate-180' : ''
-                  }`}>
+                  <div className="w-4 h-4 bg-yellow-500/80 rounded flex items-center justify-center">
                     <Sparkle size={10} className="text-white" />
                   </div>
                 )}
               </div>
               
-              {/* 残り行動回数 - 赤チームは左下、青チームは右上 */}
               {gamePhase === 'action' && character.team === currentTeam && character.remainingActions > 0 && (
-                <div className={`absolute ${
-                  character.team === 'enemy' ? 'bottom-0 left-0' : 'top-0 right-0'
-                } w-5 h-5 bg-green-500/90 rounded flex items-center justify-center text-white text-xs font-bold shadow-sm ${
-                  character.team === 'enemy' ? 'transform rotate-180' : ''
-                }`}>
+                <div className="absolute top-0 right-0 w-5 h-5 bg-green-500/90 rounded flex items-center justify-center text-white text-xs font-bold shadow-sm">
                   {character.remainingActions}
                 </div>
               )}
             </div>
             
-            {/* 青チームの場合は体力を下に表示 */}
-            {character.team === 'player' && (
-              <div className="flex gap-0.5 mt-1">
-                {Array.from({ length: character.maxHp }, (_, i) => (
-                  <div
-                    key={i}
-                    className={`w-3 h-3 flex items-center justify-center ${
-                      i < character.hp 
+            <div className="flex gap-0.5 mt-1">
+              {Array.from({ length: character.maxHp }, (_, i) => (
+                <div
+                  key={i}
+                  className={`w-3 h-3 flex items-center justify-center ${
+                    i < character.hp 
+                      ? character.team === 'player'
                         ? 'text-blue-500/90'
-                        : 'text-gray-300/50'
-                    }`}
-                  >
-                    <Heart size={12} fill="currentColor" />
-                  </div>
-                ))}
-              </div>
-            )}
+                        : 'text-red-500/90'
+                      : 'text-gray-300/50'
+                  }`}
+                >
+                  <Heart size={12} fill="currentColor" />
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
