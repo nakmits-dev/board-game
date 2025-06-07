@@ -141,13 +141,13 @@ const GameContent = () => {
       <main className={`container mx-auto p-4 max-w-7xl ${isMobileBattle ? 'pt-2' : ''}`}>
         {/* スマホ対戦中のヘルプボタン */}
         {isMobileBattle && (
-          <div className="fixed top-3 right-3 z-30">
+          <div className="fixed top-4 right-4 z-30">
             <button
               onClick={() => setShowTutorial(true)}
-              className="w-10 h-10 bg-green-600 hover:bg-green-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors"
+              className="w-14 h-14 bg-green-600 hover:bg-green-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors"
               title="遊び方を見る"
             >
-              <HelpCircle size={16} />
+              <HelpCircle size={20} />
             </button>
           </div>
         )}
