@@ -329,6 +329,26 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
           </div>
         ) : hasCard && cardData ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center">
+            {/* 赤チームの場合は体力を上に表示 */}
+            {!isPlayerTeam && (
+              <div className={`flex gap-0.5 mb-1 ${
+                !isPlayerTeam ? 'transform rotate-180' : ''
+              }`}>
+                {Array.from({ length: cardData.hp }, (_, i) => (
+                  <div
+                    key={i}
+                    className={`w-2 h-2 sm:w-3 sm:h-3 flex items-center justify-center ${
+                      isPlayerTeam
+                        ? 'text-blue-500/90'
+                        : 'text-red-500/90'
+                    }`}
+                  >
+                    <Heart size={8} fill="currentColor" className="sm:w-[12px] sm:h-[12px]" />
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className={`relative w-12 h-12 sm:w-16 sm:h-16 rounded-lg overflow-hidden ${
               isPlayerTeam
                 ? 'ring-1 ring-blue-400 shadow-md shadow-blue-400/30' 
@@ -347,7 +367,9 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
               } bg-opacity-10`}></div>
               
               {/* Stats overlay */}
-              <div className={`absolute bottom-0 inset-x-0 flex justify-center gap-0.5 p-0.5 ${
+              <div className={`absolute ${
+                !isPlayerTeam ? 'top-0' : 'bottom-0'
+              } inset-x-0 flex justify-center gap-0.5 p-0.5 ${
                 !isPlayerTeam ? 'transform rotate-180' : ''
               }`}>
                 {cardData.attack >= 2 && (
@@ -368,23 +390,23 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
               </div>
             </div>
             
-            {/* HP表示 */}
-            <div className={`flex gap-0.5 mt-1 ${
-              !isPlayerTeam ? 'transform rotate-180' : ''
-            }`}>
-              {Array.from({ length: cardData.hp }, (_, i) => (
-                <div
-                  key={i}
-                  className={`w-2 h-2 sm:w-3 sm:h-3 flex items-center justify-center ${
-                    isPlayerTeam
-                      ? 'text-blue-500/90'
-                      : 'text-red-500/90'
-                  }`}
-                >
-                  <Heart size={8} fill="currentColor" className="sm:w-[12px] sm:h-[12px]" />
-                </div>
-              ))}
-            </div>
+            {/* 青チームの場合は体力を下に表示 */}
+            {isPlayerTeam && (
+              <div className="flex gap-0.5 mt-1">
+                {Array.from({ length: cardData.hp }, (_, i) => (
+                  <div
+                    key={i}
+                    className={`w-2 h-2 sm:w-3 sm:h-3 flex items-center justify-center ${
+                      isPlayerTeam
+                        ? 'text-blue-500/90'
+                        : 'text-red-500/90'
+                    }`}
+                  >
+                    <Heart size={8} fill="currentColor" className="sm:w-[12px] sm:h-[12px]" />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         ) : (
           <div className="text-center">
