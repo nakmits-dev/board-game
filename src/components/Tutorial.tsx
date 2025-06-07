@@ -398,9 +398,9 @@ const Tutorial: React.FC<TutorialProps> = ({ onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 flex items-center justify-between">
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 flex items-center justify-between flex-shrink-0">
           <h2 className="text-xl font-bold">チュートリアル</h2>
           <button
             onClick={onClose}
@@ -411,7 +411,7 @@ const Tutorial: React.FC<TutorialProps> = ({ onClose }) => {
         </div>
 
         {/* Progress Bar */}
-        <div className="bg-gray-200 h-2">
+        <div className="bg-gray-200 h-2 flex-shrink-0">
           <div 
             className="bg-gradient-to-r from-blue-500 to-purple-500 h-full transition-all duration-300"
             style={{ width: `${((currentStep + 1) / tutorialSteps.length) * 100}%` }}
@@ -419,7 +419,7 @@ const Tutorial: React.FC<TutorialProps> = ({ onClose }) => {
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+        <div className="flex-1 overflow-y-auto p-6">
           <h3 className="text-2xl font-bold text-gray-800 mb-4">
             {tutorialSteps[currentStep].title}
           </h3>
@@ -427,7 +427,7 @@ const Tutorial: React.FC<TutorialProps> = ({ onClose }) => {
         </div>
 
         {/* Navigation */}
-        <div className="bg-gray-50 p-4 flex items-center justify-between">
+        <div className="bg-gray-50 p-4 flex items-center justify-between flex-shrink-0">
           <button
             onClick={prevStep}
             disabled={currentStep === 0}
