@@ -59,6 +59,9 @@ const GameContent = () => {
     return !!(currentDecks.player && currentDecks.enemy);
   };
 
+  // スマホでの対戦中かどうかを判定
+  const isMobileBattle = gamePhase === 'action' && window.innerWidth < 1024;
+
   if (showDeckBuilder) {
     return (
       <DeckBuilder 
@@ -72,16 +75,19 @@ const GameContent = () => {
 
   return (
     <div className="min-h-screen bg-blue-50 text-gray-900">
-      <header className="bg-white shadow-lg border-b border-blue-100">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-blue-900">ボードdeモンスターズ</h1>
-            <ShareButton />
+      {/* ヘッダー - スマホの対戦中は非表示 */}
+      {!isMobileBattle && (
+        <header className="bg-white shadow-lg border-b border-blue-100">
+          <div className="container mx-auto px-4 py-3">
+            <div className="flex items-center justify-between">
+              <h1 className="text-2xl font-bold text-blue-900">ボードdeモンスターズ</h1>
+              <ShareButton />
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
       
-      <main className="container mx-auto p-4 max-w-7xl">
+      <main className={`container mx-auto p-4 max-w-7xl ${isMobileBattle ? 'pt-2' : ''}`}>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
             {(gamePhase === 'preparation' || gamePhase === 'result') ? (
@@ -126,11 +132,14 @@ const GameContent = () => {
         </div>
       </main>
       
-      <footer className="mt-8 py-6 bg-white border-t border-blue-100">
-        <div className="container mx-auto px-4">
-          <p className="text-center text-sm text-blue-600">ボードdeモンスターズ &copy; 2025</p>
-        </div>
-      </footer>
+      {/* フッター - スマホの対戦中は非表示 */}
+      {!isMobileBattle && (
+        <footer className="mt-8 py-6 bg-white border-t border-blue-100">
+          <div className="container mx-auto px-4">
+            <p className="text-center text-sm text-blue-600">ボードdeモンスターズ &copy; 2025</p>
+          </div>
+        </footer>
+      )}
     </div>
   );
 };
