@@ -14,8 +14,6 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
   const [showModal, setShowModal] = React.useState(false);
   const [isDragOver, setIsDragOver] = React.useState(false);
   const [isDragging, setIsDragging] = React.useState(false);
-  const [touchStartPos, setTouchStartPos] = React.useState<{ x: number; y: number } | null>(null);
-  const [dragStartTime, setDragStartTime] = React.useState<number>(0);
   const character = getCharacterAt(position);
   const isSelected = selectedCharacter?.id === character?.id;
   const isActionable = gamePhase === 'action' && character?.team === currentTeam && character.remainingActions > 0;
@@ -77,109 +75,6 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
         action: { type: 'attack', targetId: character.id }
       });
       dispatch({ type: 'CONFIRM_ACTION' });
-    }
-  };
-
-  // タッチイベントの処理
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (!character || character.team !== currentTeam || character.remainingActions <= 0 || selectedAction === 'skill') {
-      return;
-    }
-
-    const touch = e.touches[0];
-    setTouchStartPos({ x: touch.clientX, y: touch.clientY });
-    setDragStartTime(Date.now());
-    dispatch({ type: 'SELECT_CHARACTER', character });
-    
-    // タッチフィードバック
-    if (navigator.vibrate) {
-      navigator.vibrate(30); // より短い振動
-    }
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!touchStartPos || selectedAction === 'skill') return;
-    
-    const touch = e.touches[0];
-    const deltaX = Math.abs(touch.clientX - touchStartPos.x);
-    const deltaY = Math.abs(touch.clientY - touchStartPos.y);
-    const currentTime = Date.now();
-    const timeDiff = currentTime - dragStartTime;
-    
-    // ドラッグ検出時間を300msに延長（3ピクセルまたは300ms経過）
-    if ((deltaX > 3 || deltaY > 3) || timeDiff > 300) {
-      if (!isDragging) {
-        setIsDragging(true);
-        // より強い振動フィードバック
-        if (navigator.vibrate) {
-          navigator.vibrate(50);
-        }
-      }
-      
-      e.preventDefault(); // スクロールを防ぐ
-      
-      // ドラッグ中の視覚的フィードバック
-      const element = e.currentTarget as HTMLElement;
-      element.style.opacity = '0.8';
-      element.style.transform = 'scale(1.05)';
-      element.style.zIndex = '1000';
-    }
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (!touchStartPos) return;
-    
-    const touch = e.changedTouches[0];
-    const deltaX = Math.abs(touch.clientX - touchStartPos.x);
-    const deltaY = Math.abs(touch.clientY - touchStartPos.y);
-    const currentTime = Date.now();
-    const timeDiff = currentTime - dragStartTime;
-    
-    // 元の状態に戻す
-    const element = e.currentTarget as HTMLElement;
-    element.style.opacity = '';
-    element.style.transform = '';
-    element.style.zIndex = '';
-    
-    const wasDragging = isDragging;
-    setIsDragging(false);
-    setTouchStartPos(null);
-    setDragStartTime(0);
-    
-    // タップ判定時間も300msに延長（短い移動かつ短時間の場合はタップとして処理）
-    if ((deltaX <= 3 && deltaY <= 3) && timeDiff < 300) {
-      handleClick();
-      return;
-    }
-    
-    // ドラッグ操作として処理
-    if (wasDragging) {
-      // ドロップ先を特定
-      const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
-      const cellElement = elementBelow?.closest('[data-position]') as HTMLElement;
-      
-      if (cellElement && selectedCharacter) {
-        const positionData = cellElement.getAttribute('data-position');
-        if (positionData) {
-          const [x, y] = positionData.split(',').map(Number);
-          const targetPosition = { x, y };
-          const targetCharacter = getCharacterAt(targetPosition);
-          
-          if (!targetCharacter && isValidMove(targetPosition)) {
-            dispatch({
-              type: 'SET_PENDING_ACTION',
-              action: { type: 'move', position: targetPosition }
-            });
-            dispatch({ type: 'CONFIRM_ACTION' });
-          } else if (targetCharacter && isValidAttack(targetCharacter.id)) {
-            dispatch({
-              type: 'SET_PENDING_ACTION',
-              action: { type: 'attack', targetId: targetCharacter.id }
-            });
-            dispatch({ type: 'CONFIRM_ACTION' });
-          }
-        }
-      }
     }
   };
 
@@ -250,13 +145,13 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
     }
   }
 
-  // ドラッグ可能な条件を調整（スマホでも有効）
+  // ドラッグ可能な条件
   const isDraggable = isActionable && selectedAction !== 'skill';
   
   if (isDraggable) {
     cellClassName += " cursor-grab active:cursor-grabbing";
     if (isDragging) {
-      cellClassName += " opacity-70 scale-105";
+      cellClassName += " opacity-50";
     }
   }
 
@@ -271,17 +166,6 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        data-position={`${position.x},${position.y}`}
-        style={{
-          // スマホでのタッチ操作を最適化
-          touchAction: isDraggable ? 'none' : 'auto',
-          userSelect: 'none',
-          WebkitUserSelect: 'none',
-          WebkitTouchCallout: 'none'
-        }}
       >
         {character && (
           <div className="absolute inset-0 flex flex-col items-center justify-center">
