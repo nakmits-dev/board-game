@@ -267,8 +267,8 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
         : monsterData[assignment.id as MonsterType]
       : null;
 
-    // シークレットモードの場合、お互いのカードを隠す
-    const shouldHideCard = secretMode && hasCard;
+    // シークレットモードの場合、全てのマスを隠す
+    const shouldHideCard = secretMode;
 
     let cellClassName = "w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center relative border transition-all duration-200";
     
@@ -302,72 +302,70 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
         className={cellClassName}
         onClick={() => setSelectedPosition(position)}
       >
-        {hasCard && cardData ? (
+        {shouldHideCard ? (
+          // シークレットモード時は全てのマスを？マークで隠す
+          <div className="text-center">
+            <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-lg overflow-hidden ${
+              isPlayerTeam
+                ? 'ring-1 ring-blue-400 shadow-md shadow-blue-400/30'
+                : 'ring-1 ring-red-400 shadow-md shadow-red-400/30'
+            } bg-gray-800 flex items-center justify-center`}>
+              <HelpCircle size={24} className={`${isPlayerTeam ? 'text-blue-400' : 'text-red-400'} sm:w-8 sm:h-8`} />
+              <div className={`absolute inset-0 ${isPlayerTeam ? 'bg-blue-500' : 'bg-red-500'} bg-opacity-10`}></div>
+            </div>
+          </div>
+        ) : hasCard && cardData ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            {shouldHideCard ? (
-              // シークレットモード時の？マーク表示
-              <div className={`relative w-12 h-12 sm:w-16 sm:h-16 rounded-lg overflow-hidden ${
-                isPlayerTeam
-                  ? 'ring-1 ring-blue-400 shadow-md shadow-blue-400/30'
-                  : 'ring-1 ring-red-400 shadow-md shadow-red-400/30'
-              } bg-gray-800 flex items-center justify-center`}>
-                <HelpCircle size={24} className={`${isPlayerTeam ? 'text-blue-400' : 'text-red-400'} sm:w-8 sm:h-8`} />
-                <div className={`absolute inset-0 ${isPlayerTeam ? 'bg-blue-500' : 'bg-red-500'} bg-opacity-10`}></div>
-              </div>
-            ) : (
-              <div className={`relative w-12 h-12 sm:w-16 sm:h-16 rounded-lg overflow-hidden ${
-                isPlayerTeam
-                  ? 'ring-1 ring-blue-400 shadow-md shadow-blue-400/30' 
-                  : 'ring-1 ring-red-400 shadow-md shadow-red-400/30'
-              }`}>
-                <img 
-                  src={cardData.image} 
-                  alt={cardData.name} 
-                  className="w-full h-full object-cover"
-                  draggable={false}
-                />
-                <div className={`absolute inset-0 ${
-                  isPlayerTeam ? 'bg-blue-500' : 'bg-red-500'
-                } bg-opacity-10`}></div>
-                
-                {/* Stats overlay */}
-                <div className="absolute bottom-0 inset-x-0 flex justify-center gap-0.5 p-0.5">
-                  {cardData.attack >= 2 && (
-                    <div className="w-3 h-3 sm:w-4 sm:h-4 bg-red-500/80 rounded flex items-center justify-center">
-                      <Sword size={8} className="text-white sm:w-[10px] sm:h-[10px]" />
-                    </div>
-                  )}
-                  {cardData.defense >= 1 && (
-                    <div className="w-3 h-3 sm:w-4 sm:h-4 bg-blue-500/80 rounded flex items-center justify-center">
-                      <Shield size={8} className="text-white sm:w-[10px] sm:h-[10px]" />
-                    </div>
-                  )}
-                  {cardData.actions >= 2 && (
-                    <div className="w-3 h-3 sm:w-4 sm:h-4 bg-yellow-500/80 rounded flex items-center justify-center">
-                      <Sparkle size={8} className="text-white sm:w-[10px] sm:h-[10px]" />
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-            
-            {/* HP表示（シークレットモード時は隠す） */}
-            {!shouldHideCard && (
-              <div className="flex gap-0.5 mt-1">
-                {Array.from({ length: cardData.hp }, (_, i) => (
-                  <div
-                    key={i}
-                    className={`w-2 h-2 sm:w-3 sm:h-3 flex items-center justify-center ${
-                      isPlayerTeam
-                        ? 'text-blue-500/90'
-                        : 'text-red-500/90'
-                    }`}
-                  >
-                    <Heart size={8} fill="currentColor" className="sm:w-[12px] sm:h-[12px]" />
+            <div className={`relative w-12 h-12 sm:w-16 sm:h-16 rounded-lg overflow-hidden ${
+              isPlayerTeam
+                ? 'ring-1 ring-blue-400 shadow-md shadow-blue-400/30' 
+                : 'ring-1 ring-red-400 shadow-md shadow-red-400/30'
+            }`}>
+              <img 
+                src={cardData.image} 
+                alt={cardData.name} 
+                className="w-full h-full object-cover"
+                draggable={false}
+              />
+              <div className={`absolute inset-0 ${
+                isPlayerTeam ? 'bg-blue-500' : 'bg-red-500'
+              } bg-opacity-10`}></div>
+              
+              {/* Stats overlay */}
+              <div className="absolute bottom-0 inset-x-0 flex justify-center gap-0.5 p-0.5">
+                {cardData.attack >= 2 && (
+                  <div className="w-3 h-3 sm:w-4 sm:h-4 bg-red-500/80 rounded flex items-center justify-center">
+                    <Sword size={8} className="text-white sm:w-[10px] sm:h-[10px]" />
                   </div>
-                ))}
+                )}
+                {cardData.defense >= 1 && (
+                  <div className="w-3 h-3 sm:w-4 sm:h-4 bg-blue-500/80 rounded flex items-center justify-center">
+                    <Shield size={8} className="text-white sm:w-[10px] sm:h-[10px]" />
+                  </div>
+                )}
+                {cardData.actions >= 2 && (
+                  <div className="w-3 h-3 sm:w-4 sm:h-4 bg-yellow-500/80 rounded flex items-center justify-center">
+                    <Sparkle size={8} className="text-white sm:w-[10px] sm:h-[10px]" />
+                  </div>
+                )}
               </div>
-            )}
+            </div>
+            
+            {/* HP表示 */}
+            <div className="flex gap-0.5 mt-1">
+              {Array.from({ length: cardData.hp }, (_, i) => (
+                <div
+                  key={i}
+                  className={`w-2 h-2 sm:w-3 sm:h-3 flex items-center justify-center ${
+                    isPlayerTeam
+                      ? 'text-blue-500/90'
+                      : 'text-red-500/90'
+                  }`}
+                >
+                  <Heart size={8} fill="currentColor" className="sm:w-[12px] sm:h-[12px]" />
+                </div>
+              ))}
+            </div>
           </div>
         ) : (
           <div className="text-center">
