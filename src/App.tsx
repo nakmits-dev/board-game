@@ -117,8 +117,10 @@ const GameContent = () => {
               </div>
             )}
             
-            {/* ゲームボードエリア - 中央配置 */}
-            <div className="flex-1 flex items-center justify-center relative min-h-0">
+            {/* ゲームボードエリア - スマホでは上詰め、デスクトップでは中央配置 */}
+            <div className={`flex-1 flex relative min-h-0 ${
+              isMobileBattle ? 'items-start justify-center pt-2' : 'items-center justify-center'
+            }`}>
               <CrystalDisplay />
               <GameBoard />
             </div>
