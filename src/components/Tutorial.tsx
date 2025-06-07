@@ -136,7 +136,7 @@ const Tutorial: React.FC<TutorialProps> = ({ onClose }) => {
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                <span>キャラクター撃破時にそのコスト分獲得</span>
+                <span>キャラクターが倒された時にそのコスト分獲得</span>
               </div>
             </div>
           </div>
