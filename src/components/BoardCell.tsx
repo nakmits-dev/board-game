@@ -75,9 +75,20 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
         cell.classList.remove('drag-hover');
       });
       
-      // ドロップ可能なセルをハイライト
-      if (cellBelow) {
-        cellBelow.classList.add('drag-hover');
+      // ドロップ可能なセルのみハイライト
+      if (cellBelow && selectedCharacter) {
+        const posX = parseInt(cellBelow.getAttribute('data-x') || '0');
+        const posY = parseInt(cellBelow.getAttribute('data-y') || '0');
+        const targetPosition = { x: posX, y: posY };
+        const targetCharacter = getCharacterAt(targetPosition);
+        
+        // 有効な移動先または攻撃対象の場合のみハイライト
+        const isValidTarget = (!targetCharacter && isValidMove(targetPosition)) || 
+                             (targetCharacter && isValidAttack(targetCharacter.id));
+        
+        if (isValidTarget) {
+          cellBelow.classList.add('drag-hover');
+        }
       }
     }
   };
