@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSimpleGameSync } from '../hooks/useSimpleGameSync';
 import { useGame } from '../context/GameContext';
-import { Wifi, Users, Copy, Check, X, Play, Clock, UserCheck, UserX, WifiOff, AlertCircle } from 'lucide-react';
+import { Wifi, Users, Copy, Check, X, Play, Clock, UserCheck, UserX, WifiOff, AlertCircle, Shuffle, Edit3 } from 'lucide-react';
 
 interface SimpleNetworkLobbyProps {
   onClose: () => void;
@@ -10,17 +10,30 @@ interface SimpleNetworkLobbyProps {
 
 const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStartNetworkGame }) => {
   const { savedDecks } = useGame();
-  const { gameState, createRoom, joinRoom, startGame, leaveRoom, setOnGameStart, isConnected } = useSimpleGameSync();
+  const { gameState, createRoom, joinRoom, startGame, leaveRoom, setOnGameStart, validateRoomId, isConnected } = useSimpleGameSync();
   
   const [mode, setMode] = useState<'menu' | 'waiting'>('menu');
   const [playerName, setPlayerName] = useState('プレイヤー');
   const [roomId, setRoomId] = useState('');
+  const [customRoomId, setCustomRoomId] = useState('');
+  const [useCustomRoomId, setUseCustomRoomId] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [roomIdValidation, setRoomIdValidation] = useState<{ isValid: boolean; error?: string }>({ isValid: true });
 
   // デッキが設定されているかチェック
   const hasValidDeck = savedDecks.player && savedDecks.enemy;
+
+  // カスタムルームIDのリアルタイム検証
+  useEffect(() => {
+    if (useCustomRoomId && customRoomId) {
+      const validation = validateRoomId(customRoomId);
+      setRoomIdValidation(validation);
+    } else {
+      setRoomIdValidation({ isValid: true });
+    }
+  }, [customRoomId, useCustomRoomId, validateRoomId]);
 
   // ゲーム開始コールバックを設定
   useEffect(() => {
@@ -48,6 +61,18 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
     }
   }, [gameState.status, gameState.roomId, onClose]);
 
+  // ランダムルームID生成
+  const generateRandomRoomId = () => {
+    const adjectives = ['cool', 'epic', 'fun', 'wild', 'mega', 'super', 'ultra', 'pro', 'ace', 'top'];
+    const nouns = ['game', 'battle', 'fight', 'duel', 'match', 'arena', 'clash', 'war', 'quest', 'raid'];
+    const numbers = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    
+    const adjective = adjectives[Math.floor(Math.random() * adjectives.length)];
+    const noun = nouns[Math.floor(Math.random() * nouns.length)];
+    
+    return `${adjective}-${noun}-${numbers}`;
+  };
+
   const handleCreateRoom = async () => {
     if (!hasValidDeck) {
       setError('先にチーム編成を完了してください');
@@ -59,12 +84,21 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
       return;
     }
 
+    // カスタムルームIDを使用する場合の検証
+    if (useCustomRoomId) {
+      if (!roomIdValidation.isValid) {
+        setError(roomIdValidation.error || 'ルームIDが無効です');
+        return;
+      }
+    }
+
     setLoading(true);
     setError('');
 
     try {
       console.log('ルーム作成開始');
-      const newRoomId = await createRoom(playerName);
+      const finalRoomId = useCustomRoomId ? customRoomId.trim() : undefined;
+      const newRoomId = await createRoom(playerName, finalRoomId);
       console.log('ルーム作成完了:', newRoomId);
       setRoomId(newRoomId);
       setMode('waiting');
@@ -195,7 +229,7 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
         {/* ヘッダー */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
@@ -242,21 +276,6 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
           </div>
         )}
 
-        {/* デバッグ情報 */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="mb-4 p-2 bg-gray-100 rounded text-xs">
-            <p>デバッグ: {JSON.stringify({
-              connectionStatus: gameState.connectionStatus,
-              isConnected,
-              status: gameState.status,
-              roomId: gameState.roomId,
-              isHost: gameState.isHost,
-              hasOpponent: !!gameState.opponent,
-              opponentConnected: gameState.opponent?.connected
-            })}</p>
-          </div>
-        )}
-
         {/* メニュー画面 */}
         {mode === 'menu' && (
           <div className="space-y-4">
@@ -275,17 +294,73 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
               />
             </div>
 
-            <button
-              onClick={handleCreateRoom}
-              disabled={!hasValidDeck || loading || !isConnected}
-              className={`w-full py-3 rounded-lg font-medium transition-colors ${
-                hasValidDeck && !loading && isConnected
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
-            >
-              {loading ? '作成中...' : 'ルームを作成'}
-            </button>
+            {/* ルーム作成セクション */}
+            <div className="border border-gray-200 rounded-lg p-4">
+              <h3 className="font-medium text-gray-800 mb-3">ルームを作成</h3>
+              
+              {/* カスタムルームID切り替え */}
+              <div className="mb-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={useCustomRoomId}
+                    onChange={(e) => setUseCustomRoomId(e.target.checked)}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    disabled={loading || !isConnected}
+                  />
+                  <span className="text-sm text-gray-700">カスタムルームIDを使用</span>
+                </label>
+              </div>
+
+              {/* カスタムルームID入力 */}
+              {useCustomRoomId && (
+                <div className="mb-3">
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <input
+                        type="text"
+                        value={customRoomId}
+                        onChange={(e) => setCustomRoomId(e.target.value)}
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent ${
+                          roomIdValidation.isValid 
+                            ? 'border-gray-300 focus:ring-blue-500' 
+                            : 'border-red-300 focus:ring-red-500'
+                        }`}
+                        placeholder="my-room-123"
+                        maxLength={20}
+                        disabled={loading || !isConnected}
+                      />
+                      {!roomIdValidation.isValid && (
+                        <p className="text-red-600 text-xs mt-1">{roomIdValidation.error}</p>
+                      )}
+                      <p className="text-gray-500 text-xs mt-1">
+                        3-20文字、英数字・ハイフン・アンダースコアのみ
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setCustomRoomId(generateRandomRoomId())}
+                      className="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-1"
+                      title="ランダム生成"
+                      disabled={loading || !isConnected}
+                    >
+                      <Shuffle size={16} />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={handleCreateRoom}
+                disabled={!hasValidDeck || loading || !isConnected || (useCustomRoomId && !roomIdValidation.isValid)}
+                className={`w-full py-3 rounded-lg font-medium transition-colors ${
+                  hasValidDeck && !loading && isConnected && (!useCustomRoomId || roomIdValidation.isValid)
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                {loading ? '作成中...' : 'ルームを作成'}
+              </button>
+            </div>
 
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
@@ -296,31 +371,35 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                ルームID
-              </label>
-              <input
-                type="text"
-                value={roomId}
-                onChange={(e) => setRoomId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                placeholder="ルームIDを入力"
-                disabled={loading || !isConnected}
-              />
-            </div>
+            {/* ルーム参加セクション */}
+            <div className="border border-gray-200 rounded-lg p-4">
+              <h3 className="font-medium text-gray-800 mb-3">ルームに参加</h3>
+              <div className="mb-3">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  ルームID
+                </label>
+                <input
+                  type="text"
+                  value={roomId}
+                  onChange={(e) => setRoomId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="ルームIDを入力"
+                  disabled={loading || !isConnected}
+                />
+              </div>
 
-            <button
-              onClick={handleJoinRoom}
-              disabled={loading || !roomId.trim() || !hasValidDeck || !isConnected}
-              className={`w-full py-3 rounded-lg font-medium transition-colors ${
-                loading || !roomId.trim() || !hasValidDeck || !isConnected
-                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  : 'bg-green-600 text-white hover:bg-green-700'
-              }`}
-            >
-              {loading ? '参加中...' : 'ルームに参加'}
-            </button>
+              <button
+                onClick={handleJoinRoom}
+                disabled={loading || !roomId.trim() || !hasValidDeck || !isConnected}
+                className={`w-full py-3 rounded-lg font-medium transition-colors ${
+                  loading || !roomId.trim() || !hasValidDeck || !isConnected
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-green-600 text-white hover:bg-green-700'
+                }`}
+              >
+                {loading ? '参加中...' : 'ルームに参加'}
+              </button>
+            </div>
           </div>
         )}
 

@@ -148,20 +148,75 @@ export const useSimpleGameSync = () => {
     }
   }, []);
 
-  // ルーム作成
-  const createRoom = useCallback(async (playerName: string): Promise<string> => {
+  // ルームIDの有効性をチェックする関数
+  const validateRoomId = (roomId: string): { isValid: boolean; error?: string } => {
+    if (!roomId || roomId.trim().length === 0) {
+      return { isValid: false, error: 'ルームIDが空です' };
+    }
+
+    const trimmedId = roomId.trim();
+
+    // 長さチェック（3-20文字）
+    if (trimmedId.length < 3) {
+      return { isValid: false, error: 'ルームIDは3文字以上で入力してください' };
+    }
+    if (trimmedId.length > 20) {
+      return { isValid: false, error: 'ルームIDは20文字以下で入力してください' };
+    }
+
+    // 使用可能文字チェック（英数字、ハイフン、アンダースコア）
+    const validPattern = /^[a-zA-Z0-9_-]+$/;
+    if (!validPattern.test(trimmedId)) {
+      return { isValid: false, error: 'ルームIDは英数字、ハイフン、アンダースコアのみ使用できます' };
+    }
+
+    // 先頭・末尾の特殊文字チェック
+    if (trimmedId.startsWith('-') || trimmedId.startsWith('_') || 
+        trimmedId.endsWith('-') || trimmedId.endsWith('_')) {
+      return { isValid: false, error: 'ルームIDの先頭・末尾にハイフンやアンダースコアは使用できません' };
+    }
+
+    return { isValid: true };
+  };
+
+  // ルーム作成（カスタムルームID対応）
+  const createRoom = useCallback(async (playerName: string, customRoomId?: string): Promise<string> => {
     if (!user) {
       console.error('ユーザーが認証されていません');
       throw new Error('認証が必要です');
     }
 
-    console.log('ルーム作成開始:', { playerName, userId: user.uid });
+    let roomId: string;
 
-    try {
+    if (customRoomId) {
+      // カスタムルームIDの場合
+      const validation = validateRoomId(customRoomId);
+      if (!validation.isValid) {
+        throw new Error(validation.error);
+      }
+
+      roomId = customRoomId.trim();
+      console.log('カスタムルームID使用:', roomId);
+
+      // ルームIDの重複チェック
+      const existingRoomRef = ref(database, `simple_rooms/${roomId}`);
+      const existingSnapshot = await get(existingRoomRef);
+      
+      if (existingSnapshot.exists()) {
+        throw new Error('このルームIDは既に使用されています');
+      }
+    } else {
+      // 自動生成の場合
       const roomsRef = ref(database, 'simple_rooms');
       const newRoomRef = push(roomsRef);
-      const roomId = newRoomRef.key!;
+      roomId = newRoomRef.key!;
+      console.log('自動生成ルームID:', roomId);
+    }
 
+    console.log('ルーム作成開始:', { playerName, roomId, userId: user.uid });
+
+    try {
+      const roomRef = ref(database, `simple_rooms/${roomId}`);
       const roomData: SimpleRoom = {
         id: roomId,
         host: {
@@ -177,7 +232,7 @@ export const useSimpleGameSync = () => {
       };
 
       console.log('ルームデータ作成:', roomData);
-      await set(newRoomRef, roomData);
+      await set(roomRef, roomData);
       console.log('ルーム作成成功:', roomId);
 
       // 状態を即座に更新
@@ -199,7 +254,7 @@ export const useSimpleGameSync = () => {
       console.error('エラーメッセージ:', error.message);
       throw new Error(`ルーム作成に失敗しました: ${error.message}`);
     }
-  }, [user, startHeartbeat]);
+  }, [user, startHeartbeat, validateRoomId]);
 
   // ルーム参加
   const joinRoom = useCallback(async (roomId: string, playerName: string): Promise<void> => {
@@ -208,22 +263,23 @@ export const useSimpleGameSync = () => {
       throw new Error('認証が必要です');
     }
 
-    console.log('ルーム参加開始:', { roomId, playerName, userId: user.uid });
+    const trimmedRoomId = roomId.trim();
+    console.log('ルーム参加開始:', { roomId: trimmedRoomId, playerName, userId: user.uid });
 
     try {
-      const roomRef = ref(database, `simple_rooms/${roomId}`);
+      const roomRef = ref(database, `simple_rooms/${trimmedRoomId}`);
       
       // ルーム存在確認
       const snapshot = await get(roomRef);
       const roomData = snapshot.val() as SimpleRoom;
       
       if (!roomData) {
-        console.error('ルームが見つかりません:', roomId);
+        console.error('ルームが見つかりません:', trimmedRoomId);
         throw new Error('ルームが見つかりません');
       }
 
       if (roomData.guest) {
-        console.error('ルームは満員です:', roomId);
+        console.error('ルームは満員です:', trimmedRoomId);
         throw new Error('ルームは満員です');
       }
 
@@ -245,19 +301,19 @@ export const useSimpleGameSync = () => {
         }
       });
 
-      console.log('ルーム参加成功:', roomId);
+      console.log('ルーム参加成功:', trimmedRoomId);
 
       // 状態を即座に更新
       setGameState(prev => ({
         ...prev,
-        roomId,
+        roomId: trimmedRoomId,
         isHost: false,
         playerName,
         status: 'waiting'
       }));
 
       // ハートビート開始
-      startHeartbeat(roomId, false);
+      startHeartbeat(trimmedRoomId, false);
     } catch (error: any) {
       console.error('ルーム参加エラー:', error);
       console.error('エラーコード:', error.code);
@@ -540,6 +596,7 @@ export const useSimpleGameSync = () => {
     setOnMove,
     setOnGameStart,
     forceNewUser, // デバッグ用
+    validateRoomId, // ルームID検証関数を追加
     isConnected: gameState.connectionStatus === 'connected',
     currentUserId: user?.uid // デバッグ用
   };
