@@ -19,16 +19,18 @@ export const useFirebaseGame = () => {
 
   const [user, setUser] = useState<any>(null);
   const gameStartCallbackRef = useRef<((roomId: string, isHost: boolean) => void) | null>(null);
+  const actionCallbackRef = useRef<((action: GameAction) => void) | null>(null);
   const roomRef = useRef<any>(null);
   const actionsRef = useRef<any>(null);
   const unsubscribeRoom = useRef<(() => void) | null>(null);
   const unsubscribeActions = useRef<(() => void) | null>(null);
-  const gameStartedRef = useRef(false); // ゲーム開始の重複実行を防ぐ
+  const gameStartedRef = useRef(false);
 
   // Firebase認証
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
+        console.log('Firebase認証成功:', user.uid);
         setUser(user);
         setNetworkState(prev => ({
           ...prev,
@@ -36,7 +38,7 @@ export const useFirebaseGame = () => {
           connectionStatus: 'connected'
         }));
       } else {
-        // 匿名ログイン
+        console.log('Firebase匿名ログイン開始');
         signInAnonymously(auth).catch(console.error);
       }
     });
@@ -50,12 +52,20 @@ export const useFirebaseGame = () => {
     gameStartCallbackRef.current = callback;
   }, []);
 
+  // アクションコールバックを設定
+  const setOnActionReceived = useCallback((callback: (action: GameAction) => void) => {
+    console.log('アクション受信コールバックを設定:', !!callback);
+    actionCallbackRef.current = callback;
+  }, []);
+
   // ルーム作成
   const createRoom = useCallback(async (
     playerName: string,
     deck: { master: string; monsters: MonsterType[] }
   ): Promise<string> => {
     if (!user) throw new Error('ユーザーが認証されていません');
+
+    console.log('ルーム作成開始:', { playerName, deck });
 
     const roomsRef = ref(database, 'rooms');
     const newRoomRef = push(roomsRef);
@@ -86,6 +96,7 @@ export const useFirebaseGame = () => {
     };
 
     await set(newRoomRef, roomData);
+    console.log('ルーム作成完了:', roomId);
 
     setNetworkState(prev => ({
       ...prev,
@@ -95,9 +106,7 @@ export const useFirebaseGame = () => {
       connectionStatus: 'connected'
     }));
 
-    // ゲーム開始フラグをリセット
     gameStartedRef.current = false;
-
     return roomId;
   }, [user]);
 
@@ -109,9 +118,10 @@ export const useFirebaseGame = () => {
   ): Promise<void> => {
     if (!user) throw new Error('ユーザーが認証されていません');
 
+    console.log('ルーム参加開始:', { roomId, playerName, deck });
+
     const roomRef = ref(database, `rooms/${roomId}`);
     
-    // ルームの存在確認
     return new Promise((resolve, reject) => {
       onValue(roomRef, async (snapshot) => {
         const roomData = snapshot.val() as GameRoom;
@@ -133,7 +143,6 @@ export const useFirebaseGame = () => {
         }
 
         try {
-          // プレイヤーを追加
           const playerData = {
             id: user.uid,
             name: playerName,
@@ -147,6 +156,8 @@ export const useFirebaseGame = () => {
           await update(ref(database, `rooms/${roomId}/players/${user.uid}`), playerData);
           await update(ref(database, `rooms/${roomId}`), { updatedAt: Date.now() });
 
+          console.log('ルーム参加完了:', roomId);
+
           setNetworkState(prev => ({
             ...prev,
             isOnline: true,
@@ -155,9 +166,7 @@ export const useFirebaseGame = () => {
             connectionStatus: 'connected'
           }));
 
-          // ゲーム開始フラグをリセット
           gameStartedRef.current = false;
-
           resolve();
         } catch (error) {
           reject(error);
@@ -177,7 +186,6 @@ export const useFirebaseGame = () => {
         lastSeen: Date.now()
       });
       
-      // ルーム全体の更新時刻も更新
       await update(ref(database, `rooms/${networkState.roomId}`), { 
         updatedAt: Date.now() 
       });
@@ -208,7 +216,10 @@ export const useFirebaseGame = () => {
 
   // アクション送信
   const sendAction = useCallback(async (action: Omit<GameAction, 'id' | 'timestamp' | 'playerId'>) => {
-    if (!networkState.roomId || !user) return;
+    if (!networkState.roomId || !user) {
+      console.error('アクション送信失敗: ルームIDまたはユーザーが未設定');
+      return;
+    }
 
     try {
       const actionData: GameAction = {
@@ -218,8 +229,12 @@ export const useFirebaseGame = () => {
         playerId: user.uid,
       };
 
+      console.log('アクション送信:', actionData);
+
       const actionsRef = ref(database, `rooms/${networkState.roomId}/actions`);
       await push(actionsRef, actionData);
+      
+      console.log('アクション送信完了');
     } catch (error) {
       console.error('アクション送信に失敗:', error);
     }
@@ -248,7 +263,6 @@ export const useFirebaseGame = () => {
       return;
     }
 
-    // 既存の監視をクリーンアップ
     cleanupRoomSubscription();
 
     roomRef.current = ref(database, `rooms/${networkState.roomId}`);
@@ -257,6 +271,7 @@ export const useFirebaseGame = () => {
       const roomData = snapshot.val() as GameRoom;
       
       if (!roomData) {
+        console.log('ルームデータが見つかりません');
         setNetworkState(prev => ({
           ...prev,
           isOnline: false,
@@ -291,18 +306,12 @@ export const useFirebaseGame = () => {
         } : null,
       }));
 
-      // ゲーム開始の検出（重複実行を防ぐ）
+      // ゲーム開始の検出
       if (roomData.status === 'playing' && !gameStartedRef.current && gameStartCallbackRef.current) {
-        console.log('ゲーム開始を検出 - コールバック実行:', {
-          roomId: networkState.roomId,
-          isHost: networkState.isHost,
-          status: roomData.status,
-          gameStarted: gameStartedRef.current
-        });
+        console.log('ゲーム開始を検出 - コールバック実行');
         
-        gameStartedRef.current = true; // 重複実行を防ぐ
+        gameStartedRef.current = true;
         
-        // 少し遅延させてコールバックを実行（状態の安定化のため）
         setTimeout(() => {
           if (gameStartCallbackRef.current) {
             console.log('ゲーム開始コールバックを実行');
@@ -332,23 +341,36 @@ export const useFirebaseGame = () => {
       return;
     }
 
-    // 既存の監視をクリーンアップ
     cleanupActionsSubscription();
 
     actionsRef.current = ref(database, `rooms/${networkState.roomId}/actions`);
     
+    console.log('アクション監視開始:', networkState.roomId);
+    
     const unsubscribe = onValue(actionsRef.current, (snapshot) => {
       const actionsData = snapshot.val();
+      
+      console.log('アクションデータ受信:', actionsData);
       
       if (actionsData) {
         const actions = Object.values(actionsData) as GameAction[];
         const sortedActions = actions.sort((a, b) => a.timestamp - b.timestamp);
         
+        console.log('ソート済みアクション:', sortedActions.length, '件');
+        
         setNetworkState(prev => ({
           ...prev,
           gameActions: sortedActions,
         }));
+
+        // 最新のアクションをコールバックで通知
+        if (sortedActions.length > 0 && actionCallbackRef.current) {
+          const latestAction = sortedActions[sortedActions.length - 1];
+          console.log('最新アクションをコールバックで通知:', latestAction);
+          actionCallbackRef.current(latestAction);
+        }
       } else {
+        console.log('アクションデータなし');
         setNetworkState(prev => ({
           ...prev,
           gameActions: [],
@@ -371,22 +393,19 @@ export const useFirebaseGame = () => {
 
     const playerRef = ref(database, `rooms/${networkState.roomId}/players/${user.uid}`);
     
-    // 接続状態を更新
     update(playerRef, {
       connected: true,
       lastSeen: Date.now(),
     }).catch(console.error);
 
-    // 切断時の処理
     onDisconnect(playerRef).update({
       connected: false,
       lastSeen: Date.now(),
     }).catch(console.error);
 
-    // 定期的にlastSeenを更新
     const interval = setInterval(() => {
       update(playerRef, { lastSeen: Date.now() }).catch(console.error);
-    }, 30000); // 30秒ごと
+    }, 30000);
 
     return () => clearInterval(interval);
   }, [networkState.roomId, user]);
@@ -396,7 +415,6 @@ export const useFirebaseGame = () => {
     if (!networkState.roomId || !user) return;
 
     try {
-      // 監視を停止
       cleanupRoomSubscription();
       cleanupActionsSubscription();
 
@@ -414,8 +432,8 @@ export const useFirebaseGame = () => {
         lastSyncedTurn: 0,
       });
 
-      // ゲーム開始コールバックとフラグもクリア
       gameStartCallbackRef.current = null;
+      actionCallbackRef.current = null;
       gameStartedRef.current = false;
     } catch (error) {
       console.error('ルーム退出に失敗:', error);
@@ -439,6 +457,7 @@ export const useFirebaseGame = () => {
     sendAction,
     leaveRoom,
     setOnGameStart,
+    setOnActionReceived,
     isConnected: !!user && networkState.connectionStatus === 'connected',
   };
 };

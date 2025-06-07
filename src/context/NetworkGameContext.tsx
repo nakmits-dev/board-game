@@ -15,7 +15,7 @@ interface NetworkGameProviderProps {
 }
 
 export const NetworkGameProvider: React.FC<NetworkGameProviderProps> = ({ children }) => {
-  const { networkState, sendAction, isConnected } = useFirebaseGame();
+  const { networkState, sendAction, setOnActionReceived, isConnected } = useFirebaseGame();
   const { state, dispatch } = useGame();
   const lastProcessedActionId = useRef<string>('');
 
@@ -32,37 +32,41 @@ export const NetworkGameProvider: React.FC<NetworkGameProviderProps> = ({ childr
     }
   }, [state.isNetworkGame, sendAction, dispatch]);
 
-  // ネットワークアクションの監視と同期
+  // アクション受信コールバックを設定
   useEffect(() => {
-    if (!state.isNetworkGame || networkState.gameActions.length === 0) return;
+    if (state.isNetworkGame) {
+      const actionCallback = (action: GameAction) => {
+        console.log('アクション受信コールバック実行:', action);
+        
+        // 既に処理済みのアクションはスキップ
+        if (action.id === lastProcessedActionId.current) {
+          console.log('既に処理済みのアクション:', action.id);
+          return;
+        }
+        
+        // 自分のアクションは無視（既にローカルで処理済み）
+        const isMyAction = state.isHost ? 
+          action.team === 'player' : 
+          action.team === 'enemy';
+        
+        if (isMyAction) {
+          console.log('自分のアクションなので無視:', action.type);
+          lastProcessedActionId.current = action.id;
+          return;
+        }
 
-    // 最新のアクションを取得
-    const latestAction = networkState.gameActions[networkState.gameActions.length - 1];
-    
-    // 既に処理済みのアクションはスキップ
-    if (latestAction.id === lastProcessedActionId.current) {
-      return;
-    }
-    
-    console.log('新しいネットワークアクション受信:', latestAction);
-    
-    // 自分のアクションは無視（既にローカルで処理済み）
-    const isMyAction = state.isHost ? 
-      latestAction.team === 'player' : 
-      latestAction.team === 'enemy';
-    
-    if (isMyAction) {
-      console.log('自分のアクションなので無視');
-      lastProcessedActionId.current = latestAction.id;
-      return;
-    }
+        console.log('相手のアクションを同期処理:', action.type);
+        
+        // 相手のアクションを同期
+        dispatch({ type: 'SYNC_NETWORK_ACTION', action });
+        lastProcessedActionId.current = action.id;
+      };
 
-    console.log('相手のアクションを同期処理:', latestAction.type);
-    
-    // 相手のアクションを同期
-    dispatch({ type: 'SYNC_NETWORK_ACTION', action: latestAction });
-    lastProcessedActionId.current = latestAction.id;
-  }, [networkState.gameActions, state.isNetworkGame, state.isHost, dispatch]);
+      setOnActionReceived(actionCallback);
+    } else {
+      setOnActionReceived(() => {});
+    }
+  }, [state.isNetworkGame, state.isHost, setOnActionReceived, dispatch]);
 
   const sendGameAction = async (action: Omit<GameAction, 'id' | 'timestamp' | 'playerId'>) => {
     await sendAction(action);
