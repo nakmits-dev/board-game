@@ -7,14 +7,17 @@ import TurnOrder from './components/TurnOrder';
 import CrystalDisplay from './components/CrystalDisplay';
 import DeckBuilder from './components/DeckBuilder';
 import ShareButton from './components/ShareButton';
+import Tutorial from './components/Tutorial';
 import { useGame } from './context/GameContext';
 import { MonsterType } from './types/gameTypes';
 import { masterData } from './data/cardData';
+import { HelpCircle } from 'lucide-react';
 
 const GameContent = () => {
   const { state, dispatch } = useGame();
   const { gamePhase } = state;
   const [showDeckBuilder, setShowDeckBuilder] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
   const [currentDecks, setCurrentDecks] = useState<{
     player?: { master: keyof typeof masterData; monsters: MonsterType[] };
     enemy?: { master: keyof typeof masterData; monsters: MonsterType[] };
@@ -22,6 +25,19 @@ const GameContent = () => {
 
   // スマホでの対戦中かどうかを判定
   const isMobileBattle = gamePhase === 'action' && window.innerWidth < 1024;
+
+  // 初回訪問時にチュートリアルを表示
+  useEffect(() => {
+    const hasSeenTutorial = localStorage.getItem('boardgame-tutorial-seen');
+    if (!hasSeenTutorial) {
+      setShowTutorial(true);
+    }
+  }, []);
+
+  const handleCloseTutorial = () => {
+    setShowTutorial(false);
+    localStorage.setItem('boardgame-tutorial-seen', 'true');
+  };
 
   // スマホ対戦中のスクロール制御
   useEffect(() => {
@@ -110,7 +126,17 @@ const GameContent = () => {
           <div className="container mx-auto px-4 py-3">
             <div className="flex items-center justify-between">
               <h1 className="text-2xl font-bold text-blue-900">ボードdeモンスターズ</h1>
-              <ShareButton />
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowTutorial(true)}
+                  className="flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                  title="チュートリアルを見る"
+                >
+                  <HelpCircle size={16} />
+                  <span className="hidden sm:inline">遊び方</span>
+                </button>
+                <ShareButton />
+              </div>
             </div>
           </div>
         </header>
@@ -168,6 +194,11 @@ const GameContent = () => {
             <p className="text-center text-sm text-blue-600">ボードdeモンスターズ &copy; 2025</p>
           </div>
         </footer>
+      )}
+
+      {/* チュートリアル */}
+      {showTutorial && (
+        <Tutorial onClose={handleCloseTutorial} />
       )}
     </div>
   );
