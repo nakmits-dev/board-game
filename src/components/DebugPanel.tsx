@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useGame } from '../context/GameContext';
 import { useSimpleGameSync } from '../hooks/useSimpleGameSync';
-import { Bug, Eye, EyeOff, Clock, Users, Wifi, Database, WifiOff, AlertCircle, CheckCircle, XCircle, RefreshCw, Upload, Download } from 'lucide-react';
+import { Bug, Eye, EyeOff, Clock, Users, Wifi, Database, WifiOff, AlertCircle, CheckCircle, XCircle, RefreshCw, Upload, Download, FileText, MapPin } from 'lucide-react';
 
 const DebugPanel: React.FC = () => {
   const { state } = useGame();
@@ -84,11 +84,17 @@ const DebugPanel: React.FC = () => {
               className={statusConsistency.color}
               title={`状態: ${statusConsistency.status}`}
             />
-            {/* 🆕 初期盤面データの有無を表示 */}
+            {/* 初期盤面データの有無を表示 */}
             {networkState.initialState ? (
               <Download size={12} className="text-green-400" title="初期盤面データあり" />
             ) : (
               <Upload size={12} className="text-yellow-400" title="初期盤面データなし" />
+            )}
+            {/* 棋譜データの有無を表示 */}
+            {networkState.moves.length > 0 ? (
+              <FileText size={12} className="text-blue-400" title={`棋譜: ${networkState.moves.length}手`} />
+            ) : (
+              <FileText size={12} className="text-gray-400" title="棋譜なし" />
             )}
           </div>
         )}
@@ -129,14 +135,13 @@ const DebugPanel: React.FC = () => {
                   </span></div>
                 )}
                 <div>同期コールバック: <span className="text-orange-300">{state.networkSyncCallback ? 'Set' : 'None'}</span></div>
-                {/* 🆕 初期盤面データの状態 */}
                 <div>初期盤面データ: <span className={`${networkState.initialState ? 'text-green-300' : 'text-yellow-300'}`}>
                   {networkState.initialState ? 'あり' : 'なし'}
                 </span></div>
               </div>
             </div>
 
-            {/* 🆕 初期盤面データの詳細 */}
+            {/* 🎯 改善された初期盤面データの詳細 */}
             {state.isNetworkGame && networkState.initialState && (
               <div>
                 <h3 className="text-sm font-bold text-green-400 mb-2 flex items-center gap-1">
@@ -148,6 +153,7 @@ const DebugPanel: React.FC = () => {
                   <div>プレイヤークリスタル: <span className="text-blue-300">{networkState.initialState.playerCrystals}</span></div>
                   <div>敵クリスタル: <span className="text-red-300">{networkState.initialState.enemyCrystals}</span></div>
                   <div>現在のチーム: <span className="text-purple-300">{networkState.initialState.currentTeam}</span></div>
+                  <div>開始チーム: <span className="text-yellow-300">{networkState.initialState.startingTeam}</span></div>
                   <div>ターン数: <span className="text-yellow-300">{networkState.initialState.currentTurn}</span></div>
                   <div>ゲームフェーズ: <span className="text-cyan-300">{networkState.initialState.gamePhase}</span></div>
                   {networkState.initialState.uploadedAt && (
@@ -256,25 +262,50 @@ const DebugPanel: React.FC = () => {
               </div>
             )}
 
-            {/* 棋譜（ネットワークゲームのみ） */}
+            {/* 🎯 改善された棋譜表示（座標情報を含む） */}
             {state.isNetworkGame && networkState.moves.length > 0 && (
               <div>
-                <h3 className="text-sm font-bold text-yellow-400 mb-2">棋譜 ({networkState.moves.length}手)</h3>
+                <h3 className="text-sm font-bold text-yellow-400 mb-2 flex items-center gap-1">
+                  <FileText size={14} />
+                  棋譜 ({networkState.moves.length}手)
+                </h3>
                 <div className="text-xs space-y-1 max-h-32 overflow-y-auto">
                   {networkState.moves.slice(-10).map((move, index) => (
-                    <div key={move.id} className="flex justify-between">
-                      <span className="text-gray-300">
-                        {networkState.moves.length - 9 + index}.
-                      </span>
-                      <span className={move.player === 'host' ? 'text-blue-300' : 'text-red-300'}>
-                        {move.player}
-                      </span>
-                      <span className="text-green-300">{move.action}</span>
-                      {move.characterId && (
-                        <span className="text-yellow-300 truncate max-w-16" title={move.characterId}>
-                          {move.characterId.slice(-4)}
+                    <div key={move.id} className="space-y-1 p-1 bg-gray-800 rounded">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-300">
+                          {networkState.moves.length - 9 + index}.
                         </span>
-                      )}
+                        <span className={move.player === 'host' ? 'text-blue-300' : 'text-red-300'}>
+                          {move.player}
+                        </span>
+                        <span className="text-green-300">{move.action}</span>
+                      </div>
+                      {/* 🎯 座標情報の表示 */}
+                      <div className="flex items-center gap-1 text-xs">
+                        <MapPin size={10} className="text-gray-400" />
+                        <span className="text-yellow-300">
+                          ({move.from.x},{move.from.y})
+                        </span>
+                        {move.to && (
+                          <>
+                            <span className="text-gray-400">→</span>
+                            <span className="text-cyan-300">
+                              ({move.to.x},{move.to.y})
+                            </span>
+                          </>
+                        )}
+                        {move.targetId && (
+                          <span className="text-red-300 text-xs">
+                            target:{move.targetId.slice(-4)}
+                          </span>
+                        )}
+                        {move.skillId && (
+                          <span className="text-purple-300 text-xs">
+                            skill:{move.skillId}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   ))}
                   {networkState.moves.length > 10 && (

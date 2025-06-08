@@ -3,21 +3,21 @@ import { ref, push, onValue, set, update, remove, get, off } from 'firebase/data
 import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { database, auth } from '../firebase/config';
 
-// シンプルな棋譜データ
+// 🎯 改善された棋譜データ構造
 interface GameMove {
   id: string;
   turn: number;
   player: 'host' | 'guest';
   action: 'move' | 'attack' | 'skill' | 'end_turn' | 'surrender';
-  characterId?: string;
-  from?: { x: number; y: number };
+  characterId: string;
+  from: { x: number; y: number };
   to?: { x: number; y: number };
-  target?: string;
-  skill?: string;
+  targetId?: string;
+  skillId?: string;
   timestamp: number;
 }
 
-// 初期盤面データ
+// 初期盤面データ（完全な状態保存）
 interface InitialGameState {
   characters: Array<{
     id: string;
@@ -35,15 +35,20 @@ interface InitialGameState {
     skillId?: string;
     monsterType?: string;
     masterType?: string;
+    canEvolve?: boolean;
+    isEvolved?: boolean;
   }>;
   playerCrystals: number;
   enemyCrystals: number;
   currentTeam: 'player' | 'enemy';
   currentTurn: number;
   gamePhase: 'preparation' | 'action' | 'result';
+  startingTeam: 'player' | 'enemy';
+  uploadedAt: number;
+  uploadedBy: string;
 }
 
-// 統一されたルーム情報（Firebaseと同じ構造）
+// 統一されたルーム情報
 interface SimpleRoom {
   id: string;
   host: {
@@ -62,7 +67,7 @@ interface SimpleRoom {
   };
   status: 'waiting' | 'playing' | 'finished';
   moves: GameMove[];
-  initialState?: InitialGameState; // 🆕 初期盤面データ
+  initialState?: InitialGameState;
   createdAt: number;
 }
 
@@ -70,7 +75,6 @@ export const useSimpleGameSync = () => {
   const [user, setUser] = useState<any>(null);
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   
-  // 🎯 重要: Firebaseのルームデータをそのまま使用
   const [roomData, setRoomData] = useState<SimpleRoom | null>(null);
   const [isHost, setIsHost] = useState(false);
   const [playerName, setPlayerName] = useState('');
@@ -82,7 +86,7 @@ export const useSimpleGameSync = () => {
   const processedMoves = useRef<Set<string>>(new Set());
   const heartbeatInterval = useRef<NodeJS.Timeout | null>(null);
 
-  // 🔥 シンプル化: 計算プロパティでゲーム状態を取得
+  // 計算プロパティでゲーム状態を取得
   const gameState = {
     roomId: roomData?.id || null,
     isHost,
@@ -94,7 +98,7 @@ export const useSimpleGameSync = () => {
     } : null),
     status: roomData ? (roomData.status === 'playing' ? 'playing' : 'waiting') : 'disconnected',
     moves: roomData?.moves || [],
-    initialState: roomData?.initialState || null, // 🆕 初期盤面データ
+    initialState: roomData?.initialState || null,
     connectionStatus
   };
 
@@ -144,7 +148,7 @@ export const useSimpleGameSync = () => {
     };
 
     updatePresence();
-    heartbeatInterval.current = setInterval(updatePresence, 2000); // 2秒間隔に短縮
+    heartbeatInterval.current = setInterval(updatePresence, 2000);
   }, [user]);
 
   const stopHeartbeat = useCallback(() => {
@@ -232,11 +236,9 @@ export const useSimpleGameSync = () => {
       await set(roomRef, newRoomData);
       console.log('✅ ルーム作成成功:', roomId);
 
-      // 🔥 シンプル化: 状態を直接設定
       setIsHost(true);
       setPlayerName(playerName);
       
-      // 🔥 修正: ルーム作成後すぐにハートビートとルーム監視を開始
       startHeartbeat(roomId, true);
       startRoomMonitoring(roomId);
 
@@ -282,11 +284,9 @@ export const useSimpleGameSync = () => {
 
       console.log('✅ ルーム参加成功:', trimmedRoomId);
 
-      // 🔥 シンプル化: 状態を直接設定
       setIsHost(false);
       setPlayerName(playerName);
       
-      // 🔥 修正: ルーム参加後すぐにハートビートとルーム監視を開始
       startHeartbeat(trimmedRoomId, false);
       startRoomMonitoring(trimmedRoomId);
     } catch (error: any) {
@@ -295,7 +295,7 @@ export const useSimpleGameSync = () => {
     }
   }, [user, startHeartbeat]);
 
-  // 🆕 初期盤面をアップロード
+  // 🎯 改善された初期盤面アップロード
   const uploadInitialState = useCallback(async (initialState: InitialGameState) => {
     if (!roomData?.id || !isHost) {
       console.error('❌ 初期盤面アップロード: ルームIDまたはホスト権限がありません');
@@ -303,6 +303,14 @@ export const useSimpleGameSync = () => {
     }
 
     console.log('📤 初期盤面アップロード開始:', roomData.id);
+    console.log('📊 初期盤面データ:', {
+      charactersCount: initialState.characters.length,
+      playerCrystals: initialState.playerCrystals,
+      enemyCrystals: initialState.enemyCrystals,
+      currentTeam: initialState.currentTeam,
+      currentTurn: initialState.currentTurn,
+      gamePhase: initialState.gamePhase
+    });
 
     try {
       const roomRef = ref(database, `simple_rooms/${roomData.id}`);
@@ -338,7 +346,7 @@ export const useSimpleGameSync = () => {
     }
   }, [roomData?.id, isHost]);
 
-  // 手を送信
+  // 🎯 改善された手の送信（完全な座標情報を含む）
   const sendMove = useCallback(async (move: Omit<GameMove, 'id' | 'timestamp' | 'player'>) => {
     const currentRoomId = roomData?.id;
     
@@ -358,18 +366,27 @@ export const useSimpleGameSync = () => {
       timestamp: Date.now()
     };
 
+    console.log('📤 棋譜送信:', {
+      action: moveData.action,
+      characterId: moveData.characterId,
+      from: moveData.from,
+      to: moveData.to,
+      targetId: moveData.targetId,
+      skillId: moveData.skillId
+    });
+
     try {
       const movesRef = ref(database, `simple_rooms/${currentRoomId}/moves`);
       const newMoveRef = push(movesRef);
       await set(newMoveRef, moveData);
-      console.log('📤 手の送信成功:', moveData);
+      console.log('✅ 棋譜送信成功');
     } catch (error: any) {
-      console.error('❌ 手の送信エラー:', error);
-      throw new Error(`手の送信に失敗しました: ${error.message}`);
+      console.error('❌ 棋譜送信エラー:', error);
+      throw new Error(`棋譜の送信に失敗しました: ${error.message}`);
     }
   }, [roomData?.id, isHost, user]);
 
-  // 🔥 修正: ルーム監視を強化
+  // ルーム監視
   const startRoomMonitoring = useCallback((roomId: string) => {
     console.log('👀 ルーム監視開始:', roomId);
 
@@ -390,7 +407,6 @@ export const useSimpleGameSync = () => {
         return;
       }
 
-      // 🔥 重要: ルームデータの詳細ログ
       console.log('📊 ルームデータ更新:', {
         roomId: newRoomData.id,
         status: newRoomData.status,
@@ -402,14 +418,13 @@ export const useSimpleGameSync = () => {
         guestConnected: newRoomData.guest?.connected,
         guestReady: newRoomData.guest?.ready,
         movesCount: newRoomData.moves ? Object.keys(newRoomData.moves).length : 0,
-        hasInitialState: !!newRoomData.initialState, // 🆕 初期盤面の有無
+        hasInitialState: !!newRoomData.initialState,
         timestamp: new Date().toISOString()
       });
 
-      // 🔥 重要: Firebaseデータをそのまま設定
       setRoomData(newRoomData);
 
-      // 🆕 初期盤面データの検出
+      // 初期盤面データの検出
       if (newRoomData.initialState && roomData?.initialState !== newRoomData.initialState) {
         console.log('📥 初期盤面データを受信');
         if (onInitialStateCallback.current) {
@@ -434,7 +449,14 @@ export const useSimpleGameSync = () => {
           const isOpponentMove = isHost ? move.player === 'guest' : move.player === 'host';
           
           if (isOpponentMove && onMoveCallback.current) {
-            console.log('📥 相手の手を検出:', move.action);
+            console.log('📥 相手の手を検出:', {
+              action: move.action,
+              characterId: move.characterId,
+              from: move.from,
+              to: move.to,
+              targetId: move.targetId,
+              skillId: move.skillId
+            });
             onMoveCallback.current(move);
           }
           
@@ -457,7 +479,6 @@ export const useSimpleGameSync = () => {
     setIsHost(isHost);
     setPlayerName(playerName);
     
-    // 🔥 修正: ハートビートとルーム監視を同時に開始
     startHeartbeat(roomId, isHost);
     startRoomMonitoring(roomId);
   }, [startHeartbeat, startRoomMonitoring]);
@@ -531,23 +552,22 @@ export const useSimpleGameSync = () => {
     onGameStartCallback.current = callback;
   }, []);
 
-  // 🆕 初期盤面受信コールバック設定
   const setOnInitialState = useCallback((callback: (initialState: InitialGameState) => void) => {
     onInitialStateCallback.current = callback;
   }, []);
 
   return {
-    gameState, // 🔥 計算プロパティで統一されたインターフェース
+    gameState,
     createRoom,
     joinRoom,
     startGame,
     sendMove,
-    uploadInitialState, // 🆕 初期盤面アップロード
+    uploadInitialState,
     leaveRoom,
     connectToRoom,
     setOnMove,
     setOnGameStart,
-    setOnInitialState, // 🆕 初期盤面受信コールバック
+    setOnInitialState,
     forceNewUser,
     validateRoomId,
     isConnected: connectionStatus === 'connected',
