@@ -35,6 +35,15 @@ export const useSimpleGameSync = () => {
     connectionStatus
   };
 
+  // 🔧 ユニークなユーザーIDを生成する関数
+  const generateUniqueUserId = () => {
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substr(2, 9);
+    const uniqueId = `${timestamp}_${random}`;
+    console.log('🆔 新しいユニークユーザーID生成:', uniqueId);
+    return uniqueId;
+  };
+
   // Firebase認証
   useEffect(() => {
     setConnectionStatus('connecting');
@@ -60,7 +69,7 @@ export const useSimpleGameSync = () => {
     return unsubscribe;
   }, []);
 
-  // ハートビート機能
+  // ハートビート機能（ユニークIDを使用）
   const startHeartbeat = useCallback((roomId: string, isHost: boolean) => {
     if (heartbeatInterval.current) {
       clearInterval(heartbeatInterval.current);
@@ -69,12 +78,14 @@ export const useSimpleGameSync = () => {
     const updatePresence = async () => {
       try {
         const path = isHost ? `simple_rooms/${roomId}/host` : `simple_rooms/${roomId}/guest`;
+        const uniqueUserId = generateUniqueUserId(); // 🔧 毎回新しいユニークIDを生成
+        
         await update(ref(database, path), {
           connected: true,
           lastSeen: Date.now(),
-          userId: user?.uid
+          userId: uniqueUserId // 🔧 ユニークIDを使用
         });
-        console.log('💓 ハートビート送信:', { roomId, isHost, userId: user?.uid });
+        console.log('💓 ハートビート送信:', { roomId, isHost, userId: uniqueUserId });
       } catch (error) {
         console.error('💔 ハートビート送信失敗:', error);
       }
@@ -82,7 +93,7 @@ export const useSimpleGameSync = () => {
 
     updatePresence();
     heartbeatInterval.current = setInterval(updatePresence, 2000);
-  }, [user]);
+  }, []);
 
   const stopHeartbeat = useCallback(() => {
     if (heartbeatInterval.current) {
@@ -120,7 +131,7 @@ export const useSimpleGameSync = () => {
     return { isValid: true };
   };
 
-  // ルーム作成
+  // ルーム作成（ユニークIDを使用）
   const createRoom = useCallback(async (playerName: string, customRoomId?: string): Promise<string> => {
     if (!user) {
       throw new Error('認証が必要です');
@@ -152,6 +163,8 @@ export const useSimpleGameSync = () => {
 
     try {
       const roomRef = ref(database, `simple_rooms/${roomId}`);
+      const uniqueUserId = generateUniqueUserId(); // 🔧 ユニークIDを生成
+      
       const newRoomData: SimpleRoom = {
         id: roomId,
         host: {
@@ -159,7 +172,7 @@ export const useSimpleGameSync = () => {
           ready: true,
           connected: true,
           lastSeen: Date.now(),
-          userId: user.uid
+          userId: uniqueUserId // 🔧 ユニークIDを使用
         },
         status: 'waiting',
         moves: [],
@@ -167,7 +180,7 @@ export const useSimpleGameSync = () => {
       };
 
       await set(roomRef, newRoomData);
-      console.log('✅ ルーム作成成功:', roomId);
+      console.log('✅ ルーム作成成功:', { roomId, hostUserId: uniqueUserId });
 
       setIsHost(true);
       setPlayerName(playerName);
@@ -182,7 +195,7 @@ export const useSimpleGameSync = () => {
     }
   }, [user, startHeartbeat]);
 
-  // ルーム参加
+  // ルーム参加（ユニークIDを使用）
   const joinRoom = useCallback(async (roomId: string, playerName: string): Promise<void> => {
     if (!user) {
       throw new Error('認証が必要です');
@@ -205,17 +218,19 @@ export const useSimpleGameSync = () => {
         throw new Error('ルームは満員です');
       }
 
+      const uniqueUserId = generateUniqueUserId(); // 🔧 ユニークIDを生成
+
       await update(roomRef, {
         guest: {
           name: playerName,
           ready: true,
           connected: true,
           lastSeen: Date.now(),
-          userId: user.uid
+          userId: uniqueUserId // 🔧 ユニークIDを使用
         }
       });
 
-      console.log('✅ ルーム参加成功:', trimmedRoomId);
+      console.log('✅ ルーム参加成功:', { roomId: trimmedRoomId, guestUserId: uniqueUserId });
 
       setIsHost(false);
       setPlayerName(playerName);
@@ -343,10 +358,12 @@ export const useSimpleGameSync = () => {
         hostName: newRoomData.host.name,
         hostConnected: newRoomData.host.connected,
         hostReady: newRoomData.host.ready,
+        hostUserId: newRoomData.host.userId, // 🔧 ユーザーIDをログ出力
         guestExists: !!newRoomData.guest,
         guestName: newRoomData.guest?.name,
         guestConnected: newRoomData.guest?.connected,
         guestReady: newRoomData.guest?.ready,
+        guestUserId: newRoomData.guest?.userId, // 🔧 ユーザーIDをログ出力
         movesCount: newRoomData.moves ? Object.keys(newRoomData.moves).length : 0,
         hasInitialState: !!newRoomData.initialState,
         timestamp: new Date().toISOString()
