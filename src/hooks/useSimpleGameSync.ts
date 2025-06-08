@@ -75,12 +75,14 @@ export const useSimpleGameSync = () => {
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
+        console.log('🔐 Firebase認証成功:', user.uid);
         setUser(user);
         setConnectionStatus('connected');
       } else {
         setConnectionStatus('connecting');
         signInAnonymously(auth)
           .then((result) => {
+            console.log('🔐 匿名認証成功:', result.user.uid);
             setConnectionStatus('connected');
           })
           .catch((error) => {
@@ -106,19 +108,21 @@ export const useSimpleGameSync = () => {
           lastSeen: Date.now(),
           userId: user?.uid
         });
+        console.log('💓 ハートビート送信:', { roomId, isHost, userId: user?.uid });
       } catch (error) {
         console.error('💔 ハートビート送信失敗:', error);
       }
     };
 
     updatePresence();
-    heartbeatInterval.current = setInterval(updatePresence, 5000);
+    heartbeatInterval.current = setInterval(updatePresence, 3000); // 3秒間隔に短縮
   }, [user]);
 
   const stopHeartbeat = useCallback(() => {
     if (heartbeatInterval.current) {
       clearInterval(heartbeatInterval.current);
       heartbeatInterval.current = null;
+      console.log('💔 ハートビート停止');
     }
   }, []);
 
@@ -202,6 +206,8 @@ export const useSimpleGameSync = () => {
       // 🔥 シンプル化: 状態を直接設定
       setIsHost(true);
       setPlayerName(playerName);
+      
+      // 🔥 修正: ルーム作成後すぐにハートビートとルーム監視を開始
       startHeartbeat(roomId, true);
 
       return roomId;
@@ -249,6 +255,8 @@ export const useSimpleGameSync = () => {
       // 🔥 シンプル化: 状態を直接設定
       setIsHost(false);
       setPlayerName(playerName);
+      
+      // 🔥 修正: ルーム参加後すぐにハートビートとルーム監視を開始
       startHeartbeat(trimmedRoomId, false);
     } catch (error: any) {
       console.error('❌ ルーム参加エラー:', error);
@@ -298,6 +306,7 @@ export const useSimpleGameSync = () => {
       const movesRef = ref(database, `simple_rooms/${currentRoomId}/moves`);
       const newMoveRef = push(movesRef);
       await set(newMoveRef, moveData);
+      console.log('📤 手の送信成功:', moveData);
     } catch (error: any) {
       console.error('❌ 手の送信エラー:', error);
       throw new Error(`手の送信に失敗しました: ${error.message}`);
@@ -330,7 +339,9 @@ export const useSimpleGameSync = () => {
         status: newRoomData.status,
         hostConnected: newRoomData.host.connected,
         guestConnected: newRoomData.guest?.connected,
-        movesCount: newRoomData.moves ? Object.keys(newRoomData.moves).length : 0
+        movesCount: newRoomData.moves ? Object.keys(newRoomData.moves).length : 0,
+        hostName: newRoomData.host.name,
+        guestName: newRoomData.guest?.name
       });
 
       // 🔥 重要: Firebaseデータをそのまま設定
@@ -369,26 +380,17 @@ export const useSimpleGameSync = () => {
     return unsubscribe;
   }, [roomData?.status, isHost, stopHeartbeat]);
 
-  // ルーム監視（roomDataの変化を監視）
-  useEffect(() => {
-    if (!roomData?.id) {
-      if (roomUnsubscribe.current) {
-        console.log('🛑 ルーム監視停止 - ルームIDなし');
-        roomUnsubscribe.current();
-        roomUnsubscribe.current = null;
-      }
-      return;
-    }
-
-    startRoomMonitoring(roomData.id);
-
-    return () => {
-      if (roomUnsubscribe.current) {
-        roomUnsubscribe.current();
-        roomUnsubscribe.current = null;
-      }
-    };
-  }, [roomData?.id, startRoomMonitoring]);
+  // 外部からルーム監視を開始する関数
+  const connectToRoom = useCallback((roomId: string, isHost: boolean, playerName: string) => {
+    console.log('🔗 外部からルーム接続:', { roomId, isHost, playerName });
+    
+    setIsHost(isHost);
+    setPlayerName(playerName);
+    
+    // 🔥 修正: ハートビートとルーム監視を同時に開始
+    startHeartbeat(roomId, isHost);
+    startRoomMonitoring(roomId);
+  }, [startHeartbeat, startRoomMonitoring]);
 
   // ルーム退出
   const leaveRoom = useCallback(async () => {
@@ -427,18 +429,6 @@ export const useSimpleGameSync = () => {
 
     console.log('✅ ルーム退出完了');
   }, [roomData?.id, isHost, stopHeartbeat]);
-
-  // 外部からルーム監視を開始する関数
-  const connectToRoom = useCallback((roomId: string, isHost: boolean, playerName: string) => {
-    console.log('🔗 外部からルーム接続:', { roomId, isHost, playerName });
-    
-    setIsHost(isHost);
-    setPlayerName(playerName);
-    startHeartbeat(roomId, isHost);
-    
-    // ルーム監視を開始
-    startRoomMonitoring(roomId);
-  }, [startHeartbeat, startRoomMonitoring]);
 
   // コンポーネントアンマウント時のクリーンアップ
   useEffect(() => {

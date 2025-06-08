@@ -49,36 +49,58 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [gameState.roomId, state.roomId, state.isHost]);
 
-  // ネットワークゲーム開始時にルーム接続を確立
+  // 🔥 修正: ネットワークゲーム開始時の同期を強化
   useEffect(() => {
-    if (state.isNetworkGame && state.roomId && !isInitialized.current) {
-      if (isConnected) {
-        // ネットワーク層でルーム監視を開始
-        console.log('🔗 ルーム接続を確立:', state.roomId);
-        connectToRoom(state.roomId, state.isHost, state.isHost ? 'ホスト' : 'ゲスト');
-        isInitialized.current = true;
+    if (state.isNetworkGame && state.roomId && isConnected) {
+      // 既に初期化済みで、ルームIDが一致している場合はスキップ
+      if (isInitialized.current && gameState.roomId === state.roomId) {
+        console.log('✅ 既に同期済み:', state.roomId);
+        return;
       }
-    }
-  }, [state.isNetworkGame, state.roomId, state.isHost, gameState.roomId, connectToRoom, isConnected]);
 
-  // Firebase接続が確立された時の再初期化
-  useEffect(() => {
-    if (state.isNetworkGame && state.roomId && isConnected && !gameState.roomId) {
-      console.log('🔄 Firebase接続確立後の再初期化:', {
+      console.log('🔗 ルーム接続を確立:', {
         gameRoomId: state.roomId,
-        isHost: state.isHost
+        networkRoomId: gameState.roomId,
+        isHost: state.isHost,
+        isInitialized: isInitialized.current
       });
-      
+
+      // ネットワーク層でルーム監視を開始
       connectToRoom(state.roomId, state.isHost, state.isHost ? 'ホスト' : 'ゲスト');
       isInitialized.current = true;
     }
-  }, [isConnected, state.isNetworkGame, state.roomId, state.isHost, gameState.roomId, connectToRoom]);
+  }, [state.isNetworkGame, state.roomId, state.isHost, isConnected, connectToRoom, gameState.roomId]);
+
+  // 🔥 修正: ルームデータの変化を監視して状態を同期
+  useEffect(() => {
+    if (state.isNetworkGame && gameState.roomId) {
+      console.log('📊 ルームデータ同期チェック:', {
+        gameRoomId: state.roomId,
+        networkRoomId: gameState.roomId,
+        networkStatus: gameState.status,
+        opponent: gameState.opponent?.name,
+        opponentConnected: gameState.opponent?.connected
+      });
+
+      // 相手の接続状態をリアルタイムで確認
+      if (gameState.opponent) {
+        console.log('👥 相手の状態:', {
+          name: gameState.opponent.name,
+          ready: gameState.opponent.ready,
+          connected: gameState.opponent.connected,
+          isHost: state.isHost
+        });
+      } else {
+        console.log('❌ 相手が見つかりません');
+      }
+    }
+  }, [gameState.roomId, gameState.status, gameState.opponent, state.isNetworkGame, state.roomId, state.isHost]);
 
   // ネットワーク同期コールバックを設定（改善版）
   useEffect(() => {
     if (state.isNetworkGame && state.roomId) {
       const syncCallback = async (action: any) => {
-        // ルームIDの確認を強化
+        // 🔥 修正: ルームIDの確認を強化
         const currentRoomId = gameState.roomId || state.roomId;
         if (!currentRoomId) {
           console.error('❌ ルームIDが設定されていません:', { 
@@ -105,6 +127,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
             skill: action.skillId
           };
 
+          console.log('📤 アクション送信:', move);
           await sendMove(move);
         } catch (error) {
           console.error('❌ アクション送信失敗:', error);
@@ -128,6 +151,8 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
           return;
         }
 
+        console.log('📥 相手の手を受信:', move);
+
         // 相手の手を同期
         const networkAction = {
           turn: move.turn,
@@ -149,20 +174,10 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.isNetworkGame, state.isHost, setOnMove, dispatch, gameState.roomId, state.roomId]);
 
-  // ルームID同期の改善
-  useEffect(() => {
-    if (state.isNetworkGame && state.roomId && isConnected) {
-      // ネットワーク層のルームIDが設定されていない、または異なる場合
-      if (!gameState.roomId || gameState.roomId !== state.roomId) {
-        console.log('🔄 ルーム接続を再確立:', state.roomId);
-        connectToRoom(state.roomId, state.isHost, state.isHost ? 'ホスト' : 'ゲスト');
-      }
-    }
-  }, [state.isNetworkGame, state.roomId, state.isHost, state.gamePhase, gameState.roomId, connectToRoom, isConnected]);
-
   // ゲーム終了時のクリーンアップ
   useEffect(() => {
     if (!state.isNetworkGame && isInitialized.current) {
+      console.log('🧹 ネットワークゲーム終了 - クリーンアップ');
       isInitialized.current = false;
     }
   }, [state.isNetworkGame]);
