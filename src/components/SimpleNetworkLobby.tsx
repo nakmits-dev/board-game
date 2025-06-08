@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSimpleGameSync } from '../hooks/useSimpleGameSync';
 import { useGame } from '../context/GameContext';
-import { Wifi, Users, Copy, Check, X, Play, Clock, UserCheck, UserX, WifiOff, AlertCircle, Shuffle, Edit3 } from 'lucide-react';
+import { Wifi, Users, Copy, Check, X, Play, Clock, UserCheck, UserX, WifiOff, AlertCircle, Shuffle, Edit3, RefreshCw } from 'lucide-react';
 
 interface SimpleNetworkLobbyProps {
   onClose: () => void;
@@ -46,20 +46,27 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
 
   // ゲーム状態の変化を監視
   useEffect(() => {
-    console.log('ゲーム状態監視:', gameState);
+    console.log('🎮 ゲーム状態監視:', {
+      status: gameState.status,
+      roomId: gameState.roomId,
+      isHost: gameState.isHost,
+      playerName: gameState.playerName,
+      opponent: gameState.opponent,
+      connectionStatus: gameState.connectionStatus
+    });
     
     if (gameState.status === 'waiting' && gameState.roomId) {
+      console.log('📋 待機モードに切り替え');
       setMode('waiting');
       setRoomId(gameState.roomId);
       setError('');
     }
     
     if (gameState.status === 'playing') {
-      console.log('ゲーム開始状態検出');
-      // ゲーム開始時はロビーを閉じる
+      console.log('🎮 ゲーム開始状態検出 - ロビーを閉じる');
       onClose();
     }
-  }, [gameState.status, gameState.roomId, onClose]);
+  }, [gameState.status, gameState.roomId, gameState.opponent, onClose]);
 
   // ランダムルームID生成
   const generateRandomRoomId = () => {
@@ -96,14 +103,14 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
     setError('');
 
     try {
-      console.log('ルーム作成開始');
+      console.log('🏗️ ルーム作成開始');
       const finalRoomId = useCustomRoomId ? customRoomId.trim() : undefined;
       const newRoomId = await createRoom(playerName, finalRoomId);
-      console.log('ルーム作成完了:', newRoomId);
+      console.log('✅ ルーム作成完了:', newRoomId);
       setRoomId(newRoomId);
       setMode('waiting');
     } catch (err: any) {
-      console.error('ルーム作成エラー:', err);
+      console.error('❌ ルーム作成エラー:', err);
       setError(err.message || 'ルームの作成に失敗しました');
     } finally {
       setLoading(false);
@@ -125,12 +132,12 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
     setError('');
 
     try {
-      console.log('ルーム参加開始:', roomId.trim());
+      console.log('🚪 ルーム参加開始:', roomId.trim());
       await joinRoom(roomId.trim(), playerName);
-      console.log('ルーム参加完了');
+      console.log('✅ ルーム参加完了');
       setMode('waiting');
     } catch (err: any) {
-      console.error('ルーム参加エラー:', err);
+      console.error('❌ ルーム参加エラー:', err);
       setError(err.message || 'ルームへの参加に失敗しました');
     } finally {
       setLoading(false);
@@ -144,11 +151,11 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
     setError('');
 
     try {
-      console.log('ゲーム開始処理開始');
+      console.log('🎮 ゲーム開始処理開始');
       await startGame();
-      console.log('ゲーム開始処理完了');
+      console.log('✅ ゲーム開始処理完了');
     } catch (err: any) {
-      console.error('ゲーム開始エラー:', err);
+      console.error('❌ ゲーム開始エラー:', err);
       setError(err.message || 'ゲームの開始に失敗しました');
       setLoading(false);
     }
@@ -177,14 +184,14 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
   const handleLeaveRoom = async () => {
     setLoading(true);
     try {
-      console.log('ルーム退出処理開始');
+      console.log('🚪 ルーム退出処理開始');
       await leaveRoom();
-      console.log('ルーム退出処理完了');
+      console.log('✅ ルーム退出処理完了');
       setMode('menu');
       setRoomId('');
       setError('');
     } catch (err) {
-      console.error('ルーム退出エラー:', err);
+      console.error('❌ ルーム退出エラー:', err);
     } finally {
       setLoading(false);
     }
@@ -430,18 +437,20 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
               </div>
             </div>
 
-            {/* プレイヤー情報 */}
+            {/* 🔥 修正: プレイヤー情報表示を強化 */}
             <div className="space-y-2">
+              {/* 自分の情報 */}
               <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
                 <div className="flex items-center gap-2">
                   <UserCheck size={20} className="text-green-600" />
                   <span className="font-medium text-green-800">
-                    {gameState.playerName} {gameState.isHost ? '(ホスト)' : ''}
+                    {gameState.playerName} {gameState.isHost ? '(ホスト)' : '(ゲスト)'}
                   </span>
                 </div>
                 <span className="text-sm text-green-600">準備完了</span>
               </div>
               
+              {/* 相手の情報 */}
               {gameState.opponent ? (
                 <div className={`flex items-center justify-between p-3 border rounded-lg ${
                   gameState.opponent.connected 
@@ -457,7 +466,7 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
                     <span className={`font-medium ${
                       gameState.opponent.connected ? 'text-green-800' : 'text-red-800'
                     }`}>
-                      {gameState.opponent.name}
+                      {gameState.opponent.name} {gameState.isHost ? '(ゲスト)' : '(ホスト)'}
                     </span>
                   </div>
                   <span className={`text-sm ${
@@ -473,6 +482,27 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
                 </div>
               )}
             </div>
+
+            {/* 🔥 追加: デバッグ情報（開発時のみ表示） */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                <h4 className="text-sm font-bold text-blue-800 mb-2">デバッグ情報</h4>
+                <div className="text-xs text-blue-700 space-y-1">
+                  <div>ゲーム状態: {gameState.status}</div>
+                  <div>ルームID: {gameState.roomId}</div>
+                  <div>ホスト: {gameState.isHost ? 'Yes' : 'No'}</div>
+                  <div>プレイヤー名: {gameState.playerName}</div>
+                  <div>相手存在: {gameState.opponent ? 'Yes' : 'No'}</div>
+                  {gameState.opponent && (
+                    <>
+                      <div>相手名: {gameState.opponent.name}</div>
+                      <div>相手接続: {gameState.opponent.connected ? 'Yes' : 'No'}</div>
+                      <div>相手準備: {gameState.opponent.ready ? 'Yes' : 'No'}</div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* ゲーム開始ボタン */}
             {gameState.isHost && (

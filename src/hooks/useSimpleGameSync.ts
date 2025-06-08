@@ -115,7 +115,7 @@ export const useSimpleGameSync = () => {
     };
 
     updatePresence();
-    heartbeatInterval.current = setInterval(updatePresence, 3000); // 3秒間隔に短縮
+    heartbeatInterval.current = setInterval(updatePresence, 2000); // 2秒間隔に短縮
   }, [user]);
 
   const stopHeartbeat = useCallback(() => {
@@ -209,13 +209,14 @@ export const useSimpleGameSync = () => {
       
       // 🔥 修正: ルーム作成後すぐにハートビートとルーム監視を開始
       startHeartbeat(roomId, true);
+      startRoomMonitoring(roomId);
 
       return roomId;
     } catch (error: any) {
       console.error('❌ ルーム作成エラー:', error);
       throw new Error(`ルーム作成に失敗しました: ${error.message}`);
     }
-  }, [user, startHeartbeat, validateRoomId]);
+  }, [user, startHeartbeat]);
 
   // ルーム参加
   const joinRoom = useCallback(async (roomId: string, playerName: string): Promise<void> => {
@@ -258,6 +259,7 @@ export const useSimpleGameSync = () => {
       
       // 🔥 修正: ルーム参加後すぐにハートビートとルーム監視を開始
       startHeartbeat(trimmedRoomId, false);
+      startRoomMonitoring(trimmedRoomId);
     } catch (error: any) {
       console.error('❌ ルーム参加エラー:', error);
       throw new Error(`ルーム参加に失敗しました: ${error.message}`);
@@ -313,7 +315,7 @@ export const useSimpleGameSync = () => {
     }
   }, [roomData?.id, isHost, user]);
 
-  // 🔥 シンプル化: ルーム監視（1つのFirebaseリスナーのみ）
+  // 🔥 修正: ルーム監視を強化
   const startRoomMonitoring = useCallback((roomId: string) => {
     console.log('👀 ルーム監視開始:', roomId);
 
@@ -334,14 +336,19 @@ export const useSimpleGameSync = () => {
         return;
       }
 
+      // 🔥 重要: ルームデータの詳細ログ
       console.log('📊 ルームデータ更新:', {
         roomId: newRoomData.id,
         status: newRoomData.status,
-        hostConnected: newRoomData.host.connected,
-        guestConnected: newRoomData.guest?.connected,
-        movesCount: newRoomData.moves ? Object.keys(newRoomData.moves).length : 0,
         hostName: newRoomData.host.name,
-        guestName: newRoomData.guest?.name
+        hostConnected: newRoomData.host.connected,
+        hostReady: newRoomData.host.ready,
+        guestExists: !!newRoomData.guest,
+        guestName: newRoomData.guest?.name,
+        guestConnected: newRoomData.guest?.connected,
+        guestReady: newRoomData.guest?.ready,
+        movesCount: newRoomData.moves ? Object.keys(newRoomData.moves).length : 0,
+        timestamp: new Date().toISOString()
       });
 
       // 🔥 重要: Firebaseデータをそのまま設定
