@@ -344,12 +344,19 @@ export const useSimpleGameSync = () => {
     }
   }, [gameState.roomId, gameState.isHost]);
 
-  // 手を送信
+  // 手を送信（改善版）
   const sendMove = useCallback(async (move: Omit<GameMove, 'id' | 'timestamp' | 'player'>) => {
-    if (!gameState.roomId) {
-      console.error('❌ ルームに接続されていません - roomId:', gameState.roomId);
+    const currentRoomId = gameState.roomId;
+    
+    if (!currentRoomId) {
+      console.error('❌ ルームに接続されていません - roomId:', currentRoomId);
       console.error('現在のゲーム状態:', gameState);
       throw new Error('ルームに接続されていません');
+    }
+
+    if (!user) {
+      console.error('❌ ユーザーが認証されていません');
+      throw new Error('認証が必要です');
     }
 
     const moveData: GameMove = {
@@ -360,17 +367,21 @@ export const useSimpleGameSync = () => {
     };
 
     console.log('📤 手を送信:', moveData);
-    console.log('📤 送信先ルーム:', gameState.roomId);
-    console.log('📤 送信者ユーザーID:', user?.uid);
+    console.log('📤 送信先ルーム:', currentRoomId);
+    console.log('📤 送信者ユーザーID:', user.uid);
+    console.log('📤 送信者ロール:', gameState.isHost ? 'host' : 'guest');
 
     try {
-      const movesRef = ref(database, `simple_rooms/${gameState.roomId}/moves`);
-      await push(movesRef, moveData);
-      console.log('✅ 手の送信成功');
+      const movesRef = ref(database, `simple_rooms/${currentRoomId}/moves`);
+      const newMoveRef = push(movesRef);
+      await set(newMoveRef, moveData);
+      console.log('✅ 手の送信成功 - moveId:', newMoveRef.key);
     } catch (error: any) {
       console.error('❌ 手の送信エラー:', error);
       console.error('エラーコード:', error.code);
       console.error('エラーメッセージ:', error.message);
+      console.error('送信データ:', moveData);
+      console.error('送信先パス:', `simple_rooms/${currentRoomId}/moves`);
       throw new Error(`手の送信に失敗しました: ${error.message}`);
     }
   }, [gameState.roomId, gameState.isHost, user]);
@@ -445,9 +456,11 @@ export const useSimpleGameSync = () => {
       // 新しい手の検出と処理
       if (roomData.moves) {
         const allMoves = Object.values(roomData.moves) as GameMove[];
+        console.log('📥 全ての手:', allMoves.length, '件');
         
         // 未処理の手のみを処理
         const newMoves = allMoves.filter(move => !processedMoves.current.has(move.id));
+        console.log('📥 新しい手:', newMoves.length, '件');
         
         newMoves.forEach(move => {
           // 相手の手のみ通知
@@ -456,11 +469,15 @@ export const useSimpleGameSync = () => {
           if (isOpponentMove && onMoveCallback.current) {
             console.log('📥 相手の手を検出:', move);
             onMoveCallback.current(move);
+          } else if (!isOpponentMove) {
+            console.log('📥 自分の手を検出（スキップ）:', move);
           }
           
           // 処理済みとしてマーク
           processedMoves.current.add(move.id);
         });
+      } else {
+        console.log('📥 手の履歴なし');
       }
     }, (error) => {
       console.error('❌ ルーム監視エラー:', error);
