@@ -6,6 +6,6 @@ export default defineConfig({
   plugins: [react()],
   optimizeDeps: {
     exclude: ['lucide-react'],
-    include: ['firebase/app', 'firebase/database', 'firebase/auth'],
+    include: ['firebase'],
   },
 });
