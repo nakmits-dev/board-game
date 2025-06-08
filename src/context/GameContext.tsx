@@ -21,7 +21,7 @@ type GameAction =
   | { type: 'ADD_CRYSTAL'; team: Team }
   | { type: 'SET_ANIMATION_TARGET'; target: { id: string; type: 'move' | 'attack' | 'damage' | 'heal' | 'ko' | 'crystal-gain' | 'turn-start' | 'evolve' } | null }
   | { type: 'SET_PENDING_ANIMATIONS'; animations: AnimationSequence[] }
-  | { type: 'REMOVE_DEFEATED_CHARACTERS'; targetId: string }
+  | { type: 'REMOVE_DEFEATED_CHARACTERS'; targetId: string; killerTeam?: Team }
   | { type: 'EVOLVE_CHARACTER'; characterId: string }
   | { type: 'UNDO_MOVE' }
   | { type: 'SURRENDER'; team: Team }
@@ -555,12 +555,13 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         // 倒されたキャラクターのコスト分のクリスタルを倒した側が獲得
         const crystalGain = defeatedCharacter.cost;
         
-        if (defeatedCharacter.team === 'player') {
-          // プレイヤーのキャラクターが倒された場合、敵がクリスタルを獲得
-          enemyCrystals = Math.min(MAX_CRYSTALS, enemyCrystals + crystalGain);
-        } else {
-          // 敵のキャラクターが倒された場合、プレイヤーがクリスタルを獲得
+        // killerTeamが指定されている場合はそれを使用、そうでなければ倒された側の逆チームが獲得
+        const killerTeam = action.killerTeam || (defeatedCharacter.team === 'player' ? 'enemy' : 'player');
+        
+        if (killerTeam === 'player') {
           playerCrystals = Math.min(MAX_CRYSTALS, playerCrystals + crystalGain);
+        } else {
+          enemyCrystals = Math.min(MAX_CRYSTALS, enemyCrystals + crystalGain);
         }
       }
 
@@ -1073,7 +1074,10 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           
           if (animation.type === 'ko') {
             await new Promise(resolve => setTimeout(resolve, 100));
-            dispatch({ type: 'REMOVE_DEFEATED_CHARACTERS', targetId: animation.id });
+            // 倒した側のチーム情報を渡す
+            const defeatedCharacter = state.characters.find(char => char.id === animation.id);
+            const killerTeam = defeatedCharacter?.team === 'player' ? 'enemy' : 'player';
+            dispatch({ type: 'REMOVE_DEFEATED_CHARACTERS', targetId: animation.id, killerTeam });
           } else if (animation.type === 'evolve') {
             await new Promise(resolve => setTimeout(resolve, 100));
             dispatch({ type: 'EVOLVE_CHARACTER', characterId: animation.id });
