@@ -263,7 +263,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           if (newHp === 0) {
             animations.push(
               { id: target.id, type: 'ko' },
-              { id: state.selectedCharacter.team, type: 'crystal-gain' } // 倒した側がクリスタル獲得
+              { id: target.team, type: 'crystal-gain' } // 倒された側がクリスタル獲得
             );
 
             // 進化条件を満たしているか確認（進化先があるモンスターのみ）
@@ -484,7 +484,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         if (newHp === 0) {
           animations.push(
             { id: target.id, type: 'ko' },
-            { id: state.selectedCharacter.team, type: 'crystal-gain' } // 倒した側がクリスタル獲得
+            { id: target.team, type: 'crystal-gain' } // 倒された側がクリスタル獲得
           );
         }
 
@@ -552,15 +552,14 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       }
 
       if (defeatedCharacter) {
-        // 倒されたキャラクターのコスト分のクリスタルを倒した側が獲得
+        // 倒されたキャラクターのコスト分のクリスタルを倒された側が獲得
         const crystalGain = defeatedCharacter.cost;
         
-        // killerTeamが指定されている場合はそれを使用、そうでなければ倒された側の逆チームが獲得
-        const killerTeam = action.killerTeam || (defeatedCharacter.team === 'player' ? 'enemy' : 'player');
-        
-        if (killerTeam === 'player') {
+        if (defeatedCharacter.team === 'player') {
+          // プレイヤーのキャラクターが倒された場合、プレイヤーがクリスタルを獲得
           playerCrystals = Math.min(MAX_CRYSTALS, playerCrystals + crystalGain);
         } else {
+          // 敵のキャラクターが倒された場合、敵がクリスタルを獲得
           enemyCrystals = Math.min(MAX_CRYSTALS, enemyCrystals + crystalGain);
         }
       }
@@ -865,7 +864,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             if (newHp === 0) {
               animations.push(
                 { id: target.id, type: 'ko' as const },
-                { id: attacker.team, type: 'crystal-gain' as const } // 倒した側がクリスタル獲得
+                { id: target.team, type: 'crystal-gain' as const } // 倒された側がクリスタル獲得
               );
             }
 
@@ -926,8 +925,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
               // キャラクターが倒された場合のクリスタル獲得処理
               if (newHp === 0) {
-                // 倒した側がクリスタル獲得
-                if (skillUser.team === 'player') {
+                // 倒された側がクリスタル獲得
+                if (skillTarget.team === 'player') {
                   playerCrystals = Math.min(MAX_CRYSTALS, playerCrystals + skillTarget.cost);
                 } else {
                   enemyCrystals = Math.min(MAX_CRYSTALS, enemyCrystals + skillTarget.cost);
@@ -1074,10 +1073,8 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           
           if (animation.type === 'ko') {
             await new Promise(resolve => setTimeout(resolve, 100));
-            // 倒した側のチーム情報を渡す
-            const defeatedCharacter = state.characters.find(char => char.id === animation.id);
-            const killerTeam = defeatedCharacter?.team === 'player' ? 'enemy' : 'player';
-            dispatch({ type: 'REMOVE_DEFEATED_CHARACTERS', targetId: animation.id, killerTeam });
+            // 倒された側のチーム情報を渡す（倒された側がクリスタル獲得）
+            dispatch({ type: 'REMOVE_DEFEATED_CHARACTERS', targetId: animation.id });
           } else if (animation.type === 'evolve') {
             await new Promise(resolve => setTimeout(resolve, 100));
             dispatch({ type: 'EVOLVE_CHARACTER', characterId: animation.id });
