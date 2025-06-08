@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useGame } from '../context/GameContext';
 import { useSimpleGameSync } from '../hooks/useSimpleGameSync';
-import { Bug, Eye, EyeOff, Clock, Users, Wifi, Database, WifiOff, AlertCircle, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
+import { Bug, Eye, EyeOff, Clock, Users, Wifi, Database, WifiOff, AlertCircle, CheckCircle, XCircle, RefreshCw, Upload, Download } from 'lucide-react';
 
 const DebugPanel: React.FC = () => {
   const { state } = useGame();
@@ -84,6 +84,12 @@ const DebugPanel: React.FC = () => {
               className={statusConsistency.color}
               title={`状態: ${statusConsistency.status}`}
             />
+            {/* 🆕 初期盤面データの有無を表示 */}
+            {networkState.initialState ? (
+              <Download size={12} className="text-green-400" title="初期盤面データあり" />
+            ) : (
+              <Upload size={12} className="text-yellow-400" title="初期盤面データなし" />
+            )}
           </div>
         )}
       </button>
@@ -123,8 +129,35 @@ const DebugPanel: React.FC = () => {
                   </span></div>
                 )}
                 <div>同期コールバック: <span className="text-orange-300">{state.networkSyncCallback ? 'Set' : 'None'}</span></div>
+                {/* 🆕 初期盤面データの状態 */}
+                <div>初期盤面データ: <span className={`${networkState.initialState ? 'text-green-300' : 'text-yellow-300'}`}>
+                  {networkState.initialState ? 'あり' : 'なし'}
+                </span></div>
               </div>
             </div>
+
+            {/* 🆕 初期盤面データの詳細 */}
+            {state.isNetworkGame && networkState.initialState && (
+              <div>
+                <h3 className="text-sm font-bold text-green-400 mb-2 flex items-center gap-1">
+                  <Download size={14} />
+                  初期盤面データ
+                </h3>
+                <div className="text-xs space-y-1">
+                  <div>キャラクター数: <span className="text-green-300">{networkState.initialState.characters?.length || 0}</span></div>
+                  <div>プレイヤークリスタル: <span className="text-blue-300">{networkState.initialState.playerCrystals}</span></div>
+                  <div>敵クリスタル: <span className="text-red-300">{networkState.initialState.enemyCrystals}</span></div>
+                  <div>現在のチーム: <span className="text-purple-300">{networkState.initialState.currentTeam}</span></div>
+                  <div>ターン数: <span className="text-yellow-300">{networkState.initialState.currentTurn}</span></div>
+                  <div>ゲームフェーズ: <span className="text-cyan-300">{networkState.initialState.gamePhase}</span></div>
+                  {networkState.initialState.uploadedAt && (
+                    <div>アップロード時刻: <span className="text-gray-300">
+                      {new Date(networkState.initialState.uploadedAt).toLocaleTimeString()}
+                    </span></div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* 状態整合性チェッカー */}
             {state.isNetworkGame && (

@@ -17,6 +17,32 @@ interface GameMove {
   timestamp: number;
 }
 
+// 初期盤面データ
+interface InitialGameState {
+  characters: Array<{
+    id: string;
+    name: string;
+    type: 'master' | 'monster';
+    team: 'player' | 'enemy';
+    position: { x: number; y: number };
+    hp: number;
+    maxHp: number;
+    attack: number;
+    defense: number;
+    actions: number;
+    cost: number;
+    image: string;
+    skillId?: string;
+    monsterType?: string;
+    masterType?: string;
+  }>;
+  playerCrystals: number;
+  enemyCrystals: number;
+  currentTeam: 'player' | 'enemy';
+  currentTurn: number;
+  gamePhase: 'preparation' | 'action' | 'result';
+}
+
 // 統一されたルーム情報（Firebaseと同じ構造）
 interface SimpleRoom {
   id: string;
@@ -36,6 +62,7 @@ interface SimpleRoom {
   };
   status: 'waiting' | 'playing' | 'finished';
   moves: GameMove[];
+  initialState?: InitialGameState; // 🆕 初期盤面データ
   createdAt: number;
 }
 
@@ -51,6 +78,7 @@ export const useSimpleGameSync = () => {
   const roomUnsubscribe = useRef<(() => void) | null>(null);
   const onMoveCallback = useRef<((move: GameMove) => void) | null>(null);
   const onGameStartCallback = useRef<((roomId: string, isHost: boolean) => void) | null>(null);
+  const onInitialStateCallback = useRef<((initialState: InitialGameState) => void) | null>(null);
   const processedMoves = useRef<Set<string>>(new Set());
   const heartbeatInterval = useRef<NodeJS.Timeout | null>(null);
 
@@ -66,6 +94,7 @@ export const useSimpleGameSync = () => {
     } : null),
     status: roomData ? (roomData.status === 'playing' ? 'playing' : 'waiting') : 'disconnected',
     moves: roomData?.moves || [],
+    initialState: roomData?.initialState || null, // 🆕 初期盤面データ
     connectionStatus
   };
 
@@ -266,6 +295,31 @@ export const useSimpleGameSync = () => {
     }
   }, [user, startHeartbeat]);
 
+  // 🆕 初期盤面をアップロード
+  const uploadInitialState = useCallback(async (initialState: InitialGameState) => {
+    if (!roomData?.id || !isHost) {
+      console.error('❌ 初期盤面アップロード: ルームIDまたはホスト権限がありません');
+      return;
+    }
+
+    console.log('📤 初期盤面アップロード開始:', roomData.id);
+
+    try {
+      const roomRef = ref(database, `simple_rooms/${roomData.id}`);
+      await update(roomRef, { 
+        initialState: {
+          ...initialState,
+          uploadedAt: Date.now(),
+          uploadedBy: user?.uid
+        }
+      });
+      console.log('✅ 初期盤面アップロード成功');
+    } catch (error: any) {
+      console.error('❌ 初期盤面アップロードエラー:', error);
+      throw new Error(`初期盤面のアップロードに失敗しました: ${error.message}`);
+    }
+  }, [roomData?.id, isHost, user]);
+
   // ゲーム開始
   const startGame = useCallback(async () => {
     if (!roomData?.id || !isHost) {
@@ -348,11 +402,20 @@ export const useSimpleGameSync = () => {
         guestConnected: newRoomData.guest?.connected,
         guestReady: newRoomData.guest?.ready,
         movesCount: newRoomData.moves ? Object.keys(newRoomData.moves).length : 0,
+        hasInitialState: !!newRoomData.initialState, // 🆕 初期盤面の有無
         timestamp: new Date().toISOString()
       });
 
       // 🔥 重要: Firebaseデータをそのまま設定
       setRoomData(newRoomData);
+
+      // 🆕 初期盤面データの検出
+      if (newRoomData.initialState && roomData?.initialState !== newRoomData.initialState) {
+        console.log('📥 初期盤面データを受信');
+        if (onInitialStateCallback.current) {
+          onInitialStateCallback.current(newRoomData.initialState);
+        }
+      }
 
       // ゲーム開始検出
       if (newRoomData.status === 'playing' && roomData?.status !== 'playing') {
@@ -385,7 +448,7 @@ export const useSimpleGameSync = () => {
 
     roomUnsubscribe.current = unsubscribe;
     return unsubscribe;
-  }, [roomData?.status, isHost, stopHeartbeat]);
+  }, [roomData?.status, roomData?.initialState, isHost, stopHeartbeat]);
 
   // 外部からルーム監視を開始する関数
   const connectToRoom = useCallback((roomId: string, isHost: boolean, playerName: string) => {
@@ -468,16 +531,23 @@ export const useSimpleGameSync = () => {
     onGameStartCallback.current = callback;
   }, []);
 
+  // 🆕 初期盤面受信コールバック設定
+  const setOnInitialState = useCallback((callback: (initialState: InitialGameState) => void) => {
+    onInitialStateCallback.current = callback;
+  }, []);
+
   return {
     gameState, // 🔥 計算プロパティで統一されたインターフェース
     createRoom,
     joinRoom,
     startGame,
     sendMove,
+    uploadInitialState, // 🆕 初期盤面アップロード
     leaveRoom,
     connectToRoom,
     setOnMove,
     setOnGameStart,
+    setOnInitialState, // 🆕 初期盤面受信コールバック
     forceNewUser,
     validateRoomId,
     isConnected: connectionStatus === 'connected',

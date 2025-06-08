@@ -13,12 +13,13 @@ interface SimpleNetworkProviderProps {
 }
 
 export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ children }) => {
-  const { gameState, sendMove, setOnMove, connectToRoom, isConnected } = useSimpleGameSync();
+  const { gameState, sendMove, uploadInitialState, setOnMove, setOnGameStart, setOnInitialState, connectToRoom, isConnected } = useSimpleGameSync();
   const { state, dispatch } = useGame();
   const lastProcessedMoveId = useRef<string>('');
   const syncCallbackRef = useRef<((action: any) => void) | null>(null);
   const isInitialized = useRef(false);
   const previousNetworkRoomId = useRef<string | null>(null);
+  const initialStateUploaded = useRef(false);
 
   // ネットワークルームIDの変化を監視してログ出力
   useEffect(() => {
@@ -71,6 +72,73 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.isNetworkGame, state.roomId, state.isHost, isConnected, connectToRoom, gameState.roomId]);
 
+  // 🆕 初期盤面のアップロード（ホストのみ、ゲーム開始時に1回だけ）
+  useEffect(() => {
+    if (state.isNetworkGame && state.isHost && state.gamePhase === 'action' && 
+        gameState.roomId && !initialStateUploaded.current && isConnected) {
+      
+      console.log('📤 初期盤面アップロード開始');
+      
+      const initialState = {
+        characters: state.characters.map(char => ({
+          id: char.id,
+          name: char.name,
+          type: char.type,
+          team: char.team,
+          position: char.position,
+          hp: char.hp,
+          maxHp: char.maxHp,
+          attack: char.attack,
+          defense: char.defense,
+          actions: char.actions,
+          cost: char.cost,
+          image: char.image,
+          skillId: char.skillId,
+          ...(char.type === 'monster' && {
+            monsterType: char.monsterType
+          }),
+          ...(char.type === 'master' && {
+            masterType: char.masterType
+          })
+        })),
+        playerCrystals: state.playerCrystals,
+        enemyCrystals: state.enemyCrystals,
+        currentTeam: state.currentTeam,
+        currentTurn: state.currentTurn,
+        gamePhase: state.gamePhase
+      };
+
+      uploadInitialState(initialState)
+        .then(() => {
+          console.log('✅ 初期盤面アップロード完了');
+          initialStateUploaded.current = true;
+        })
+        .catch((error) => {
+          console.error('❌ 初期盤面アップロード失敗:', error);
+        });
+    }
+  }, [state.isNetworkGame, state.isHost, state.gamePhase, gameState.roomId, 
+      state.characters, state.playerCrystals, state.enemyCrystals, 
+      state.currentTeam, state.currentTurn, uploadInitialState, isConnected]);
+
+  // 🆕 初期盤面の受信（ゲストのみ）
+  useEffect(() => {
+    if (state.isNetworkGame && !state.isHost) {
+      const handleInitialState = (initialState: any) => {
+        console.log('📥 初期盤面データを受信:', initialState);
+        
+        // ゲスト側でゲーム状態を初期盤面に同期
+        // 注意: これは実装によって調整が必要
+        // 現在のGameContextでは直接的な状態同期メソッドがないため、
+        // 必要に応じて新しいアクションタイプを追加する必要があります
+        
+        console.log('🔄 ゲスト側での初期盤面同期は今後実装予定');
+      };
+
+      setOnInitialState(handleInitialState);
+    }
+  }, [state.isNetworkGame, state.isHost, setOnInitialState]);
+
   // 🔥 修正: ルームデータの変化を監視して状態を同期
   useEffect(() => {
     if (state.isNetworkGame && gameState.roomId) {
@@ -79,7 +147,8 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
         networkRoomId: gameState.roomId,
         networkStatus: gameState.status,
         opponent: gameState.opponent?.name,
-        opponentConnected: gameState.opponent?.connected
+        opponentConnected: gameState.opponent?.connected,
+        hasInitialState: !!gameState.initialState
       });
 
       // 相手の接続状態をリアルタイムで確認
@@ -94,7 +163,8 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
         console.log('❌ 相手が見つかりません');
       }
     }
-  }, [gameState.roomId, gameState.status, gameState.opponent, state.isNetworkGame, state.roomId, state.isHost]);
+  }, [gameState.roomId, gameState.status, gameState.opponent, gameState.initialState, 
+      state.isNetworkGame, state.roomId, state.isHost]);
 
   // ネットワーク同期コールバックを設定（改善版）
   useEffect(() => {
@@ -179,6 +249,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     if (!state.isNetworkGame && isInitialized.current) {
       console.log('🧹 ネットワークゲーム終了 - クリーンアップ');
       isInitialized.current = false;
+      initialStateUploaded.current = false;
     }
   }, [state.isNetworkGame]);
 
