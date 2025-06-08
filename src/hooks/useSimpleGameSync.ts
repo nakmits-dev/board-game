@@ -12,9 +12,11 @@ export const useSimpleGameSync = () => {
   const onMoveCallback = useRef<((move: GameMove) => void) | null>(null);
   const onGameStartCallback = useRef<((roomId: string, isHost: boolean) => void) | null>(null);
   const onInitialStateCallback = useRef<((initialState: InitialGameState) => void) | null>(null);
+  const onRoomUpdateCallback = useRef<((roomData: SimpleRoom) => void) | null>(null);
   const processedMoves = useRef<Set<string>>(new Set());
   const heartbeatInterval = useRef<NodeJS.Timeout | null>(null);
   const currentRoomId = useRef<string | null>(null);
+  const fixedUserId = useRef<string | null>(null); // 🔧 固定ユーザーID
 
   // Firebase認証
   useEffect(() => {
@@ -41,16 +43,18 @@ export const useSimpleGameSync = () => {
     return unsubscribe;
   }, []);
 
-  // ユニークなユーザーIDを生成する関数
-  const generateUniqueUserId = () => {
-    const timestamp = Date.now();
-    const random = Math.random().toString(36).substr(2, 9);
-    const uniqueId = `${timestamp}_${random}`;
-    console.log('🆔 新しいユニークユーザーID生成:', uniqueId);
-    return uniqueId;
+  // 🔧 固定ユニークIDを生成・取得する関数
+  const getFixedUserId = () => {
+    if (!fixedUserId.current) {
+      const timestamp = Date.now();
+      const random = Math.random().toString(36).substr(2, 9);
+      fixedUserId.current = `${timestamp}_${random}`;
+      console.log('🆔 固定ユーザーID生成:', fixedUserId.current);
+    }
+    return fixedUserId.current;
   };
 
-  // ハートビート機能
+  // ハートビート機能（固定IDを使用）
   const startHeartbeat = useCallback((roomId: string, isHost: boolean) => {
     if (heartbeatInterval.current) {
       clearInterval(heartbeatInterval.current);
@@ -59,14 +63,14 @@ export const useSimpleGameSync = () => {
     const updatePresence = async () => {
       try {
         const path = isHost ? `simple_rooms/${roomId}/host` : `simple_rooms/${roomId}/guest`;
-        const uniqueUserId = generateUniqueUserId();
+        const userId = getFixedUserId(); // 🔧 固定IDを使用
         
         await update(ref(database, path), {
           connected: true,
           lastSeen: Date.now(),
-          userId: uniqueUserId
+          userId: userId
         });
-        console.log('💓 ハートビート送信:', { roomId, isHost, userId: uniqueUserId });
+        console.log('💓 ハートビート送信:', { roomId, isHost, userId });
       } catch (error) {
         console.error('💔 ハートビート送信失敗:', error);
       }
@@ -112,7 +116,7 @@ export const useSimpleGameSync = () => {
     return { isValid: true };
   };
 
-  // ルーム作成
+  // ルーム作成（固定IDを使用）
   const createRoom = useCallback(async (playerName: string, customRoomId?: string): Promise<string> => {
     if (!user) {
       throw new Error('認証が必要です');
@@ -144,7 +148,7 @@ export const useSimpleGameSync = () => {
 
     try {
       const roomRef = ref(database, `simple_rooms/${roomId}`);
-      const uniqueUserId = generateUniqueUserId();
+      const userId = getFixedUserId(); // 🔧 固定IDを使用
       
       const newRoomData: SimpleRoom = {
         id: roomId,
@@ -153,7 +157,7 @@ export const useSimpleGameSync = () => {
           ready: true,
           connected: true,
           lastSeen: Date.now(),
-          userId: uniqueUserId
+          userId: userId
         },
         status: 'waiting',
         moves: [],
@@ -161,7 +165,7 @@ export const useSimpleGameSync = () => {
       };
 
       await set(roomRef, newRoomData);
-      console.log('✅ ルーム作成成功:', { roomId, hostUserId: uniqueUserId });
+      console.log('✅ ルーム作成成功:', { roomId, hostUserId: userId });
 
       currentRoomId.current = roomId;
       startHeartbeat(roomId, true);
@@ -173,7 +177,7 @@ export const useSimpleGameSync = () => {
     }
   }, [user, startHeartbeat]);
 
-  // ルーム参加
+  // ルーム参加（固定IDを使用）
   const joinRoom = useCallback(async (roomId: string, playerName: string): Promise<void> => {
     if (!user) {
       throw new Error('認証が必要です');
@@ -196,7 +200,7 @@ export const useSimpleGameSync = () => {
         throw new Error('ルームは満員です');
       }
 
-      const uniqueUserId = generateUniqueUserId();
+      const userId = getFixedUserId(); // 🔧 固定IDを使用
 
       await update(roomRef, {
         guest: {
@@ -204,11 +208,11 @@ export const useSimpleGameSync = () => {
           ready: true,
           connected: true,
           lastSeen: Date.now(),
-          userId: uniqueUserId
+          userId: userId
         }
       });
 
-      console.log('✅ ルーム参加成功:', { roomId: trimmedRoomId, guestUserId: uniqueUserId });
+      console.log('✅ ルーム参加成功:', { roomId: trimmedRoomId, guestUserId: userId });
 
       currentRoomId.current = trimmedRoomId;
       startHeartbeat(trimmedRoomId, false);
@@ -327,6 +331,11 @@ export const useSimpleGameSync = () => {
         hasInitialState: !!roomData.initialState
       });
 
+      // 🔧 ルーム更新コールバックを呼び出し
+      if (onRoomUpdateCallback.current) {
+        onRoomUpdateCallback.current(roomData);
+      }
+
       // 初期盤面データの検出
       if (roomData.initialState && onInitialStateCallback.current) {
         console.log('📥 初期盤面データを受信');
@@ -399,6 +408,7 @@ export const useSimpleGameSync = () => {
 
     processedMoves.current.clear();
     currentRoomId.current = null;
+    fixedUserId.current = null; // 🔧 固定IDをリセット
 
     console.log('✅ ルーム退出完了');
   }, [stopHeartbeat]);
@@ -417,6 +427,7 @@ export const useSimpleGameSync = () => {
   const forceNewUser = useCallback(async () => {
     try {
       await auth.signOut();
+      fixedUserId.current = null; // 🔧 固定IDもリセット
       const result = await signInAnonymously(auth);
       return result.user.uid;
     } catch (error) {
@@ -438,6 +449,11 @@ export const useSimpleGameSync = () => {
     onInitialStateCallback.current = callback;
   }, []);
 
+  // 🔧 ルーム更新コールバック設定
+  const setOnRoomUpdate = useCallback((callback: (roomData: SimpleRoom) => void) => {
+    onRoomUpdateCallback.current = callback;
+  }, []);
+
   return {
     // Firebase操作
     createRoom,
@@ -452,6 +468,7 @@ export const useSimpleGameSync = () => {
     setOnMove,
     setOnGameStart,
     setOnInitialState,
+    setOnRoomUpdate, // 🔧 新しいコールバック
     
     // ユーティリティ
     forceNewUser,
@@ -459,6 +476,7 @@ export const useSimpleGameSync = () => {
     
     // 状態
     isConnected: connectionStatus === 'connected',
-    currentUserId: user?.uid
+    currentUserId: user?.uid,
+    fixedUserId: fixedUserId.current // 🔧 固定IDを公開
   };
 };

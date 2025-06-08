@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSimpleGameSync } from '../hooks/useSimpleGameSync';
 import { useGame } from '../context/GameContext';
 import { Wifi, Users, Copy, Check, X, Play, Clock, UserCheck, UserX, WifiOff, AlertCircle, Shuffle, Edit3, RefreshCw } from 'lucide-react';
+import { SimpleRoom } from '../types/networkTypes';
 
 interface SimpleNetworkLobbyProps {
   onClose: () => void;
@@ -10,7 +11,7 @@ interface SimpleNetworkLobbyProps {
 
 const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStartNetworkGame }) => {
   const { savedDecks } = useGame();
-  const { createRoom, joinRoom, startGame, leaveRoom, setOnGameStart, validateRoomId, isConnected, startRoomMonitoring } = useSimpleGameSync();
+  const { createRoom, joinRoom, startGame, leaveRoom, setOnGameStart, setOnRoomUpdate, validateRoomId, isConnected, startRoomMonitoring } = useSimpleGameSync();
   
   const [mode, setMode] = useState<'menu' | 'waiting'>('menu');
   const [playerName, setPlayerName] = useState('プレイヤー');
@@ -52,6 +53,48 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
       onStartNetworkGame(roomId, isHost);
     });
   }, [setOnGameStart, onStartNetworkGame]);
+
+  // 🔧 ルーム更新コールバックを設定
+  useEffect(() => {
+    setOnRoomUpdate((roomData: SimpleRoom) => {
+      if (!localRoomData) return;
+
+      console.log('📊 ルーム更新受信:', {
+        roomId: roomData.id,
+        hostName: roomData.host.name,
+        hostConnected: roomData.host.connected,
+        guestExists: !!roomData.guest,
+        guestName: roomData.guest?.name,
+        guestConnected: roomData.guest?.connected
+      });
+
+      // 相手の情報を更新
+      const isHost = localRoomData.isHost;
+      const opponent = isHost ? 
+        (roomData.guest ? {
+          name: roomData.guest.name,
+          connected: roomData.guest.connected,
+          ready: roomData.guest.ready
+        } : null) :
+        {
+          name: roomData.host.name,
+          connected: roomData.host.connected,
+          ready: roomData.host.ready
+        };
+
+      setLocalRoomData(prev => prev ? {
+        ...prev,
+        opponent,
+        status: roomData.status
+      } : null);
+
+      // ゲーム開始時にロビーを閉じる
+      if (roomData.status === 'playing') {
+        console.log('🎮 ゲーム開始状態検出 - ロビーを閉じる');
+        onClose();
+      }
+    });
+  }, [setOnRoomUpdate, localRoomData, onClose]);
 
   // ランダムルームID生成
   const generateRandomRoomId = () => {
@@ -168,15 +211,15 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
   };
 
   const copyRoomId = async () => {
-    if (!roomId) return;
+    if (!localRoomData?.id) return;
 
     try {
-      await navigator.clipboard.writeText(roomId);
+      await navigator.clipboard.writeText(localRoomData.id);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       const textArea = document.createElement('textarea');
-      textArea.value = roomId;
+      textArea.value = localRoomData.id;
       document.body.appendChild(textArea);
       textArea.select();
       document.execCommand('copy');
