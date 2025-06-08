@@ -263,7 +263,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           if (newHp === 0) {
             animations.push(
               { id: target.id, type: 'ko' },
-              { id: target.team, type: 'crystal-gain' }
+              { id: state.selectedCharacter.team, type: 'crystal-gain' } // 倒した側がクリスタル獲得
             );
 
             // 進化条件を満たしているか確認（進化先があるモンスターのみ）
@@ -484,7 +484,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         if (newHp === 0) {
           animations.push(
             { id: target.id, type: 'ko' },
-            { id: target.team, type: 'crystal-gain' }
+            { id: state.selectedCharacter.team, type: 'crystal-gain' } // 倒した側がクリスタル獲得
           );
         }
 
@@ -552,7 +552,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       }
 
       if (defeatedCharacter) {
-        // 倒されたキャラクターのコスト分のクリスタルを獲得
+        // 倒されたキャラクターのコスト分のクリスタルを倒した側が獲得
         const crystalGain = defeatedCharacter.cost;
         
         if (defeatedCharacter.team === 'player') {
@@ -864,7 +864,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             if (newHp === 0) {
               animations.push(
                 { id: target.id, type: 'ko' as const },
-                { id: target.team, type: 'crystal-gain' as const }
+                { id: attacker.team, type: 'crystal-gain' as const } // 倒した側がクリスタル獲得
               );
             }
 
@@ -922,6 +922,16 @@ function gameReducer(state: GameState, action: GameAction): GameState {
                   ? { ...char, hp: newHp }
                   : char
               );
+
+              // キャラクターが倒された場合のクリスタル獲得処理
+              if (newHp === 0) {
+                // 倒した側がクリスタル獲得
+                if (skillUser.team === 'player') {
+                  playerCrystals = Math.min(MAX_CRYSTALS, playerCrystals + skillTarget.cost);
+                } else {
+                  enemyCrystals = Math.min(MAX_CRYSTALS, enemyCrystals + skillTarget.cost);
+                }
+              }
             }
 
             // 使用者の行動回数を減らす
