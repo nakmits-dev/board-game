@@ -14,64 +14,35 @@ interface SimpleNetworkProviderProps {
 }
 
 export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ children }) => {
-  const { gameState, sendMove, uploadInitialState, setOnMove, setOnGameStart, setOnInitialState, connectToRoom, isConnected } = useSimpleGameSync();
+  const { sendMove, uploadInitialState, setOnMove, setOnGameStart, setOnInitialState, startRoomMonitoring, isConnected } = useSimpleGameSync();
   const { state, dispatch } = useGame();
   const lastProcessedMoveId = useRef<string>('');
   const syncCallbackRef = useRef<((action: any) => void) | null>(null);
   const isInitialized = useRef(false);
-  const previousNetworkRoomId = useRef<string | null>(null);
   const initialStateUploaded = useRef(false);
 
-  // ネットワークルームIDの変化を監視してログ出力
-  useEffect(() => {
-    const currentNetworkRoomId = gameState.roomId;
-    const previousRoomId = previousNetworkRoomId.current;
-
-    if (currentNetworkRoomId !== previousRoomId) {
-      if (currentNetworkRoomId && !previousRoomId) {
-        console.log('🔗 ネットワークルームID設定:', {
-          networkRoomId: currentNetworkRoomId,
-          gameRoomId: state.roomId,
-          isHost: state.isHost,
-          timestamp: new Date().toISOString()
-        });
-      } else if (!currentNetworkRoomId && previousRoomId) {
-        console.log('🔌 ネットワークルームID切断:', {
-          previousNetworkRoomId: previousRoomId,
-          gameRoomId: state.roomId,
-          isHost: state.isHost,
-          timestamp: new Date().toISOString()
-        });
-      }
-
-      previousNetworkRoomId.current = currentNetworkRoomId;
-    }
-  }, [gameState.roomId, state.roomId, state.isHost]);
-
-  // ネットワークゲーム開始時の同期を強化
+  // ネットワークゲーム開始時の監視開始
   useEffect(() => {
     if (state.isNetworkGame && state.roomId && isConnected) {
-      if (isInitialized.current && gameState.roomId === state.roomId) {
-        console.log('✅ 既に同期済み:', state.roomId);
+      if (isInitialized.current) {
+        console.log('✅ 既に監視開始済み:', state.roomId);
         return;
       }
 
-      console.log('🔗 ルーム接続を確立:', {
-        gameRoomId: state.roomId,
-        networkRoomId: gameState.roomId,
-        isHost: state.isHost,
-        isInitialized: isInitialized.current
+      console.log('🔗 ルーム監視開始:', {
+        roomId: state.roomId,
+        isHost: state.isHost
       });
 
-      connectToRoom(state.roomId, state.isHost, state.isHost ? 'ホスト' : 'ゲスト');
+      startRoomMonitoring(state.roomId, state.isHost);
       isInitialized.current = true;
     }
-  }, [state.isNetworkGame, state.roomId, state.isHost, isConnected, connectToRoom, gameState.roomId]);
+  }, [state.isNetworkGame, state.roomId, state.isHost, isConnected, startRoomMonitoring]);
 
   // 初期盤面のアップロード（ホストのみ、ゲーム開始時に1回だけ）
   useEffect(() => {
     if (state.isNetworkGame && state.isHost && state.gamePhase === 'action' && 
-        gameState.roomId && !initialStateUploaded.current && isConnected) {
+        state.roomId && !initialStateUploaded.current && isConnected) {
       
       console.log('📤 初期盤面アップロード開始');
       
@@ -109,7 +80,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
         uploadedBy: 'host'
       };
 
-      uploadInitialState(initialState)
+      uploadInitialState(state.roomId, initialState)
         .then(() => {
           console.log('✅ 初期盤面アップロード完了');
           initialStateUploaded.current = true;
@@ -118,30 +89,20 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
           console.error('❌ 初期盤面アップロード失敗:', error);
         });
     }
-  }, [state.isNetworkGame, state.isHost, state.gamePhase, gameState.roomId, 
+  }, [state.isNetworkGame, state.isHost, state.gamePhase, state.roomId, 
       state.characters, state.playerCrystals, state.enemyCrystals, 
       state.currentTeam, state.currentTurn, uploadInitialState, isConnected]);
 
-  // 🎯 シンプルなネットワーク同期コールバック（座標情報のみ送信）
+  // ネットワーク同期コールバック
   useEffect(() => {
     if (state.isNetworkGame && state.roomId) {
       const syncCallback = async (action: any) => {
-        const currentRoomId = gameState.roomId || state.roomId;
-        if (!currentRoomId) {
-          console.error('❌ ルームIDが設定されていません:', { 
-            gameStateRoomId: state.roomId,
-            networkStateRoomId: gameState.roomId 
-          });
-          return;
-        }
-        
-        if (!isConnected) {
-          console.error('❌ Firebase接続が確立されていません');
+        if (!state.roomId || !isConnected) {
+          console.error('❌ ルームIDまたは接続が確立されていません');
           return;
         }
         
         try {
-          // 🎯 シンプル: 座標情報のみを含む棋譜を作成
           const character = state.characters.find(c => c.id === action.characterId);
           if (!character) {
             console.error('❌ キャラクターが見つかりません:', action.characterId);
@@ -151,12 +112,12 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
           const move = {
             turn: action.turn,
             action: action.type,
-            from: character.position, // 現在位置（移動前）
-            ...(action.position && { to: action.position }) // 移動先（移動の場合）
+            from: character.position,
+            ...(action.position && { to: action.position })
           };
 
           console.log('📤 棋譜送信:', move);
-          await sendMove(move);
+          await sendMove(state.roomId, move, state.isHost);
         } catch (error) {
           console.error('❌ 棋譜送信失敗:', error);
         }
@@ -168,11 +129,11 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
       syncCallbackRef.current = null;
       dispatch({ type: 'SET_NETWORK_SYNC_CALLBACK', callback: null });
     }
-  }, [state.isNetworkGame, state.roomId, gameState.roomId, sendMove, dispatch, state.characters, isConnected]);
+  }, [state.isNetworkGame, state.roomId, sendMove, dispatch, state.characters, state.isHost, isConnected]);
 
-  // 🎯 シンプルな手の受信コールバック（座標情報のみ処理）
+  // 手の受信コールバック
   useEffect(() => {
-    if (state.isNetworkGame && (gameState.roomId || state.roomId)) {
+    if (state.isNetworkGame && state.roomId) {
       const moveCallback = (move: GameMove) => {
         if (move.id === lastProcessedMoveId.current) {
           return;
@@ -184,7 +145,6 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
           to: move.to
         });
 
-        // 🎯 シンプル: 座標情報のみを含むネットワークアクション
         const networkAction = {
           turn: move.turn,
           team: state.isHost ? 'enemy' : 'player',
@@ -201,7 +161,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     } else {
       setOnMove(() => {});
     }
-  }, [state.isNetworkGame, state.isHost, setOnMove, dispatch, gameState.roomId, state.roomId]);
+  }, [state.isNetworkGame, state.isHost, setOnMove, dispatch, state.roomId]);
 
   // ゲーム終了時のクリーンアップ
   useEffect(() => {
