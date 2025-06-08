@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useRef } from 'react';
 import { useSimpleGameSync } from '../hooks/useSimpleGameSync';
 import { useGame } from './GameContext';
+import { GameMove } from '../types/networkTypes';
 
 interface SimpleNetworkContextType {
   isConnected: boolean;
@@ -67,7 +68,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.isNetworkGame, state.roomId, state.isHost, isConnected, connectToRoom, gameState.roomId]);
 
-  // 🎯 改善された初期盤面のアップロード（ホストのみ、ゲーム開始時に1回だけ）
+  // 初期盤面のアップロード（ホストのみ、ゲーム開始時に1回だけ）
   useEffect(() => {
     if (state.isNetworkGame && state.isHost && state.gamePhase === 'action' && 
         gameState.roomId && !initialStateUploaded.current && isConnected) {
@@ -103,7 +104,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
         currentTeam: state.currentTeam,
         currentTurn: state.currentTurn,
         gamePhase: state.gamePhase,
-        startingTeam: state.currentTeam, // 開始チームを記録
+        startingTeam: state.currentTeam,
         uploadedAt: Date.now(),
         uploadedBy: 'host'
       };
@@ -121,45 +122,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
       state.characters, state.playerCrystals, state.enemyCrystals, 
       state.currentTeam, state.currentTurn, uploadInitialState, isConnected]);
 
-  // 初期盤面の受信（ゲストのみ）
-  useEffect(() => {
-    if (state.isNetworkGame && !state.isHost) {
-      const handleInitialState = (initialState: any) => {
-        console.log('📥 初期盤面データを受信:', initialState);
-        console.log('🔄 ゲスト側での初期盤面同期は今後実装予定');
-      };
-
-      setOnInitialState(handleInitialState);
-    }
-  }, [state.isNetworkGame, state.isHost, setOnInitialState]);
-
-  // ルームデータの変化を監視して状態を同期
-  useEffect(() => {
-    if (state.isNetworkGame && gameState.roomId) {
-      console.log('📊 ルームデータ同期チェック:', {
-        gameRoomId: state.roomId,
-        networkRoomId: gameState.roomId,
-        networkStatus: gameState.status,
-        opponent: gameState.opponent?.name,
-        opponentConnected: gameState.opponent?.connected,
-        hasInitialState: !!gameState.initialState
-      });
-
-      if (gameState.opponent) {
-        console.log('👥 相手の状態:', {
-          name: gameState.opponent.name,
-          ready: gameState.opponent.ready,
-          connected: gameState.opponent.connected,
-          isHost: state.isHost
-        });
-      } else {
-        console.log('❌ 相手が見つかりません');
-      }
-    }
-  }, [gameState.roomId, gameState.status, gameState.opponent, gameState.initialState, 
-      state.isNetworkGame, state.roomId, state.isHost]);
-
-  // 🎯 改善されたネットワーク同期コールバック（完全な座標情報を送信）
+  // 🎯 シンプルなネットワーク同期コールバック（座標情報のみ送信）
   useEffect(() => {
     if (state.isNetworkGame && state.roomId) {
       const syncCallback = async (action: any) => {
@@ -178,7 +141,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
         }
         
         try {
-          // 🎯 改善: 完全な座標情報を含む棋譜を作成
+          // 🎯 シンプル: 座標情報のみを含む棋譜を作成
           const character = state.characters.find(c => c.id === action.characterId);
           if (!character) {
             console.error('❌ キャラクターが見つかりません:', action.characterId);
@@ -188,11 +151,8 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
           const move = {
             turn: action.turn,
             action: action.type,
-            characterId: action.characterId,
             from: character.position, // 現在位置（移動前）
-            ...(action.position && { to: action.position }), // 移動先（移動の場合）
-            ...(action.targetId && { targetId: action.targetId }), // 攻撃・スキル対象
-            ...(action.skillId && { skillId: action.skillId }) // スキルID
+            ...(action.position && { to: action.position }) // 移動先（移動の場合）
           };
 
           console.log('📤 棋譜送信:', move);
@@ -210,33 +170,27 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.isNetworkGame, state.roomId, gameState.roomId, sendMove, dispatch, state.characters, isConnected]);
 
-  // 🎯 改善された手の受信コールバック（完全な座標情報を処理）
+  // 🎯 シンプルな手の受信コールバック（座標情報のみ処理）
   useEffect(() => {
     if (state.isNetworkGame && (gameState.roomId || state.roomId)) {
-      const moveCallback = (move: any) => {
+      const moveCallback = (move: GameMove) => {
         if (move.id === lastProcessedMoveId.current) {
           return;
         }
 
         console.log('📥 相手の手を受信:', {
           action: move.action,
-          characterId: move.characterId,
           from: move.from,
-          to: move.to,
-          targetId: move.targetId,
-          skillId: move.skillId
+          to: move.to
         });
 
-        // 🎯 改善: 完全な座標情報を含むネットワークアクション
+        // 🎯 シンプル: 座標情報のみを含むネットワークアクション
         const networkAction = {
           turn: move.turn,
           team: state.isHost ? 'enemy' : 'player',
           type: move.action,
-          characterId: move.characterId,
           from: move.from,
-          to: move.to,
-          targetId: move.targetId,
-          skillId: move.skillId
+          to: move.to
         };
 
         dispatch({ type: 'SYNC_NETWORK_ACTION', action: networkAction });

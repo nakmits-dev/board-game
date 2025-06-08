@@ -2,74 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { ref, push, onValue, set, update, remove, get, off } from 'firebase/database';
 import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { database, auth } from '../firebase/config';
-
-// 🎯 改善された棋譜データ構造
-interface GameMove {
-  id: string;
-  turn: number;
-  player: 'host' | 'guest';
-  action: 'move' | 'attack' | 'skill' | 'end_turn' | 'surrender';
-  characterId: string;
-  from: { x: number; y: number };
-  to?: { x: number; y: number };
-  targetId?: string;
-  skillId?: string;
-  timestamp: number;
-}
-
-// 初期盤面データ（完全な状態保存）
-interface InitialGameState {
-  characters: Array<{
-    id: string;
-    name: string;
-    type: 'master' | 'monster';
-    team: 'player' | 'enemy';
-    position: { x: number; y: number };
-    hp: number;
-    maxHp: number;
-    attack: number;
-    defense: number;
-    actions: number;
-    cost: number;
-    image: string;
-    skillId?: string;
-    monsterType?: string;
-    masterType?: string;
-    canEvolve?: boolean;
-    isEvolved?: boolean;
-  }>;
-  playerCrystals: number;
-  enemyCrystals: number;
-  currentTeam: 'player' | 'enemy';
-  currentTurn: number;
-  gamePhase: 'preparation' | 'action' | 'result';
-  startingTeam: 'player' | 'enemy';
-  uploadedAt: number;
-  uploadedBy: string;
-}
-
-// 統一されたルーム情報
-interface SimpleRoom {
-  id: string;
-  host: {
-    name: string;
-    ready: boolean;
-    connected: boolean;
-    lastSeen: number;
-    userId?: string;
-  };
-  guest?: {
-    name: string;
-    ready: boolean;
-    connected: boolean;
-    lastSeen: number;
-    userId?: string;
-  };
-  status: 'waiting' | 'playing' | 'finished';
-  moves: GameMove[];
-  initialState?: InitialGameState;
-  createdAt: number;
-}
+import { GameMove, InitialGameState, SimpleRoom } from '../types/networkTypes';
 
 export const useSimpleGameSync = () => {
   const [user, setUser] = useState<any>(null);
@@ -295,7 +228,7 @@ export const useSimpleGameSync = () => {
     }
   }, [user, startHeartbeat]);
 
-  // 🎯 改善された初期盤面アップロード
+  // 初期盤面アップロード
   const uploadInitialState = useCallback(async (initialState: InitialGameState) => {
     if (!roomData?.id || !isHost) {
       console.error('❌ 初期盤面アップロード: ルームIDまたはホスト権限がありません');
@@ -346,7 +279,7 @@ export const useSimpleGameSync = () => {
     }
   }, [roomData?.id, isHost]);
 
-  // 🎯 改善された手の送信（完全な座標情報を含む）
+  // 🎯 シンプルな手の送信（座標情報のみ）
   const sendMove = useCallback(async (move: Omit<GameMove, 'id' | 'timestamp' | 'player'>) => {
     const currentRoomId = roomData?.id;
     
@@ -368,11 +301,8 @@ export const useSimpleGameSync = () => {
 
     console.log('📤 棋譜送信:', {
       action: moveData.action,
-      characterId: moveData.characterId,
       from: moveData.from,
-      to: moveData.to,
-      targetId: moveData.targetId,
-      skillId: moveData.skillId
+      to: moveData.to
     });
 
     try {
@@ -451,11 +381,8 @@ export const useSimpleGameSync = () => {
           if (isOpponentMove && onMoveCallback.current) {
             console.log('📥 相手の手を検出:', {
               action: move.action,
-              characterId: move.characterId,
               from: move.from,
-              to: move.to,
-              targetId: move.targetId,
-              skillId: move.skillId
+              to: move.to
             });
             onMoveCallback.current(move);
           }
