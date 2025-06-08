@@ -18,6 +18,45 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
   const lastProcessedMoveId = useRef<string>('');
   const syncCallbackRef = useRef<((action: any) => void) | null>(null);
   const isInitialized = useRef(false);
+  const previousNetworkRoomId = useRef<string | null>(null);
+
+  // ネットワークルームIDの変化を監視してログ出力
+  useEffect(() => {
+    const currentNetworkRoomId = gameState.roomId;
+    const previousRoomId = previousNetworkRoomId.current;
+
+    if (currentNetworkRoomId !== previousRoomId) {
+      if (currentNetworkRoomId && !previousRoomId) {
+        // ネットワークルームIDが設定された
+        console.log('🔗 ネットワークルームID設定:', {
+          networkRoomId: currentNetworkRoomId,
+          gameRoomId: state.roomId,
+          isHost: state.isHost,
+          timestamp: new Date().toISOString()
+        });
+      } else if (!currentNetworkRoomId && previousRoomId) {
+        // ネットワークルームIDがクリアされた（接続切断）
+        console.log('🔌 ネットワークルームID切断:', {
+          previousNetworkRoomId: previousRoomId,
+          gameRoomId: state.roomId,
+          isHost: state.isHost,
+          timestamp: new Date().toISOString()
+        });
+      } else if (currentNetworkRoomId && previousRoomId && currentNetworkRoomId !== previousRoomId) {
+        // ネットワークルームIDが変更された
+        console.log('🔄 ネットワークルームID変更:', {
+          from: previousRoomId,
+          to: currentNetworkRoomId,
+          gameRoomId: state.roomId,
+          isHost: state.isHost,
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      // 前回の値を更新
+      previousNetworkRoomId.current = currentNetworkRoomId;
+    }
+  }, [gameState.roomId, state.roomId, state.isHost]);
 
   // ネットワークゲーム開始時にルーム接続を確立
   useEffect(() => {
