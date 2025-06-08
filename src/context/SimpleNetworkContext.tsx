@@ -148,28 +148,12 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
             return;
           }
 
-          let move: any = {
+          const move = {
             turn: action.turn,
             action: action.type,
             from: character.position, // 現在位置（移動前）
+            ...(action.position && { to: action.position }) // 移動先（移動の場合）
           };
-
-          // アクションタイプに応じて追加情報を設定
-          if (action.type === 'move' && action.position) {
-            move.to = action.position; // 移動先
-          } else if (action.type === 'attack' && action.targetId) {
-            // 攻撃対象の座標を取得
-            const target = state.characters.find(c => c.id === action.targetId);
-            if (target) {
-              move.to = target.position;
-            }
-          } else if (action.type === 'skill' && action.targetId) {
-            // スキル対象の座標を取得
-            const target = state.characters.find(c => c.id === action.targetId);
-            if (target) {
-              move.to = target.position;
-            }
-          }
 
           console.log('📤 棋譜送信:', move);
           await sendMove(move);
@@ -201,24 +185,13 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
         });
 
         // 🎯 シンプル: 座標情報のみを含むネットワークアクション
-        // 🔥 修正: チーム判定を正しく行う
-        const myTeam = state.isHost ? 'player' : 'enemy';
-        const opponentTeam = state.isHost ? 'enemy' : 'player';
-        
         const networkAction = {
           turn: move.turn,
-          team: opponentTeam, // 相手のチーム
+          team: state.isHost ? 'enemy' : 'player',
           type: move.action,
           from: move.from,
           to: move.to
         };
-
-        console.log('🔄 ネットワークアクション変換:', {
-          isHost: state.isHost,
-          myTeam,
-          opponentTeam,
-          actionTeam: networkAction.team
-        });
 
         dispatch({ type: 'SYNC_NETWORK_ACTION', action: networkAction });
         lastProcessedMoveId.current = move.id;

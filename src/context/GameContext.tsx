@@ -71,17 +71,6 @@ const deepCloneState = (state: GameState): GameState => {
   }));
 };
 
-// ネットワークゲームでの自分のチームを判定する関数
-const getMyTeam = (isHost: boolean): Team => {
-  return isHost ? 'player' : 'enemy';
-};
-
-// ネットワークゲームでの自分のターンかどうかを判定する関数
-const isMyTurn = (currentTeam: Team, isHost: boolean): boolean => {
-  const myTeam = getMyTeam(isHost);
-  return currentTeam === myTeam;
-};
-
 function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
     case 'SELECT_CHARACTER': {
@@ -97,22 +86,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
       // ネットワークゲームの場合、自分のターンかつ自分のチームのキャラクターのみ選択可能
       if (state.isNetworkGame) {
-        const myTeam = getMyTeam(state.isHost);
-        const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
+        const isMyTeam = state.isHost ? action.character.team === 'player' : action.character.team === 'enemy';
+        const isMyTurn = state.isHost ? state.currentTeam === 'player' : state.currentTeam === 'enemy';
         
-        console.log('キャラクター選択チェック:', {
-          characterTeam: action.character.team,
-          myTeam,
-          currentTeam: state.currentTeam,
-          isHost: state.isHost,
-          isMyTurnNow,
-          canSelect: action.character.team === myTeam && isMyTurnNow
-        });
-        
-        if (action.character.team !== myTeam || !isMyTurnNow) {
-          console.log('キャラクター選択を無効化:', {
-            reason: action.character.team !== myTeam ? 'not my team' : 'not my turn'
-          });
+        if (!isMyTeam || !isMyTurn) {
           return state; // 選択を無効化
         }
       }
@@ -143,8 +120,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
       // ネットワークゲームの場合、自分のターンでない場合は操作を無効化
       if (state.isNetworkGame) {
-        const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
-        if (!isMyTurnNow) {
+        const isMyTurn = state.isHost ? state.currentTeam === 'player' : state.currentTeam === 'enemy';
+        if (!isMyTurn) {
           return state;
         }
       }
@@ -165,8 +142,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
       // ネットワークゲームの場合、自分のターンでない場合は操作を無効化
       if (state.isNetworkGame) {
-        const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
-        if (!isMyTurnNow) {
+        const isMyTurn = state.isHost ? state.currentTeam === 'player' : state.currentTeam === 'enemy';
+        if (!isMyTurn) {
           return state;
         }
       }
@@ -200,8 +177,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
       // ネットワークゲームの場合、自分のターンでない場合は操作を無効化
       if (state.isNetworkGame) {
-        const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
-        if (!isMyTurnNow) {
+        const isMyTurn = state.isHost ? state.currentTeam === 'player' : state.currentTeam === 'enemy';
+        if (!isMyTurn) {
           return state;
         }
       }
@@ -373,8 +350,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
       // ネットワークゲームの場合、自分のターンでない場合は操作を無効化
       if (state.isNetworkGame) {
-        const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
-        if (!isMyTurnNow) {
+        const isMyTurn = state.isHost ? state.currentTeam === 'player' : state.currentTeam === 'enemy';
+        if (!isMyTurn) {
           return state;
         }
       }
@@ -397,8 +374,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       
       // ネットワークゲームの場合、自分のターンでない場合は操作を無効化
       if (state.isNetworkGame) {
-        const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
-        if (!isMyTurnNow) {
+        const isMyTurn = state.isHost ? state.currentTeam === 'player' : state.currentTeam === 'enemy';
+        if (!isMyTurn) {
           return state;
         }
       }
@@ -629,8 +606,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       
       // ネットワークゲームの場合、自分のターンでない場合は操作を無効化
       if (state.isNetworkGame) {
-        const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
-        if (!isMyTurnNow) {
+        const isMyTurn = state.isHost ? state.currentTeam === 'player' : state.currentTeam === 'enemy';
+        if (!isMyTurn) {
           return state;
         }
       }
@@ -725,13 +702,13 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'START_NETWORK_GAME': {
-      console.log('START_NETWORK_GAME - ネットワークゲーム開始:', {
-        roomId: action.roomId,
-        isHost: action.isHost,
-        currentCharacters: state.characters.length
-      });
+      console.log('START_NETWORK_GAME - 現在の状態保持開始');
+      console.log('現在のキャラクター数:', state.characters.length);
+      console.log('現在のクリスタル:', { player: state.playerCrystals, enemy: state.enemyCrystals });
       
       const startingTeam: Team = 'player'; // ネットワークゲームでは常にプレイヤーから開始
+      
+      console.log('START_NETWORK_GAME - ルームID保持:', action.roomId);
       
       // 既存の状態を保持しつつ、ネットワークゲーム用の設定のみ更新
       return {
@@ -747,7 +724,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         canUndo: false,
         isNetworkGame: true,
         isHost: action.isHost,
-        roomId: action.roomId,
+        roomId: action.roomId, // ここでルームIDを確実に設定
         networkSyncCallback: null,
         // 選択状態をクリア
         selectedCharacter: null,
@@ -828,16 +805,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       const networkAction = action.action;
       console.log('ネットワークアクション同期:', networkAction);
       
-      // 🔥 修正: 座標ベースでキャラクターを特定
-      const findCharacterByPosition = (position: { x: number; y: number }) => {
-        return state.characters.find(char => 
-          char.position.x === position.x && char.position.y === position.y
-        );
-      };
-
       // 相手のアクションのみ処理（自分のアクションは既に処理済み）
-      const myTeam = getMyTeam(state.isHost);
-      const isOpponentAction = networkAction.team !== myTeam;
+      const isOpponentAction = state.isHost ? 
+        networkAction.team === 'enemy' : 
+        networkAction.team === 'player';
       
       if (!isOpponentAction) {
         console.log('自分のアクションなのでスキップ');
@@ -849,38 +820,37 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       // ネットワークアクションをローカルアクションに変換して処理
       switch (networkAction.type) {
         case 'move':
-          // 🔥 修正: 座標ベースで移動キャラクターを特定
-          const moveCharacter = findCharacterByPosition(networkAction.from);
-          if (moveCharacter && networkAction.to) {
-            console.log('移動処理:', moveCharacter.name, networkAction.from, '->', networkAction.to);
+          // 移動アクションの処理
+          const moveCharacter = state.characters.find(char => char.id === networkAction.characterId);
+          if (moveCharacter && networkAction.position) {
+            console.log('移動処理:', moveCharacter.name, networkAction.position);
             const updatedCharacters = state.characters.map(char =>
-              char.id === moveCharacter.id
-                ? { ...char, position: networkAction.to!, remainingActions: char.remainingActions - 1 }
+              char.id === networkAction.characterId
+                ? { ...char, position: networkAction.position!, remainingActions: char.remainingActions - 1 }
                 : char
             );
             return {
               ...state,
               characters: updatedCharacters,
-              pendingAnimations: [{ id: moveCharacter.id, type: 'move' }],
+              pendingAnimations: [{ id: networkAction.characterId, type: 'move' }],
             };
           }
           break;
 
         case 'attack':
-          // 🔥 修正: 座標ベースで攻撃者と対象を特定
-          const attacker = findCharacterByPosition(networkAction.from);
-          const target = networkAction.to ? findCharacterByPosition(networkAction.to) : null;
-          
+          // 攻撃アクションの処理
+          const attacker = state.characters.find(char => char.id === networkAction.characterId);
+          const target = state.characters.find(char => char.id === networkAction.targetId);
           if (attacker && target) {
             console.log('攻撃処理:', attacker.name, '->', target.name);
             const damage = Math.max(0, attacker.attack - target.defense);
             const newHp = Math.max(0, target.hp - damage);
             
             const updatedCharacters = state.characters.map(char => {
-              if (char.id === attacker.id) {
+              if (char.id === networkAction.characterId) {
                 return { ...char, remainingActions: char.remainingActions - 1 };
               }
-              if (char.id === target.id) {
+              if (char.id === networkAction.targetId) {
                 return { ...char, hp: newHp };
               }
               return char;
@@ -910,12 +880,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           break;
 
         case 'skill':
-          // 🔥 修正: 座標ベースでスキル使用者と対象を特定
-          const skillUser = findCharacterByPosition(networkAction.from);
-          const skillTarget = networkAction.to ? findCharacterByPosition(networkAction.to) : null;
-          
-          // スキルIDは別途送信される必要があるため、キャラクターのスキルを使用
-          const skill = skillUser?.skillId ? skillData[skillUser.skillId] : null;
+          // スキルアクションの処理
+          const skillUser = state.characters.find(char => char.id === networkAction.characterId);
+          const skillTarget = state.characters.find(char => char.id === networkAction.targetId);
+          const skill = skillData[networkAction.skillId!];
           
           if (skillUser && skillTarget && skill) {
             console.log('スキル処理:', skillUser.name, skill.name, '->', skillTarget.name);
@@ -1127,8 +1095,8 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // ネットワークゲームの場合、自分のターンでない場合は無効
     if (state.isNetworkGame) {
-      const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
-      if (!isMyTurnNow) return false;
+      const isMyTurn = state.isHost ? state.currentTeam === 'player' : state.currentTeam === 'enemy';
+      if (!isMyTurn) return false;
     }
 
     const { x: srcX, y: srcY } = state.selectedCharacter.position;
@@ -1154,8 +1122,8 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // ネットワークゲームの場合、自分のターンでない場合は無効
     if (state.isNetworkGame) {
-      const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
-      if (!isMyTurnNow) return false;
+      const isMyTurn = state.isHost ? state.currentTeam === 'player' : state.currentTeam === 'enemy';
+      if (!isMyTurn) return false;
     }
 
     const target = state.characters.find(char => char.id === targetId);
@@ -1177,8 +1145,8 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     // ネットワークゲームの場合、自分のターンでない場合は無効
     if (state.isNetworkGame) {
-      const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
-      if (!isMyTurnNow) return false;
+      const isMyTurn = state.isHost ? state.currentTeam === 'player' : state.currentTeam === 'enemy';
+      if (!isMyTurn) return false;
     }
 
     const target = state.characters.find(char => char.id === targetId);
