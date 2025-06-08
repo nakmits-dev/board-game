@@ -1,0 +1,28 @@
+{
+  "rules": {
+    ".read": true,
+    ".write": true,
+    "simple_rooms": {
+      ".read": true,
+      ".write": true,
+      "$roomId": {
+        ".read": true,
+        ".write": true,
+        ".validate": "newData.hasChildren(['id', 'host', 'status', 'createdAt'])",
+        "host": {
+          ".validate": "newData.hasChildren(['name', 'ready'])"
+        },
+        "guest": {
+          ".validate": "newData.hasChildren(['name', 'ready'])"
+        },
+        "moves": {
+          ".read": true,
+          ".write": true,
+          "$moveId": {
+            ".validate": "newData.hasChildren(['id', 'turn', 'player', 'action', 'timestamp'])"
+          }
+        }
+      }
+    }
+  }
+}
