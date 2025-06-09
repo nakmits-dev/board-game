@@ -25,10 +25,11 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     isConnected 
   } = useSimpleGameSync();
   const { state, dispatch } = useGame();
-  const lastProcessedMoveId = useRef<string>('');
+  const lastProcessedMoveCount = useRef<number>(0); // 🔧 処理済み棋譜数で管理
   const lastProcessedTimerId = useRef<string>('');
   const syncCallbackRef = useRef<((action: any) => void) | null>(null);
   const isInitialized = useRef(false);
+  const initialGameState = useRef<any>(null); // 🔧 初期状態を保存
 
   // ネットワークゲーム開始時の監視開始
   useEffect(() => {
@@ -48,7 +49,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.isNetworkGame, state.roomId, state.isHost, isConnected, startRoomMonitoring]);
 
-  // 🎯 シンプル化: 全プレイヤーが同じ棋譜を送信
+  // 🎯 棋譜送信（変更なし）
   useEffect(() => {
     if (state.isNetworkGame && state.roomId) {
       const syncCallback = async (action: any) => {
@@ -70,9 +71,10 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
             return;
           }
 
-          // 通常の棋譜作成（シンプル化）
+          // 通常の棋譜作成
           const move: Omit<GameMove, 'id' | 'timestamp'> = {
             turn: action.turn,
+            team: action.team, // 🔧 チーム情報を正確に設定
             action: action.type,
             from: { x: 0, y: 0 }
           };
@@ -84,6 +86,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
               move.to = action.position;
               console.log('🚶 移動棋譜作成:', {
                 character: character.name,
+                team: action.team,
                 from: character.position,
                 to: action.position
               });
@@ -99,7 +102,8 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
               move.to = target.position;
               console.log('⚔️ 攻撃棋譜作成:', {
                 attacker: attacker.name,
-                target: target.name
+                target: target.name,
+                team: action.team
               });
             } else {
               console.error('❌ 攻撃: 攻撃者または対象が見つかりません');
@@ -114,7 +118,8 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
               console.log('✨ スキル棋譜作成:', {
                 caster: caster.name,
                 target: target.name,
-                skill: action.skillId
+                skill: action.skillId,
+                team: action.team
               });
             } else {
               console.error('❌ スキル: 使用者または対象が見つかりません');
@@ -122,7 +127,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
             }
           } else if (action.type === 'end_turn' || action.type === 'forced_end_turn') {
             move.from = { x: 0, y: 0 };
-            console.log('🔄 ターン終了棋譜作成:', action.type);
+            console.log('🔄 ターン終了棋譜作成:', action.type, 'team:', action.team);
           } else if (action.type === 'surrender') {
             move.from = { x: 0, y: 0 };
             console.log('🏳️ 降参棋譜作成:', action.team);
@@ -131,7 +136,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
             return;
           }
 
-          console.log('📤 棋譜送信（全プレイヤー共通）:', move);
+          console.log('📤 棋譜送信:', move);
           await sendMove(state.roomId, move);
         } catch (error) {
           console.error('❌ 棋譜送信失敗:', error);
@@ -146,47 +151,101 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.isNetworkGame, state.roomId, sendMove, sendTimerSync, dispatch, state.characters, isConnected]);
 
-  // 🎯 シンプル化: 全プレイヤーが同じ棋譜を受信
+  // 🎯 初期状態受信処理
+  useEffect(() => {
+    if (state.isNetworkGame) {
+      const initialStateCallback = (initialState: any) => {
+        console.log('📥 初期状態受信:', initialState);
+        initialGameState.current = initialState;
+        
+        // 初期状態をゲームに適用
+        dispatch({
+          type: 'START_NETWORK_GAME',
+          roomId: state.roomId!,
+          isHost: state.isHost,
+          hasTimeLimit: initialState.hasTimeLimit,
+          timeLimitSeconds: initialState.timeLimitSeconds,
+          hostDeck: initialState.hostDeck,
+          guestDeck: initialState.guestDeck
+        });
+      };
+
+      setOnInitialState(initialStateCallback);
+    } else {
+      setOnInitialState(() => {});
+    }
+  }, [state.isNetworkGame, setOnInitialState, dispatch, state.roomId, state.isHost]);
+
+  // 🎯 新しい棋譜リプレイベースの同期処理
   useEffect(() => {
     if (state.isNetworkGame && state.roomId) {
-      const moveCallback = (move: GameMove) => {
-        if (move.id === lastProcessedMoveId.current) {
+      const moveCallback = (allMoves: GameMove[]) => {
+        // 🔧 新しい棋譜があるかチェック
+        if (allMoves.length <= lastProcessedMoveCount.current) {
+          return; // 新しい棋譜なし
+        }
+
+        console.log('🎬 棋譜リプレイ開始:', {
+          totalMoves: allMoves.length,
+          processedMoves: lastProcessedMoveCount.current,
+          newMoves: allMoves.length - lastProcessedMoveCount.current
+        });
+
+        // 🔧 初期状態から全棋譜を再計算
+        if (!initialGameState.current) {
+          console.warn('⚠️ 初期状態が設定されていません');
           return;
         }
 
-        console.log('📥 棋譜受信（全プレイヤー共通）:', {
-          action: move.action,
-          from: move.from,
-          to: move.to
+        // 🔧 初期状態を復元
+        dispatch({
+          type: 'START_NETWORK_GAME',
+          roomId: state.roomId!,
+          isHost: state.isHost,
+          hasTimeLimit: initialGameState.current.hasTimeLimit,
+          timeLimitSeconds: initialGameState.current.timeLimitSeconds,
+          hostDeck: initialGameState.current.hostDeck,
+          guestDeck: initialGameState.current.guestDeck
         });
 
-        // 🎯 シンプル化: ターン数で自動的にチーム判定
-        const moveData = {
-          turn: move.turn,
-          team: move.turn % 2 === 0 ? 'player' : 'enemy',
-          type: move.action,
-          from: move.from,
-          to: move.to,
-          skillId: move.action === 'skill' ? 'rage-strike' : undefined
-        };
+        // 🔧 全棋譜を順番に適用
+        setTimeout(() => {
+          allMoves.forEach((move, index) => {
+            console.log(`📋 棋譜適用 ${index + 1}/${allMoves.length}:`, {
+              action: move.action,
+              team: move.team,
+              turn: move.turn,
+              from: move.from,
+              to: move.to
+            });
 
-        console.log('🔄 棋譜適用（全プレイヤー共通）:', {
-          original: { action: move.action, turn: move.turn },
-          converted: { team: moveData.team, type: moveData.type },
-          explanation: `ターン${move.turn} → ${moveData.team}チーム`
-        });
+            const moveData = {
+              turn: move.turn,
+              team: move.team,
+              type: move.action,
+              from: move.from,
+              to: move.to,
+              skillId: move.action === 'skill' ? 'rage-strike' : undefined // 🔧 スキルIDは別途実装が必要
+            };
 
-        dispatch({ type: 'APPLY_MOVE', move: moveData });
-        lastProcessedMoveId.current = move.id;
+            dispatch({ type: 'APPLY_MOVE', move: moveData });
+          });
+
+          // 🔧 処理済み棋譜数を更新
+          lastProcessedMoveCount.current = allMoves.length;
+          console.log('✅ 棋譜リプレイ完了:', {
+            totalMovesProcessed: allMoves.length
+          });
+        }, 100); // 初期状態復元後に棋譜を適用
       };
 
       setOnMove(moveCallback);
     } else {
       setOnMove(() => {});
     }
-  }, [state.isNetworkGame, setOnMove, dispatch, state.roomId]);
+  }, [state.isNetworkGame, setOnMove, dispatch, state.roomId, state.isHost]);
 
-  // タイマー同期受信処理
+  // タイマー同期受信処理（変更なし）
   useEffect(() => {
     if (state.isNetworkGame && state.roomId) {
       const timerCallback = (timerSync: TimerSync) => {
@@ -214,6 +273,8 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     if (!state.isNetworkGame && isInitialized.current) {
       console.log('🧹 ネットワークゲーム終了 - クリーンアップ');
       isInitialized.current = false;
+      lastProcessedMoveCount.current = 0;
+      initialGameState.current = null;
     }
   }, [state.isNetworkGame]);
 
