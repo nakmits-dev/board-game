@@ -626,6 +626,11 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       if (state.isNetworkGame) {
         const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
         if (!isMyTurnNow) {
+          console.log('🚫 ターン終了無効 - 自分のターンではありません:', {
+            currentTeam: state.currentTeam,
+            isHost: state.isHost,
+            isMyTurn: isMyTurnNow
+          });
           return state;
         }
       }
@@ -840,7 +845,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       const networkAction = action.action;
       console.log('🔄 ネットワークアクション同期:', networkAction);
       
-      // 相手のアクションのみ処理（自分のアクションは既に処理済み）
+      // 🔧 相手のアクションのみ処理（自分のアクションは既に処理済み）
       const isOpponentAction = state.isHost ? 
         networkAction.team === 'enemy' : 
         networkAction.team === 'player';
@@ -945,8 +950,15 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
         case 'end_turn':
         case 'forced_end_turn': // 🆕 強制ターン終了も同じ処理
-          // ターン終了処理
+          // 🔧 ターン終了処理（相手のターンのみ処理）
           console.log('🔄 ターン終了処理:', networkAction.type);
+          
+          // 🔧 相手のターンでない場合は処理しない
+          if (networkAction.team !== (state.isHost ? 'enemy' : 'player')) {
+            console.log('⏭️ 自分のチームのターン終了なのでスキップ');
+            return state;
+          }
+          
           const nextTeam: Team = state.currentTeam === 'player' ? 'enemy' : 'player';
           
           const refreshedCharacters = state.characters.map(character => {
