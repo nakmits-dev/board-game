@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useGame } from '../context/GameContext';
 import { useSimpleGameSync } from '../hooks/useSimpleGameSync';
+import { operationReceiver } from '../modules/OperationReceiver';
 import { Bug, Eye, EyeOff, Clock, Users, Wifi, Database, WifiOff, AlertCircle, CheckCircle, XCircle, RefreshCw, Upload, Download, FileText, MapPin } from 'lucide-react';
 
 const DebugPanel: React.FC = () => {
@@ -28,6 +29,9 @@ const DebugPanel: React.FC = () => {
     }
   };
 
+  // 🔧 **新機能: OperationReceiver のデバッグ情報を取得**
+  const receiverDebugInfo = operationReceiver.getDebugInfo();
+
   return (
     <div className="fixed bottom-4 right-4 z-40">
       {/* 折りたたみボタン */}
@@ -39,7 +43,7 @@ const DebugPanel: React.FC = () => {
         {isExpanded ? <EyeOff size={20} /> : <Eye size={20} />}
         <Bug size={16} />
         {/* 接続状態インジケーター */}
-        {state.isNetworkGame && (
+        {state.roomId && (
           <div className="flex items-center gap-1">
             <ConnectionIcon 
               size={12} 
@@ -69,12 +73,31 @@ const DebugPanel: React.FC = () => {
                   {state.roomId || 'なし'}
                 </span></div>
                 <div>ホスト: <span className="text-green-300">{state.isHost ? 'Yes' : 'No'}</span></div>
-                <div>同期コールバック: <span className="text-orange-300">{state.networkSyncCallback ? 'Set' : 'None'}</span></div>
+                <div>送信関数: <span className="text-orange-300">{state.sendMoveFunction ? 'Set' : 'None'}</span></div>
+              </div>
+            </div>
+
+            {/* 🔧 **新機能: OperationReceiver デバッグ情報** */}
+            <div>
+              <h3 className="text-sm font-bold text-cyan-400 mb-2 flex items-center gap-1">
+                <Download size={14} />
+                受信処理状態
+              </h3>
+              <div className="text-xs space-y-1">
+                <div>最終処理タイムスタンプ: <span className="text-cyan-300 font-mono">
+                  {receiverDebugInfo.lastProcessedTimestamp}
+                </span></div>
+                <div>処理済み操作数: <span className="text-cyan-300">
+                  {receiverDebugInfo.processedOperationCount}
+                </span></div>
+                <div>コールバック設定: <span className="text-cyan-300">
+                  {receiverDebugInfo.hasCallback ? 'Yes' : 'No'}
+                </span></div>
               </div>
             </div>
 
             {/* デバッグ操作 */}
-            {state.isNetworkGame && (
+            {state.roomId && (
               <div>
                 <h3 className="text-sm font-bold text-red-400 mb-2 flex items-center gap-1">
                   <RefreshCw size={14} />
@@ -88,8 +111,15 @@ const DebugPanel: React.FC = () => {
                   >
                     新しいユーザーID生成
                   </button>
+                  <button
+                    onClick={() => operationReceiver.resetTimestamp()}
+                    className="w-full px-2 py-1 bg-orange-600 hover:bg-orange-700 text-white text-xs rounded transition-colors"
+                    title="受信処理状態をリセット"
+                  >
+                    受信状態リセット
+                  </button>
                   <p className="text-xs text-gray-400">
-                    ※同じブラウザの異なるタブで接続している場合に使用
+                    ※同期問題が発生した場合に使用
                   </p>
                 </div>
               </div>
@@ -108,7 +138,7 @@ const DebugPanel: React.FC = () => {
                 <div>キャラクター数: <span className="text-cyan-300">{state.characters.length}</span></div>
                 <div>プレイヤークリスタル: <span className="text-blue-300">{state.playerCrystals}</span></div>
                 <div>敵クリスタル: <span className="text-red-300">{state.enemyCrystals}</span></div>
-                <div>ネットワークゲーム: <span className="text-purple-300">{state.isNetworkGame ? 'Yes' : 'No'}</span></div>
+                <div>ネットワークゲーム: <span className="text-purple-300">{state.roomId ? 'Yes' : 'No'}</span></div>
               </div>
             </div>
 
