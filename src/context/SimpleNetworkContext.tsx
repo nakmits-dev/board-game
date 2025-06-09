@@ -27,13 +27,14 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     isConnected 
   } = useSimpleGameSync();
   const { state, dispatch } = useGame();
-  const lastProcessedMoveCount = useRef<number>(0);
   const [currentTimeLeft, setCurrentTimeLeft] = React.useState(30);
   const syncCallbackRef = useRef<((action: any) => void) | null>(null);
   const timerSyncInterval = useRef<NodeJS.Timeout | null>(null);
   const isInitialized = useRef(false);
   const initialGameState = useRef<any>(null);
-  const isReplayingMoves = useRef(false); // 🔧 リプレイ中フラグを追加
+  
+  // 🔧 **重要: 処理済み棋譜IDを記録（毎秒リセット防止）**
+  const processedMoveIds = useRef<Set<string>>(new Set());
 
   // 🎯 自分のターンかどうかを判定
   const isMyTurn = () => {
@@ -226,28 +227,33 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
   useEffect(() => {
     if (state.isNetworkGame && state.roomId) {
       const moveCallback = (allMoves: GameMove[]) => {
-        // 🔧 新しい棋譜があるかチェック
-        if (allMoves.length <= lastProcessedMoveCount.current) {
-          return; // 新しい棋譜なし
-        }
+        console.log('📥 棋譜監視コールバック実行:', {
+          totalMoves: allMoves.length,
+          processedMoveIds: processedMoveIds.current.size
+        });
 
-        // 🔧 リプレイ中は処理をスキップ
-        if (isReplayingMoves.current) {
-          console.log('⏭️ リプレイ中のため棋譜処理をスキップ');
+        // 🔧 **重要: 新しい棋譜のみをフィルタリング**
+        const newMoves = allMoves.filter(move => !processedMoveIds.current.has(move.id));
+        
+        if (newMoves.length === 0) {
+          console.log('⏭️ 新しい棋譜なし - 処理をスキップ');
           return;
         }
 
-        console.log('📥 新しい棋譜を検出:', {
-          totalMoves: allMoves.length,
-          processedMoves: lastProcessedMoveCount.current,
-          newMoves: allMoves.length - lastProcessedMoveCount.current
+        console.log('📋 新しい棋譜を検出:', {
+          newMovesCount: newMoves.length,
+          moves: newMoves.map(m => ({ 
+            id: m.id.slice(-6), 
+            action: m.action, 
+            team: m.team, 
+            turn: m.turn 
+          }))
         });
 
-        // 🔧 **重要: 新しい棋譜のみを処理（差分更新）**
-        const newMoves = allMoves.slice(lastProcessedMoveCount.current);
-        
+        // 🔧 **新しい棋譜のみを順番に処理**
         newMoves.forEach((move, index) => {
           console.log(`📋 新しい棋譜適用 ${index + 1}/${newMoves.length}:`, {
+            id: move.id.slice(-6),
             action: move.action,
             team: move.team,
             turn: move.turn,
@@ -265,13 +271,14 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
           };
 
           dispatch({ type: 'APPLY_MOVE', move: moveData });
+          
+          // 🔧 **重要: 処理済みIDを記録**
+          processedMoveIds.current.add(move.id);
         });
 
-        // 🔧 処理済み棋譜数を更新
-        lastProcessedMoveCount.current = allMoves.length;
         console.log('✅ 新しい棋譜処理完了:', {
           newMovesProcessed: newMoves.length,
-          totalMovesProcessed: allMoves.length
+          totalProcessedIds: processedMoveIds.current.size
         });
       };
 
@@ -279,7 +286,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     } else {
       setOnMove(() => {});
     }
-  }, [state.isNetworkGame, setOnMove, dispatch, state.roomId, state.isHost]);
+  }, [state.isNetworkGame, setOnMove, dispatch, state.roomId]);
 
   // 🎯 **非ターンプレイヤー: タイマー受信で画面反映**
   useEffect(() => {
@@ -318,9 +325,10 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     if (!state.isNetworkGame && isInitialized.current) {
       console.log('🧹 ネットワークゲーム終了 - クリーンアップ');
       isInitialized.current = false;
-      lastProcessedMoveCount.current = 0;
       initialGameState.current = null;
-      isReplayingMoves.current = false;
+      
+      // 🔧 **重要: 処理済みIDもクリア**
+      processedMoveIds.current.clear();
       
       if (timerSyncInterval.current) {
         clearInterval(timerSyncInterval.current);
@@ -345,7 +353,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
 export const useSimpleNetwork = (): SimpleNetworkContextType => {
   const context = useContext(SimpleNetworkContext);
   if (context === undefined) {
-    throw new error('useSimpleNetwork must be used within a SimpleNetworkProvider');
+    throw new Error('useSimpleNetwork must be used within a SimpleNetworkProvider');
   }
   return context;
 };
