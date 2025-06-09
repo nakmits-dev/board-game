@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useRef } from 'react';
 import { useSimpleGameSync } from '../hooks/useSimpleGameSync';
 import { useGame } from './GameContext';
-import { networkReceiver } from '../modules/NetworkReceiver';
+import { operationReceiver } from '../modules/OperationReceiver';
 
 interface SimpleNetworkContextType {
   isConnected: boolean;
@@ -29,25 +29,25 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
   const isInitialized = useRef(false);
   const initialGameState = useRef<any>(null);
 
-  // NetworkReceiver の受信コールバック設定
+  // OperationReceiver の盤面更新コールバック設定
   useEffect(() => {
-    networkReceiver.setOnMoveCallback((move) => {
-      console.log('📥 [SimpleNetworkContext] 棋譜適用:', move);
-      dispatch({ type: 'APPLY_MOVE', move });
+    operationReceiver.setOnBoardUpdateCallback((command) => {
+      console.log('🧮 [SimpleNetworkContext] 盤面更新実行:', command);
+      dispatch({ type: 'APPLY_BOARD_UPDATE', command });
     });
   }, [dispatch]);
 
-  // sendMove関数を設定
+  // アップロード関数を設定
   useEffect(() => {
-    console.log('🔗 [SimpleNetworkContext] sendMove関数設定:', {
+    console.log('🔗 [SimpleNetworkContext] アップロード関数設定:', {
       roomId: state.roomId,
       sendMoveExists: !!sendMove
     });
     
     if (state.roomId) {
-      dispatch({ type: 'SET_SEND_MOVE_FUNCTION', sendMoveFunction: sendMove });
+      dispatch({ type: 'SET_UPLOAD_FUNCTION', uploadFunction: sendMove });
     } else {
-      dispatch({ type: 'SET_SEND_MOVE_FUNCTION', sendMoveFunction: null });
+      dispatch({ type: 'SET_UPLOAD_FUNCTION', uploadFunction: null });
     }
   }, [state.roomId, sendMove, dispatch]);
 
@@ -90,13 +90,13 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.roomId, setOnInitialState, dispatch, state.isHost]);
 
-  // 棋譜受信処理
+  // 操作受信処理
   useEffect(() => {
     if (state.roomId) {
       const moveCallback = (allMoves: any[]) => {
-        console.log('📥 [SimpleNetworkContext] 棋譜受信:', allMoves.length);
-        // NetworkReceiver に処理を委譲
-        networkReceiver.processReceivedMoves(allMoves);
+        console.log('📥 [SimpleNetworkContext] 操作受信:', allMoves.length);
+        // OperationReceiver に処理を委譲
+        operationReceiver.processReceivedOperations(allMoves);
       };
 
       setOnMove(moveCallback);
@@ -118,7 +118,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
       console.log('🧹 [SimpleNetworkContext] ネットワークゲーム終了 - クリーンアップ');
       isInitialized.current = false;
       initialGameState.current = null;
-      networkReceiver.resetTimestamp();
+      operationReceiver.resetTimestamp();
     }
   }, [state.roomId]);
 

@@ -3,8 +3,8 @@ import { GameState, Character, Position, ActionType, Skill, Team, AnimationSeque
 import { createInitialGameState, getEvolvedMonsterType, monsterData } from '../data/initialGameState';
 import { skillData } from '../data/skillData';
 import { masterData } from '../data/cardData';
-import { applyMoveToGameState } from '../modules/GameBoardController';
-import { networkSender } from '../modules/NetworkSender';
+import { GameBoardCalculator, MoveCommand } from '../modules/GameBoardCalculator';
+import { operationUploader } from '../modules/OperationUploader';
 
 type GameAction =
   | { type: 'SELECT_CHARACTER'; character: Character | null }
@@ -24,8 +24,8 @@ type GameAction =
   | { type: 'REMOVE_DEFEATED_CHARACTERS'; targetId: string; killerTeam?: Team }
   | { type: 'EVOLVE_CHARACTER'; characterId: string }
   | { type: 'SURRENDER'; team: Team }
-  | { type: 'APPLY_MOVE'; move: any }
-  | { type: 'SET_SEND_MOVE_FUNCTION'; sendMoveFunction: ((roomId: string, move: any) => Promise<void>) | null };
+  | { type: 'APPLY_BOARD_UPDATE'; command: MoveCommand }
+  | { type: 'SET_UPLOAD_FUNCTION'; uploadFunction: ((roomId: string, operation: any) => Promise<void>) | null };
 
 interface GameContextType {
   state: GameState;
@@ -127,13 +127,13 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         return state;
       }
 
-      console.log('📤 [GameContext] アクション送信');
+      console.log('📤 [GameContext] 操作アップロード');
       
-      // NetworkSender を使用して送信
+      // OperationUploader を使用して送信
       if (state.pendingAction.type === 'move') {
-        networkSender.sendAction(state, 'move', state.pendingAction.position);
+        operationUploader.uploadMoveOperation(state, state.pendingAction.position!);
       } else if (state.pendingAction.type === 'attack') {
-        networkSender.sendAction(state, 'attack', undefined, state.pendingAction.targetId);
+        operationUploader.uploadAttackOperation(state, state.pendingAction.targetId!);
       }
       
       return {
@@ -202,10 +202,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       const target = state.characters.find(char => char.id === action.targetId);
       if (!target) return state;
 
-      console.log('📤 [GameContext] スキル送信');
+      console.log('📤 [GameContext] スキルアップロード');
       
-      // NetworkSender を使用してスキル送信
-      networkSender.sendSkill(state, action.targetId, state.selectedSkill.id);
+      // OperationUploader を使用してスキル送信
+      operationUploader.uploadSkillOperation(state, action.targetId, state.selectedSkill.id);
       
       return {
         ...state,
@@ -260,10 +260,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'SURRENDER': {
-      console.log('📤 [GameContext] 降参送信');
+      console.log('📤 [GameContext] 降参アップロード');
       
-      // NetworkSender を使用して降参送信
-      networkSender.sendSurrender(state);
+      // OperationUploader を使用して降参送信
+      operationUploader.uploadSurrenderOperation(state);
       
       return {
         ...state,
@@ -277,10 +277,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     case 'END_TURN': {
       if (state.gamePhase === 'preparation') return state;
 
-      console.log('📤 [GameContext] ターン終了送信');
+      console.log('📤 [GameContext] ターン終了アップロード');
       
-      // NetworkSender を使用してターン終了送信
-      networkSender.sendEndTurn(state);
+      // OperationUploader を使用してターン終了送信
+      operationUploader.uploadEndTurnOperation(state);
       
       return {
         ...state,
@@ -306,8 +306,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         newState = createInitialGameState(action.hostDeck, action.guestDeck);
       }
       
-      // NetworkSender にルームIDを設定
-      networkSender.setRoomId(action.roomId);
+      // OperationUploader にルームIDを設定
+      operationUploader.setRoomId(action.roomId);
       
       return {
         ...newState,
@@ -363,8 +363,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     case 'RESET_GAME': {
       const newState = createInitialGameState(state.savedDecks?.host, state.savedDecks?.guest);
       
-      // NetworkSender をリセット
-      networkSender.setRoomId(null);
+      // OperationUploader をリセット
+      operationUploader.setRoomId(null);
       
       return {
         ...newState,
@@ -377,22 +377,22 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       };
     }
 
-    case 'SET_SEND_MOVE_FUNCTION': {
-      console.log('🔧 [GameContext] sendMoveFunction設定:', !!action.sendMoveFunction);
+    case 'SET_UPLOAD_FUNCTION': {
+      console.log('🔧 [GameContext] uploadFunction設定:', !!action.uploadFunction);
       
-      // NetworkSender に送信関数を設定
-      networkSender.setSendMoveFunction(action.sendMoveFunction);
+      // OperationUploader に送信関数を設定
+      operationUploader.setUploadFunction(action.uploadFunction);
       
       return {
         ...state,
-        sendMoveFunction: action.sendMoveFunction,
+        sendMoveFunction: action.uploadFunction,
       };
     }
 
-    case 'APPLY_MOVE': {
-      console.log('📥 [GameContext] 棋譜受信・適用:', action.move);
-      // GameBoardController を使用して盤面更新
-      return applyMoveToGameState(state, action.move);
+    case 'APPLY_BOARD_UPDATE': {
+      console.log('🧮 [GameContext] 盤面更新適用:', action.command);
+      // GameBoardCalculator を使用して盤面更新
+      return GameBoardCalculator.calculateNewBoardState(state, action.command);
     }
 
     default:
