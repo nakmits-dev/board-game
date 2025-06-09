@@ -1,16 +1,32 @@
-// 🎯 シンプルな棋譜データ構造
+// 🎯 処理結果を含む棋譜データ構造
 export interface GameMove {
   id: string;
   turn: number;
   player: 'host' | 'guest';
-  action: 'move' | 'attack' | 'skill' | 'end_turn' | 'surrender' | 'timer_sync' | 'forced_end_turn'; // 🆕 タイマー関連アクション追加
+  action: 'move' | 'attack' | 'skill' | 'end_turn' | 'surrender' | 'timer_sync' | 'forced_end_turn';
   from: { x: number; y: number };  // 移動前の座標
   to?: { x: number; y: number };   // 移動先（移動の場合）
-  timeLeft?: number; // 🆕 タイマー同期用
+  timeLeft?: number; // タイマー同期用
   timestamp: number;
+  // 🆕 ターンプレイヤーの処理結果データ
+  result?: {
+    type: string;
+    characterId?: string;
+    targetId?: string;
+    position?: { x: number; y: number };
+    skillId?: string;
+    // 処理結果の詳細情報
+    damage?: number;
+    newHp?: number;
+    crystalChange?: number;
+    evolved?: boolean;
+    defeated?: boolean;
+    // その他の結果データ
+    [key: string]: any;
+  };
 }
 
-// 🆕 最適化された初期盤面データ（必要最小限の情報のみ）
+// 初期盤面データ（1回だけアップロード）
 export interface InitialGameState {
   // キャラクター情報（カードIDとチームのみ）
   playerDeck: {

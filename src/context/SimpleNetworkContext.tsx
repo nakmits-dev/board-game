@@ -90,7 +90,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.isNetworkGame, state.isHost, state.roomId, setOnInitialState, dispatch]);
 
-  // 🔧 改善されたネットワーク同期コールバック（移動・攻撃・スキルすべてに対応）
+  // 🎯 ターンプレイヤー用：ローカル処理後の結果を棋譜として送信
   useEffect(() => {
     if (state.isNetworkGame && state.roomId) {
       const syncCallback = async (action: any) => {
@@ -98,84 +98,86 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
           console.error('❌ ルームIDまたは接続が確立されていません');
           return;
         }
+
+        // 🎯 自分のターンの場合のみ棋譜を送信（ターンプレイヤーのみ）
+        const isMyTurn = state.isHost ? state.currentTeam === 'player' : state.currentTeam === 'enemy';
+        if (!isMyTurn) {
+          console.log('⏭️ 自分のターンではないため棋譜送信をスキップ');
+          return;
+        }
         
         try {
-          // 🔧 基本的な棋譜データを作成
+          // 🎯 ローカル処理完了後の結果を棋譜として送信
           const move: Omit<GameMove, 'id' | 'timestamp' | 'player'> = {
             turn: action.turn,
             action: action.type,
-            from: { x: 0, y: 0 } // デフォルト値
+            from: { x: 0, y: 0 }, // デフォルト値
+            // 🆕 処理結果データを追加
+            result: {
+              type: action.type,
+              characterId: action.characterId,
+              targetId: action.targetId,
+              position: action.position,
+              skillId: action.skillId,
+              // 🆕 処理結果の詳細情報
+              damage: action.damage,
+              newHp: action.newHp,
+              crystalChange: action.crystalChange,
+              evolved: action.evolved,
+              defeated: action.defeated
+            }
           };
 
           // 🔧 アクションタイプに応じて座標情報を設定
           if (action.type === 'move') {
-            // 移動の場合：キャラクターの現在位置と移動先
             const character = state.characters.find(c => c.id === action.characterId);
             if (character && action.position) {
               move.from = character.position;
               move.to = action.position;
-              console.log('🚶 移動棋譜作成:', {
+              console.log('🚶 移動結果送信:', {
                 character: character.name,
                 from: character.position,
                 to: action.position
               });
-            } else {
-              console.error('❌ 移動: キャラクターまたは移動先が見つかりません');
-              return;
             }
           } else if (action.type === 'attack') {
-            // 攻撃の場合：攻撃者の位置と攻撃対象の位置
             const attacker = state.characters.find(c => c.id === action.characterId);
             const target = state.characters.find(c => c.id === action.targetId);
             if (attacker && target) {
               move.from = attacker.position;
               move.to = target.position;
-              console.log('⚔️ 攻撃棋譜作成:', {
+              console.log('⚔️ 攻撃結果送信:', {
                 attacker: attacker.name,
-                attackerPos: attacker.position,
                 target: target.name,
-                targetPos: target.position
+                damage: action.damage,
+                newHp: action.newHp
               });
-            } else {
-              console.error('❌ 攻撃: 攻撃者または対象が見つかりません');
-              return;
             }
           } else if (action.type === 'skill') {
-            // スキルの場合：使用者の位置と対象の位置
             const caster = state.characters.find(c => c.id === action.characterId);
             const target = state.characters.find(c => c.id === action.targetId);
             if (caster && target) {
               move.from = caster.position;
               move.to = target.position;
-              console.log('✨ スキル棋譜作成:', {
+              console.log('✨ スキル結果送信:', {
                 caster: caster.name,
-                casterPos: caster.position,
                 target: target.name,
-                targetPos: target.position,
                 skill: action.skillId
               });
-            } else {
-              console.error('❌ スキル: 使用者または対象が見つかりません');
-              return;
             }
           } else if (action.type === 'end_turn' || action.type === 'forced_end_turn') {
-            // ターン終了系は座標不要（ダミー座標を設定）
             move.from = { x: 0, y: 0 };
-            console.log('🔄 ターン終了棋譜作成:', action.type);
+            console.log('🔄 ターン終了結果送信:', action.type);
           } else if (action.type === 'timer_sync') {
-            // 🆕 タイマー同期の場合
             move.from = { x: 0, y: 0 };
             move.timeLeft = action.timeLeft;
-            console.log('⏰ タイマー同期棋譜作成:', { timeLeft: action.timeLeft });
-          } else {
-            console.warn('⚠️ 未対応のアクションタイプ:', action.type);
-            return;
+            console.log('⏰ タイマー同期送信:', { timeLeft: action.timeLeft });
           }
 
-          console.log('📤 棋譜送信:', move);
+          console.log('📤 処理結果送信:', move);
           await sendMove(state.roomId, move, state.isHost);
         } catch (error) {
-          console.error('❌ 棋譜送信失敗:', error);
+          console.error('❌ 処理結果送信失敗:', error);
         }
       };
       
@@ -185,9 +187,9 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
       syncCallbackRef.current = null;
       dispatch({ type: 'SET_NETWORK_SYNC_CALLBACK', callback: null });
     }
-  }, [state.isNetworkGame, state.roomId, sendMove, dispatch, state.characters, state.isHost, isConnected]);
+  }, [state.isNetworkGame, state.roomId, sendMove, dispatch, state.characters, state.isHost, state.currentTeam, isConnected]);
 
-  // 🔧 改善された手の受信コールバック（チーム判定の修正）
+  // 🎯 非ターンプレイヤー用：棋譜を元にボードに計算・反映
   useEffect(() => {
     if (state.isNetworkGame && state.roomId) {
       const moveCallback = (move: GameMove) => {
@@ -195,29 +197,29 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
           return;
         }
 
-        console.log('📥 相手の手を受信:', {
+        console.log('📥 相手の処理結果を受信:', {
           action: move.action,
           from: move.from,
           to: move.to,
-          player: move.player,
-          isHost: state.isHost
+          result: move.result
         });
 
-        // 🔧 チーム判定の修正：host=青チーム(player)、guest=赤チーム(enemy)
+        // 🎯 非ターンプレイヤーは棋譜の結果データを元にボードを更新
         const networkAction = {
           turn: move.turn,
-          team: move.player === 'host' ? 'player' : 'enemy', // host→player、guest→enemy
+          team: move.player === 'host' ? 'player' : 'enemy',
           type: move.action,
           from: move.from,
           to: move.to,
-          timeLeft: move.timeLeft // 🆕 タイマー同期用
+          timeLeft: move.timeLeft,
+          // 🆕 処理結果データを含める
+          result: move.result
         };
 
-        console.log('🔄 ネットワークアクション変換:', {
+        console.log('🔄 棋譜結果を反映:', {
           original: { player: move.player, action: move.action },
           converted: { team: networkAction.team, type: networkAction.type },
-          isHost: state.isHost,
-          explanation: `${move.player} → ${networkAction.team} (host=青チーム, guest=赤チーム)`
+          result: move.result
         });
 
         dispatch({ type: 'SYNC_NETWORK_ACTION', action: networkAction });
