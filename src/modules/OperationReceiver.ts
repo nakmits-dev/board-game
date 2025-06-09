@@ -1,4 +1,4 @@
-// 4️⃣ 受信した内容を元に盤面計算モジュールを実行するモジュール
+// 1️⃣ 受信した操作データを処理し、現在の盤面に対して増分更新を行うモジュール
 
 import { GameMove } from '../types/networkTypes';
 import { GameBoardCalculator, MoveCommand } from './GameBoardCalculator';
@@ -6,7 +6,7 @@ import { GameBoardCalculator, MoveCommand } from './GameBoardCalculator';
 export class OperationReceiver {
   private lastProcessedTimestamp: number = 0;
   private onBoardUpdateCallback: ((command: MoveCommand) => void) | null = null;
-  private processedOperationIds: Set<string> = new Set(); // 🔧 処理済み操作IDを追跡
+  private processedOperationIds: Set<string> = new Set();
 
   /**
    * 盤面更新コールバックを設定
@@ -17,43 +17,39 @@ export class OperationReceiver {
   }
 
   /**
-   * 🔧 **修正: 受信した操作データを処理（確実な増分更新）**
+   * 🔧 **新設計: 受信した操作データを現在の盤面に対して増分適用**
    */
   processReceivedOperations(allOperations: GameMove[]) {
-    console.log('📥 [OperationReceiver] 操作受信チェック:', {
+    console.log('📥 [OperationReceiver] 操作受信処理開始:', {
       totalOperations: allOperations.length,
       lastProcessedTimestamp: this.lastProcessedTimestamp,
-      processedIds: this.processedOperationIds.size
+      processedIdsCount: this.processedOperationIds.size
     });
 
-    // 🔧 **重要: 未処理の操作のみをフィルタリング（IDベース + タイムスタンプベース）**
+    // 🔧 **重要: 未処理の操作のみを抽出（IDベース + タイムスタンプベース）**
     const newOperations = allOperations.filter(operation => {
       const isNewByTimestamp = operation.timestamp > this.lastProcessedTimestamp;
       const isNewById = !this.processedOperationIds.has(operation.id);
-      
-      // 🔧 **両方の条件をチェック（より確実な重複防止）**
       return isNewByTimestamp && isNewById;
     });
     
     if (newOperations.length === 0) {
-      console.log('📥 [OperationReceiver] 新しい操作なし - スキップ');
+      console.log('📥 [OperationReceiver] 新しい操作なし - 処理スキップ');
       return;
     }
 
-    console.log('📥 [OperationReceiver] 新しい操作を検出（確実な増分更新）:', {
+    console.log('📥 [OperationReceiver] 新しい操作を検出:', {
       newOperationsCount: newOperations.length,
       operations: newOperations.map(op => ({ 
         id: op.id,
         action: op.action, 
         team: op.team, 
         turn: op.turn,
-        timestamp: op.timestamp,
-        from: op.from,
-        to: op.to
+        timestamp: op.timestamp
       }))
     });
 
-    // 🔧 **重要: ターン順 → タイムスタンプ順でソート**
+    // 🔧 **重要: ターン順 → タイムスタンプ順でソート（正確な順序保証）**
     newOperations.sort((a, b) => {
       if (a.turn !== b.turn) {
         return a.turn - b.turn;
@@ -61,14 +57,13 @@ export class OperationReceiver {
       return a.timestamp - b.timestamp;
     });
 
-    // 🔧 **修正: 新しい操作のみを現在の盤面に対して順番に適用**
+    // 🔧 **核心: 新しい操作のみを現在の盤面に対して順次適用**
     newOperations.forEach((operation, index) => {
       console.log(`📥 [OperationReceiver] 増分操作適用 ${index + 1}/${newOperations.length}:`, {
         id: operation.id,
         action: operation.action,
         team: operation.team,
         turn: operation.turn,
-        timestamp: operation.timestamp,
         from: operation.from,
         to: operation.to
       });
@@ -84,30 +79,20 @@ export class OperationReceiver {
         timestamp: operation.timestamp
       };
 
-      // 🔧 **重要: 現在の盤面状態に対して増分更新を実行**
+      // 🔧 **核心: 現在の盤面状態に対して増分更新を実行**
       if (this.onBoardUpdateCallback) {
-        console.log('🧮 [OperationReceiver] 現在の盤面に対して増分更新実行:', {
-          type: command.type,
-          team: command.team,
-          turn: command.turn
-        });
         this.onBoardUpdateCallback(command);
       } else {
-        console.error('❌ [OperationReceiver] 盤面更新コールバックが設定されていません');
+        console.error('❌ [OperationReceiver] 盤面更新コールバックが未設定');
         return;
       }
 
       // 🔧 **重要: 処理済み操作として記録**
       this.processedOperationIds.add(operation.id);
       this.lastProcessedTimestamp = Math.max(this.lastProcessedTimestamp, operation.timestamp);
-      
-      console.log(`✅ [OperationReceiver] 操作処理完了 ${index + 1}/${newOperations.length}:`, {
-        id: operation.id,
-        newTimestamp: this.lastProcessedTimestamp
-      });
     });
 
-    console.log('✅ [OperationReceiver] 全増分操作処理完了:', {
+    console.log('✅ [OperationReceiver] 増分操作処理完了:', {
       processedCount: newOperations.length,
       totalProcessedIds: this.processedOperationIds.size,
       latestTimestamp: this.lastProcessedTimestamp
@@ -115,26 +100,24 @@ export class OperationReceiver {
   }
 
   /**
-   * タイムスタンプと処理済みIDをリセット
+   * 処理状態をリセット
    */
   resetTimestamp() {
     this.lastProcessedTimestamp = 0;
     this.processedOperationIds.clear();
-    console.log('🔄 [OperationReceiver] タイムスタンプ・処理済みIDリセット');
+    console.log('🔄 [OperationReceiver] 処理状態リセット');
   }
 
   /**
-   * 🔧 **修正: スキルIDを正しく抽出**
+   * スキルIDを抽出（暫定実装）
    */
   private extractSkillId(operation: GameMove): string {
-    // 🔧 **TODO: 実際の実装では、操作データからスキルIDを正しく取得する**
-    // 現在は暫定的にrage-strikeを返すが、実際にはoperationにskillIdフィールドが必要
-    console.warn('⚠️ [OperationReceiver] スキルID抽出は暫定実装:', operation);
+    // TODO: 実際の実装では、操作データからスキルIDを正しく取得する
     return 'rage-strike'; // 暫定値
   }
 
   /**
-   * 🔧 **新機能: デバッグ用の状態確認**
+   * デバッグ情報を取得
    */
   getDebugInfo() {
     return {

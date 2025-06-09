@@ -1,4 +1,4 @@
-// 2️⃣ 棋譜を元に計算を行い盤面状態を更新するモジュール
+// 2️⃣ 現在の盤面状態に対して操作を適用し、新しい盤面状態を計算するモジュール
 
 import { GameState, Character, Position, Team, AnimationSequence } from '../types/gameTypes';
 import { monsterData } from '../data/cardData';
@@ -19,43 +19,38 @@ export class GameBoardCalculator {
   private static readonly MAX_CRYSTALS = 8;
 
   /**
-   * 🔧 **修正: 現在の盤面状態に対して棋譜コマンドを適用し、新しい盤面状態を返す（増分更新）**
+   * 🔧 **核心機能: 現在の盤面状態に対して操作を適用し、新しい盤面状態を返す**
    */
   static calculateNewBoardState(currentState: GameState, command: MoveCommand): GameState {
-    console.log('🧮 [GameBoardCalculator] 増分盤面更新開始:', {
+    console.log('🧮 [GameBoardCalculator] 現在の盤面に対して操作適用:', {
       type: command.type,
       team: command.team,
       turn: command.turn,
-      from: command.from,
-      to: command.to,
       currentTurn: currentState.currentTurn,
       currentTeam: currentState.currentTeam,
-      charactersCount: currentState.characters.length,
-      timestamp: command.timestamp
+      charactersCount: currentState.characters.length
     });
 
     // 🔧 **重要: 現在の状態を完全にディープコピーしてベースにする**
     let newState: GameState = {
       ...currentState,
-      characters: currentState.characters.map(char => ({ ...char })), // ディープコピー
+      characters: currentState.characters.map(char => ({ ...char })),
       pendingAnimations: [...currentState.pendingAnimations],
     };
     
     let newCharacters = newState.characters;
     let animations: AnimationSequence[] = [];
 
-    // 🔧 **重要: 操作の妥当性チェック（現在の盤面状態に対して）**
+    // 🔧 **重要: 操作の妥当性チェック**
     if (!this.validateCommand(newState, command)) {
-      console.warn('⚠️ [GameBoardCalculator] 無効な操作 - スキップ:', command);
-      return currentState; // 変更なしで現在の状態を返す
+      console.warn('⚠️ [GameBoardCalculator] 無効な操作をスキップ:', command);
+      return currentState;
     }
 
+    // 🔧 **操作タイプ別の処理**
     switch (command.type) {
       case 'move':
-        ({ 
-          characters: newCharacters, 
-          animations 
-        } = this.calculateMoveAction(newCharacters, command));
+        ({ characters: newCharacters, animations } = this.calculateMoveAction(newCharacters, command));
         break;
 
       case 'attack':
@@ -96,7 +91,7 @@ export class GameBoardCalculator {
         break;
     }
 
-    // ゲーム終了チェック
+    // 🔧 **ゲーム終了チェック**
     if (newState.gamePhase !== 'result') {
       const { hostMasterAlive, guestMasterAlive } = this.checkMasterStatus(newCharacters);
       if (!hostMasterAlive || !guestMasterAlive) {
@@ -104,17 +99,15 @@ export class GameBoardCalculator {
       }
     }
 
-    console.log('✅ [GameBoardCalculator] 増分盤面更新完了:', {
+    console.log('✅ [GameBoardCalculator] 盤面更新完了:', {
       charactersCount: newCharacters.length,
       newTurn: newState.currentTurn,
       newTeam: newState.currentTeam,
       newPhase: newState.gamePhase,
-      playerCrystals: newState.playerCrystals,
-      enemyCrystals: newState.enemyCrystals,
       animationsCount: animations.length
     });
 
-    // 🔧 **修正: 現在の状態をベースに、変更された部分のみを更新**
+    // 🔧 **重要: 現在の状態をベースに、変更された部分のみを更新**
     return {
       ...newState,
       characters: newCharacters,
@@ -129,22 +122,17 @@ export class GameBoardCalculator {
   }
 
   /**
-   * 🔧 **新機能: 操作の妥当性チェック**
+   * 操作の妥当性チェック
    */
   private static validateCommand(currentState: GameState, command: MoveCommand): boolean {
-    // 基本的な妥当性チェック
     if (command.turn < 0 || !command.team || !command.type) {
-      console.warn('⚠️ [GameBoardCalculator] 基本パラメータが無効:', command);
       return false;
     }
 
-    // ゲーム終了後の操作は無効
     if (currentState.gamePhase === 'result' && command.type !== 'surrender') {
-      console.warn('⚠️ [GameBoardCalculator] ゲーム終了後の操作:', command);
       return false;
     }
 
-    // 移動・攻撃・スキルの場合、対象キャラクターの存在チェック
     if (['move', 'attack', 'skill'].includes(command.type)) {
       const character = currentState.characters.find(char => 
         char.position.x === command.from.x && 
@@ -153,7 +141,6 @@ export class GameBoardCalculator {
       );
       
       if (!character) {
-        console.warn('⚠️ [GameBoardCalculator] 操作対象キャラクターが見つかりません:', command);
         return false;
       }
     }
@@ -161,6 +148,9 @@ export class GameBoardCalculator {
     return true;
   }
 
+  /**
+   * 移動操作の計算
+   */
   private static calculateMoveAction(characters: Character[], command: MoveCommand) {
     const character = characters.find(char => 
       char.position.x === command.from.x && 
@@ -174,7 +164,6 @@ export class GameBoardCalculator {
       console.log('📍 [GameBoardCalculator] 移動計算:', character.name, command.from, '->', command.to);
       animations.push({ id: character.id, type: 'move' });
       
-      // 🎯 棋譜に追加
       addGameHistoryMove(
         command.turn,
         command.team,
@@ -196,10 +185,12 @@ export class GameBoardCalculator {
       return { characters: newCharacters, animations };
     }
     
-    console.warn('⚠️ [GameBoardCalculator] 移動対象キャラクターが見つかりません:', command);
     return { characters, animations };
   }
 
+  /**
+   * 攻撃操作の計算
+   */
   private static calculateAttackAction(characters: Character[], command: MoveCommand, gamePhase: string) {
     const attacker = characters.find(char => 
       char.position.x === command.from.x && 
@@ -208,7 +199,6 @@ export class GameBoardCalculator {
     );
     
     if (!attacker || !command.to) {
-      console.warn('⚠️ [GameBoardCalculator] 攻撃者が見つかりません:', command);
       return { characters, animations: [], gamePhase };
     }
     
@@ -219,7 +209,6 @@ export class GameBoardCalculator {
     );
     
     if (!target) {
-      console.warn('⚠️ [GameBoardCalculator] 攻撃対象が見つかりません:', command);
       return { characters, animations: [], gamePhase };
     }
     
@@ -227,7 +216,6 @@ export class GameBoardCalculator {
     const damage = Math.max(0, attacker.attack - target.defense);
     const newHp = Math.max(0, target.hp - damage);
     
-    // 🎯 棋譜に追加
     addGameHistoryMove(
       command.turn,
       command.team,
@@ -270,6 +258,9 @@ export class GameBoardCalculator {
     return { characters: newCharacters, animations, gamePhase: newGamePhase };
   }
 
+  /**
+   * スキル操作の計算
+   */
   private static calculateSkillAction(
     characters: Character[], 
     command: MoveCommand, 
@@ -289,19 +280,16 @@ export class GameBoardCalculator {
     );
     
     if (!caster || !target || !command.skillId) {
-      console.warn('⚠️ [GameBoardCalculator] スキル実行に必要な要素が不足:', command);
       return { characters, animations: [], playerCrystals, enemyCrystals, gamePhase };
     }
 
     const skill = skillData[command.skillId];
     if (!skill) {
-      console.warn('⚠️ [GameBoardCalculator] スキルが見つかりません:', command.skillId);
       return { characters, animations: [], playerCrystals, enemyCrystals, gamePhase };
     }
 
     console.log('✨ [GameBoardCalculator] スキル計算:', caster.name, '->', target.name, skill.name);
 
-    // 🎯 棋譜に追加
     addGameHistoryMove(
       command.turn,
       command.team,
@@ -391,6 +379,9 @@ export class GameBoardCalculator {
     };
   }
 
+  /**
+   * ターン終了操作の計算
+   */
   private static calculateEndTurnAction(
     characters: Character[], 
     command: MoveCommand, 
@@ -401,7 +392,6 @@ export class GameBoardCalculator {
   ) {
     console.log('🔄 [GameBoardCalculator] ターン終了計算:', command.type);
     
-    // 🎯 棋譜に追加
     const description = command.type === 'forced_end_turn' ? 'ターン終了（時間切れ）' : 'ターン終了';
     addGameHistoryMove(
       command.turn,
@@ -451,10 +441,12 @@ export class GameBoardCalculator {
     };
   }
 
+  /**
+   * 降参操作の計算
+   */
   private static calculateSurrenderAction(characters: Character[], command: MoveCommand) {
     console.log('🏳️ [GameBoardCalculator] 降参計算:', command.team);
     
-    // 🎯 棋譜に追加
     addGameHistoryMove(
       command.turn,
       command.team,
@@ -470,6 +462,9 @@ export class GameBoardCalculator {
     return { characters: newCharacters, gamePhase: 'result' };
   }
 
+  /**
+   * マスター生存チェック
+   */
   private static checkMasterStatus(characters: Character[]): { hostMasterAlive: boolean; guestMasterAlive: boolean } {
     const hostMaster = characters.find(char => char.team === 'player' && char.type === 'master');
     const guestMaster = characters.find(char => char.team === 'enemy' && char.type === 'master');
@@ -480,6 +475,9 @@ export class GameBoardCalculator {
     };
   }
 
+  /**
+   * 進化タイプ取得
+   */
   private static getEvolvedMonsterType(type: string): string | null {
     return monsterData[type]?.evolution || null;
   }

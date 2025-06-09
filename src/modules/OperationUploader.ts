@@ -1,4 +1,4 @@
-// 3️⃣ 操作をアップロードするモジュール
+// 3️⃣ 操作をアップロードするモジュール（重複防止機能付き）
 
 import { GameState, Position } from '../types/gameTypes';
 
@@ -15,7 +15,7 @@ export interface OperationData {
 export class OperationUploader {
   private uploadFunction: ((roomId: string, operation: OperationData) => Promise<void>) | null = null;
   private roomId: string | null = null;
-  private uploadInProgress: boolean = false; // 🔧 アップロード中フラグ
+  private uploadInProgress: boolean = false;
 
   /**
    * アップロード関数を設定
@@ -152,7 +152,6 @@ export class OperationUploader {
       console.error('❌ [OperationUploader] アップロードエラー:', error);
       return false;
     } finally {
-      // 🔧 少し遅延してフラグをリセット
       setTimeout(() => {
         this.uploadInProgress = false;
       }, 200);
@@ -164,7 +163,6 @@ export class OperationUploader {
    */
   private canUpload(): boolean {
     if (this.uploadInProgress) {
-      console.log('🚫 [OperationUploader] アップロード中のため無効');
       return false;
     }
 
