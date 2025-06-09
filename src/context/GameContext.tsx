@@ -23,7 +23,7 @@ type GameAction =
   | { type: 'REMOVE_DEFEATED_CHARACTERS'; targetId: string; killerTeam?: Team }
   | { type: 'EVOLVE_CHARACTER'; characterId: string }
   | { type: 'SURRENDER'; team: Team }
-  | { type: 'APPLY_MOVE'; move: any } // 🆕 棋譜を適用するアクション
+  | { type: 'APPLY_MOVE'; move: any }
   | { type: 'SET_NETWORK_SYNC_CALLBACK'; callback: ((action: any) => void) | null };
 
 interface GameContextType {
@@ -56,7 +56,7 @@ const checkMasterStatus = (characters: Character[]): { playerMasterAlive: boolea
 
 // 🎯 統一されたチーム判定関数
 const getMyTeam = (isHost: boolean): Team => {
-  return isHost ? 'player' : 'enemy'; // host=青チーム(player)、guest=赤チーム(enemy)
+  return isHost ? 'player' : 'enemy';
 };
 
 const isMyTurn = (currentTeam: Team, isHost: boolean): boolean => {
@@ -300,12 +300,6 @@ const applyMoveToState = (state: GameState, move: any): GameState => {
       break;
     }
 
-    case 'timer_sync': {
-      console.log('⏰ タイマー同期受信:', { timeLeft: move.timeLeft, team: move.team });
-      // タイマー同期は状態変更なし（UIでのみ使用）
-      break;
-    }
-
     default: {
       console.warn('❓ 未対応の棋譜タイプ:', move.type);
       break;
@@ -357,7 +351,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         };
       }
 
-      // 自分のターンかつ自分のチームのキャラクターのみ選択可能
       const myTeam = getMyTeam(state.isHost);
       const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
       
@@ -685,6 +678,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         timeLimitSeconds: action.timeLimitSeconds,
       });
       
+      // 🆕 先攻はstartingPlayerで決定（デフォルトはhost）
       const startingTeam: Team = 'player';
       
       let newState = state;

@@ -1,12 +1,19 @@
-// 🎯 シンプルな棋譜データ構造
+// 🎯 シンプルな棋譜データ構造（プレイヤー情報削除）
 export interface GameMove {
   id: string;
   turn: number;
-  player: 'host' | 'guest';
-  action: 'move' | 'attack' | 'skill' | 'end_turn' | 'surrender' | 'timer_sync' | 'forced_end_turn'; // 🆕 タイマー関連アクション追加
+  action: 'move' | 'attack' | 'skill' | 'end_turn' | 'surrender' | 'forced_end_turn';
   from: { x: number; y: number };  // 移動前の座標
   to?: { x: number; y: number };   // 移動先（移動の場合）
-  timeLeft?: number; // 🆕 タイマー同期用（残り時間）
+  timestamp: number;
+}
+
+// 🆕 タイマー同期専用データ（movesとは別管理）
+export interface TimerSync {
+  id: string;
+  turn: number;
+  team: 'player' | 'enemy';
+  timeLeft: number;
   timestamp: number;
 }
 
@@ -22,7 +29,7 @@ export interface InitialGameState {
     monsters: string[];
   };
   // ゲーム設定
-  startingTeam: 'player' | 'enemy';
+  startingPlayer: 'host' | 'guest'; // 🆕 先攻プレイヤー
   hasTimeLimit: boolean;
   timeLimitSeconds: number;
   // メタデータ
@@ -49,6 +56,7 @@ export interface SimpleRoom {
   };
   status: 'waiting' | 'playing' | 'finished';
   moves: GameMove[];
+  timer?: TimerSync; // 🆕 最新のタイマー同期情報のみ保持
   initialState?: InitialGameState;
   createdAt: number;
 }

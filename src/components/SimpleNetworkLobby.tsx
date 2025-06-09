@@ -13,32 +13,29 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
   const { savedDecks } = useGame();
   const { createRoom, joinRoom, startGame, leaveRoom, setOnGameStart, setOnRoomUpdate, validateRoomId, isConnected, startRoomMonitoring, uploadInitialState } = useSimpleGameSync();
   
-  const [mode, setMode] = useState<'menu' | 'waiting' | 'reconnect'>('menu'); // 🆕 再接続モード追加
+  const [mode, setMode] = useState<'menu' | 'waiting' | 'reconnect'>('menu');
   const [playerName, setPlayerName] = useState('プレイヤー');
   const [roomId, setRoomId] = useState('');
   const [customRoomId, setCustomRoomId] = useState('');
   const [useCustomRoomId, setUseCustomRoomId] = useState(false);
-  const [timeLimitOption, setTimeLimitOption] = useState<'none' | '30' | '60'>('30'); // 🆕 時間制限選択
+  const [timeLimitOption, setTimeLimitOption] = useState<'none' | '30' | '60'>('30');
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [roomIdValidation, setRoomIdValidation] = useState<{ isValid: boolean; error?: string }>({ isValid: true });
   
-  // 🔧 ローカル状態でルーム情報を管理（再参加対応）
   const [localRoomData, setLocalRoomData] = useState<{
     id: string;
     isHost: boolean;
     playerName: string;
     opponent: { name: string; connected: boolean; ready: boolean } | null;
     status: 'waiting' | 'playing';
-    timeLimitOption: 'none' | '30' | '60'; // 🆕 時間制限情報
-    initialState?: any; // 🔧 初期状態データ
+    timeLimitOption: 'none' | '30' | '60';
+    initialState?: any;
   } | null>(null);
 
-  // デッキが設定されているかチェック
   const hasValidDeck = savedDecks.player && savedDecks.enemy;
 
-  // カスタムルームIDのリアルタイム検証
   useEffect(() => {
     if (useCustomRoomId && customRoomId) {
       const validation = validateRoomId(customRoomId);
@@ -48,12 +45,10 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
     }
   }, [customRoomId, useCustomRoomId, validateRoomId]);
 
-  // ゲーム開始コールバックを設定
   useEffect(() => {
     console.log('ゲーム開始コールバック設定');
     setOnGameStart((roomId: string, isHost: boolean) => {
       console.log('ゲーム開始コールバック実行:', { roomId, isHost });
-      // 🆕 時間制限情報も含めて渡す
       const timeLimit = localRoomData?.timeLimitOption ?? '30';
       const hasTimeLimit = timeLimit !== 'none';
       const timeLimitSeconds = timeLimit === 'none' ? 0 : parseInt(timeLimit);
@@ -61,7 +56,6 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
     });
   }, [setOnGameStart, onStartNetworkGame, localRoomData?.timeLimitOption]);
 
-  // 🔧 ルーム更新コールバックを設定（再参加・設定同期対応）
   useEffect(() => {
     setOnRoomUpdate((roomData: SimpleRoom) => {
       console.log('📊 ルーム更新受信:', {
@@ -75,12 +69,9 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
         status: roomData.status
       });
 
-      // 🔧 初回参加時または再参加時の状態設定
       if (!localRoomData && (roomData.host || roomData.guest)) {
-        // 自分がホストかゲストかを判定
-        const isHost = true; // 実際の判定ロジックに置き換え
+        const isHost = true;
         
-        // 🆕 ホストの設定から時間制限を取得
         const timeLimitFromInitialState = roomData.initialState?.hasTimeLimit !== undefined ? 
           (roomData.initialState.hasTimeLimit ? 
             (roomData.initialState.timeLimitSeconds === 60 ? '60' : '30') : 
@@ -93,11 +84,10 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
           playerName: isHost ? roomData.host.name : roomData.guest?.name || '',
           opponent: null,
           status: roomData.status,
-          timeLimitOption: timeLimitFromInitialState, // 🆕 ホストの設定を反映
+          timeLimitOption: timeLimitFromInitialState,
           initialState: roomData.initialState
         });
         
-        // 🆕 ゲーム中の部屋に再接続した場合
         if (roomData.status === 'playing') {
           console.log('🔄 ゲーム中の部屋に再接続');
           setMode('reconnect');
@@ -108,7 +98,6 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
         setRoomId(roomData.id);
       }
 
-      // 既存のローカル状態がある場合は更新
       if (localRoomData) {
         const isHost = localRoomData.isHost;
         const opponent = isHost ? 
@@ -123,7 +112,6 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
             ready: roomData.host.ready
           };
 
-        // 🆕 ゲスト側でホストの設定を受信した場合に同期
         let updatedTimeLimitOption = localRoomData.timeLimitOption;
         if (!isHost && roomData.initialState && roomData.initialState.hasTimeLimit !== undefined) {
           updatedTimeLimitOption = roomData.initialState.hasTimeLimit ? 
@@ -136,11 +124,10 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
           ...prev,
           opponent,
           status: roomData.status,
-          timeLimitOption: updatedTimeLimitOption, // 🆕 設定同期
+          timeLimitOption: updatedTimeLimitOption,
           initialState: roomData.initialState
         } : null);
 
-        // ゲーム開始時にロビーを閉じる
         if (roomData.status === 'playing' && mode !== 'reconnect') {
           console.log('🎮 ゲーム開始状態検出 - ロビーを閉じる');
           onClose();
@@ -149,7 +136,6 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
     });
   }, [setOnRoomUpdate, localRoomData, onClose, mode]);
 
-  // ランダムルームID生成
   const generateRandomRoomId = () => {
     const adjectives = ['cool', 'epic', 'fun', 'wild', 'mega', 'super', 'ultra', 'pro', 'ace', 'top'];
     const nouns = ['game', 'battle', 'fight', 'duel', 'match', 'arena', 'clash', 'war', 'quest', 'raid'];
@@ -195,14 +181,13 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
         playerName,
         opponent: null,
         status: 'waiting',
-        timeLimitOption // 🆕 時間制限設定を保存
+        timeLimitOption
       });
       setMode('waiting');
       
-      // ルーム監視開始
       startRoomMonitoring(newRoomId, true);
 
-      // 🆕 ルーム作成直後に設定をアップロード
+      // 🆕 ルーム作成直後に設定をアップロード（startingPlayerを追加）
       const hasTimeLimit = timeLimitOption !== 'none';
       const timeLimitSeconds = timeLimitOption === 'none' ? 0 : parseInt(timeLimitOption);
       
@@ -215,7 +200,7 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
           master: savedDecks.enemy?.master || 'red',
           monsters: savedDecks.enemy?.monsters || ['bear', 'wolf', 'golem']
         },
-        startingTeam: 'player' as const,
+        startingPlayer: 'host' as const, // 🆕 ホストが先攻
         hasTimeLimit,
         timeLimitSeconds,
         uploadedAt: Date.now(),
@@ -257,11 +242,10 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
         playerName,
         opponent: null,
         status: 'waiting',
-        timeLimitOption: '30' // 🆕 ゲストは後でホストの設定に同期される
+        timeLimitOption: '30'
       });
       setMode('waiting');
       
-      // ルーム監視開始
       startRoomMonitoring(roomId.trim(), false);
     } catch (err: any) {
       console.error('❌ ルーム参加エラー:', err);
@@ -288,13 +272,11 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
     }
   };
 
-  // 🆕 ゲーム中の部屋に再接続する処理
   const handleReconnectToGame = () => {
     if (!localRoomData) return;
     
     console.log('🔄 ゲーム中の部屋に再接続:', localRoomData.id);
     
-    // 時間制限情報を含めてゲームを再開
     const timeLimit = localRoomData.timeLimitOption;
     const hasTimeLimit = timeLimit !== 'none';
     const timeLimitSeconds = timeLimit === 'none' ? 0 : parseInt(timeLimit);
@@ -342,7 +324,6 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
 
   const canStartGame = localRoomData?.isHost && localRoomData.opponent && localRoomData.opponent.connected && !loading;
 
-  // 接続状態の表示
   const getConnectionStatus = () => {
     if (!isConnected) {
       return { icon: WifiOff, text: '未接続', color: 'text-red-600' };
@@ -411,7 +392,7 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
           </div>
         )}
 
-        {/* 🆕 再接続画面 */}
+        {/* 再接続画面 */}
         {mode === 'reconnect' && localRoomData && (
           <div className="space-y-4">
             <div className="text-center">
@@ -422,7 +403,6 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
               </p>
             </div>
 
-            {/* ルーム情報表示 */}
             <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
               <div className="text-center">
                 <p className="text-sm text-gray-600">ルームID</p>
@@ -430,7 +410,6 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
               </div>
             </div>
 
-            {/* ゲーム設定表示 */}
             <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
               <div className="flex items-center gap-2 justify-center">
                 {localRoomData.timeLimitOption === 'none' ? (
@@ -449,7 +428,6 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
               </div>
             </div>
 
-            {/* 再接続ボタン */}
             <div className="flex gap-2">
               <button
                 onClick={() => {
@@ -493,7 +471,7 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
             <div className="border border-gray-200 rounded-lg p-4">
               <h3 className="font-medium text-gray-800 mb-3">ルームを作成</h3>
               
-              {/* 🆕 時間制限設定 */}
+              {/* 時間制限設定 */}
               <div className="mb-3">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   時間制限設定
@@ -673,7 +651,7 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
               </div>
             </div>
 
-            {/* 🆕 ゲーム設定表示（ホストの設定が反映される） */}
+            {/* ゲーム設定表示（ホストの設定が反映される） */}
             <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
               <div className="flex items-center gap-2">
                 {localRoomData.timeLimitOption === 'none' ? (
