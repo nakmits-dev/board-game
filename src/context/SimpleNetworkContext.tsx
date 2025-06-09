@@ -31,13 +31,24 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
 
   // OperationReceiver の盤面更新コールバック設定
   useEffect(() => {
+    console.log('🔧 [SimpleNetworkContext] OperationReceiver コールバック設定');
     operationReceiver.setOnBoardUpdateCallback((command) => {
+      console.log('📤 [SimpleNetworkContext] 盤面更新ディスパッチ:', {
+        commandType: command.type,
+        team: command.team,
+        turn: command.turn
+      });
       dispatch({ type: 'APPLY_BOARD_UPDATE', command });
     });
   }, [dispatch]);
 
   // アップロード関数を設定
   useEffect(() => {
+    console.log('🔧 [SimpleNetworkContext] アップロード関数設定:', {
+      hasRoomId: !!state.roomId,
+      hasSendMove: !!sendMove
+    });
+
     if (state.roomId && sendMove) {
       dispatch({ type: 'SET_UPLOAD_FUNCTION', uploadFunction: sendMove });
     } else {
@@ -49,9 +60,16 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
   useEffect(() => {
     if (state.roomId && isConnected) {
       if (isInitialized.current) {
+        console.log('🔧 [SimpleNetworkContext] 既に初期化済み - スキップ');
         return;
       }
 
+      console.log('🔗 [SimpleNetworkContext] ルーム監視開始:', {
+        roomId: state.roomId,
+        isHost: state.isHost,
+        isConnected
+      });
+      
       startRoomMonitoring(state.roomId, state.isHost);
       isInitialized.current = true;
     }
@@ -61,13 +79,24 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
   useEffect(() => {
     if (state.roomId) {
       const initialStateCallback = (initialState: any) => {
+        console.log('📥 [SimpleNetworkContext] 初期状態受信:', {
+          hasTimeLimit: initialState.hasTimeLimit,
+          timeLimitSeconds: initialState.timeLimitSeconds,
+          startingPlayer: initialState.startingPlayer,
+          hostDeck: initialState.hostDeck,
+          guestDeck: initialState.guestDeck,
+          alreadyInitialized: !!initialGameState.current
+        });
+
         // 重複初期化を防ぐ
         if (initialGameState.current) {
+          console.log('🔧 [SimpleNetworkContext] 既に初期化済み - 初期状態受信スキップ');
           return;
         }
         
         initialGameState.current = initialState;
         
+        console.log('🎮 [SimpleNetworkContext] ゲーム開始ディスパッチ実行');
         dispatch({
           type: 'START_NETWORK_GAME',
           roomId: state.roomId!,
@@ -81,6 +110,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
 
         // タイマーを正しく設定
         const timeLimit = initialState.timeLimitSeconds || 30;
+        console.log('⏰ [SimpleNetworkContext] タイマー設定:', timeLimit);
         setCurrentTimeLeft(timeLimit);
       };
 
@@ -94,6 +124,11 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
   useEffect(() => {
     if (state.roomId) {
       const moveCallback = (allMoves: any[]) => {
+        console.log('📥 [SimpleNetworkContext] 操作受信:', {
+          totalMoves: allMoves.length,
+          roomId: state.roomId
+        });
+
         // OperationReceiver に処理を委譲
         operationReceiver.processReceivedOperations(allMoves);
       };
@@ -107,6 +142,10 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
   // ターン変更時にタイマーをリセット（修正）
   useEffect(() => {
     if (state.gamePhase === 'action' && state.timeLimitSeconds > 0) {
+      console.log('⏰ [SimpleNetworkContext] ターン変更によるタイマーリセット:', {
+        currentTeam: state.currentTeam,
+        timeLimitSeconds: state.timeLimitSeconds
+      });
       setCurrentTimeLeft(state.timeLimitSeconds);
     }
   }, [state.currentTeam, state.gamePhase, state.timeLimitSeconds]);
@@ -114,6 +153,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
   // ゲーム終了時のクリーンアップ
   useEffect(() => {
     if (!state.roomId && isInitialized.current) {
+      console.log('🧹 [SimpleNetworkContext] ゲーム終了 - クリーンアップ実行');
       isInitialized.current = false;
       initialGameState.current = null;
       operationReceiver.resetTimestamp();
