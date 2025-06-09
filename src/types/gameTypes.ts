@@ -106,8 +106,7 @@ export interface GameState {
     host?: { master: keyof typeof import('../data/cardData').masterData; monsters: MonsterType[] };
     guest?: { master: keyof typeof import('../data/cardData').masterData; monsters: MonsterType[] };
   };
-  // ネットワークゲーム用（常に有効）
-  isNetworkGame: boolean;
+  // ネットワークゲーム用
   isHost: boolean;
   roomId: string | null;
   hasTimeLimit: boolean;

@@ -13,7 +13,7 @@ const TurnOrder: React.FC = () => {
   const isEndingTurn = useRef(false);
   const timerInterval = useRef<NodeJS.Timeout | null>(null);
 
-  // 🎯 自分のターンかどうかを判定
+  // 自分のターンかどうかを判定
   const isMyTurn = () => {
     const myTeam = isHost ? 'player' : 'enemy';
     return currentTeam === myTeam;
@@ -37,36 +37,33 @@ const TurnOrder: React.FC = () => {
     }
   };
 
-  // 🎯 **ターンプレイヤー: ローカルタイマーのみ（送信なし）**
+  // ローカルタイマー（自分のターンのみ）
   useEffect(() => {
     if (!hasTimeLimit || gamePhase !== 'action' || isPaused) {
       return;
     }
 
-    // 🎯 自分のターンの場合のみローカルタイマーを動作
     if (isMyTurn()) {
-      console.log('⏰ ローカルタイマー開始（送信なし）');
+      console.log('⏰ ローカルタイマー開始');
       
       timerInterval.current = setInterval(() => {
         setCurrentTimeLeft((prev) => {
           const newTime = prev - 1;
           
-          // 時間切れの処理
           if (newTime <= 0 && !isEndingTurn.current) {
             console.log('⏰ 時間切れ - 強制ターン終了');
             isEndingTurn.current = true;
             
-            // 強制ターン終了を送信
-            if (state.networkSyncCallback) {
-              const networkAction = {
+            if (state.sendMoveFunction && state.roomId) {
+              const moveData = {
                 turn: state.currentTurn,
                 team: state.currentTeam,
-                type: 'forced_end_turn',
-                characterId: '',
+                action: 'forced_end_turn',
+                from: { x: 0, y: 0 },
                 timestamp: Date.now()
               };
-              console.log('📤 強制ターン終了送信:', networkAction);
-              state.networkSyncCallback(networkAction);
+              console.log('📤 強制ターン終了送信:', moveData);
+              state.sendMoveFunction(state.roomId, moveData);
             }
             
             dispatch({ type: 'END_TURN' });
@@ -95,7 +92,7 @@ const TurnOrder: React.FC = () => {
         timerInterval.current = null;
       }
     }
-  }, [gamePhase, currentTeam, hasTimeLimit, isPaused, isMyTurn(), setCurrentTimeLeft, dispatch, state.networkSyncCallback, state.currentTurn]);
+  }, [gamePhase, currentTeam, hasTimeLimit, isPaused, isMyTurn(), setCurrentTimeLeft, dispatch, state.sendMoveFunction, state.currentTurn, state.roomId]);
 
   // ターン変更時にタイマーをリセット
   useEffect(() => {
@@ -119,7 +116,7 @@ const TurnOrder: React.FC = () => {
     setShowSurrenderConfirm(false);
   };
 
-  // 🎯 降参処理
+  // 降参処理
   const handleSurrender = () => {
     if (!isMyTurn()) {
       console.log('🚫 降参無効 - 自分のターンではありません');
@@ -127,16 +124,16 @@ const TurnOrder: React.FC = () => {
     }
 
     if (showSurrenderConfirm) {
-      if (state.networkSyncCallback) {
-        const networkAction = {
+      if (state.sendMoveFunction && state.roomId) {
+        const moveData = {
           turn: state.currentTurn,
           team: state.currentTeam,
-          type: 'surrender',
-          characterId: '',
+          action: 'surrender',
+          from: { x: 0, y: 0 },
           timestamp: Date.now()
         };
-        console.log('📤 降参棋譜送信:', networkAction);
-        state.networkSyncCallback(networkAction);
+        console.log('📤 降参棋譜送信:', moveData);
+        state.sendMoveFunction(state.roomId, moveData);
         
         setShowSurrenderConfirm(false);
         return;

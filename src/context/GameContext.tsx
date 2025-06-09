@@ -17,7 +17,6 @@ type GameAction =
   | { type: 'RESET_GAME' }
   | { type: 'UPDATE_PREVIEW'; hostDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }; guestDeck?: { master: keyof typeof masterData; monsters: MonsterType[] } }
   | { type: 'SET_SAVED_DECKS'; hostDeck: { master: keyof typeof masterData; monsters: MonsterType[] }; guestDeck: { master: keyof typeof masterData; monsters: MonsterType[] } }
-  | { type: 'ADD_CRYSTAL'; team: Team }
   | { type: 'SET_ANIMATION_TARGET'; target: { id: string; type: 'move' | 'attack' | 'damage' | 'heal' | 'ko' | 'crystal-gain' | 'turn-start' | 'evolve' } | null }
   | { type: 'SET_PENDING_ANIMATIONS'; animations: AnimationSequence[] }
   | { type: 'REMOVE_DEFEATED_CHARACTERS'; targetId: string; killerTeam?: Team }
@@ -54,7 +53,7 @@ const checkMasterStatus = (characters: Character[]): { hostMasterAlive: boolean;
   };
 };
 
-// 🎯 統一された棋譜適用関数（ネットワークゲーム専用）
+// 棋譜適用関数
 const applyMoveToState = (state: GameState, move: any): GameState => {
   console.log('🎯 棋譜適用:', {
     type: move.type,
@@ -402,7 +401,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         return state;
       }
 
-      // 🔧 **修正: roomIdとsendMoveFunctionの存在チェックを追加**
       if (!state.sendMoveFunction || !state.roomId) {
         console.warn('⚠️ [GameContext] sendMoveFunction または roomId が設定されていません:', {
           sendMoveFunction: !!state.sendMoveFunction,
@@ -411,8 +409,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         return state;
       }
 
-      // 🔧 **シンプル化: 直接Firebase送信**
-      console.log('📤 [GameContext] 直接Firebase送信');
+      console.log('📤 [GameContext] Firebase送信');
       
       const moveData = {
         turn: state.currentTurn,
@@ -427,14 +424,12 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       
       console.log('📤 [GameContext] 送信データ:', moveData);
       
-      // 非同期でFirebase送信
       state.sendMoveFunction(state.roomId, moveData).then(() => {
         console.log('✅ [GameContext] Firebase送信成功');
       }).catch((error) => {
         console.error('❌ [GameContext] Firebase送信エラー:', error);
       });
       
-      // 選択状態のみクリア
       return {
         ...state,
         selectedCharacter: null,
@@ -501,7 +496,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       const target = state.characters.find(char => char.id === action.targetId);
       if (!target) return state;
 
-      // 🔧 **修正: roomIdとsendMoveFunctionの存在チェックを追加**
       if (!state.sendMoveFunction || !state.roomId) {
         console.warn('⚠️ [GameContext] sendMoveFunction または roomId が設定されていません:', {
           sendMoveFunction: !!state.sendMoveFunction,
@@ -510,8 +504,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         return state;
       }
 
-      // 🔧 **シンプル化: 直接Firebase送信**
-      console.log('📤 [GameContext] スキル - 直接Firebase送信');
+      console.log('📤 [GameContext] スキル - Firebase送信');
       
       const moveData = {
         turn: state.currentTurn,
@@ -525,7 +518,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       
       console.log('📤 [GameContext] スキル送信データ:', moveData);
       
-      // 非同期でFirebase送信
       state.sendMoveFunction(state.roomId, moveData).then(() => {
         console.log('✅ [GameContext] スキルFirebase送信成功');
       }).catch((error) => {
@@ -602,7 +594,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     case 'END_TURN': {
       if (state.gamePhase === 'preparation') return state;
 
-      // 🔧 **修正: roomIdとsendMoveFunctionの存在チェックを追加**
       if (!state.sendMoveFunction || !state.roomId) {
         console.warn('⚠️ [GameContext] sendMoveFunction または roomId が設定されていません:', {
           sendMoveFunction: !!state.sendMoveFunction,
@@ -611,8 +602,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         return state;
       }
 
-      // 🔧 **シンプル化: 直接Firebase送信**
-      console.log('📤 [GameContext] ターン終了 - 直接Firebase送信');
+      console.log('📤 [GameContext] ターン終了 - Firebase送信');
       
       const moveData = {
         turn: state.currentTurn,
@@ -624,7 +614,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       
       console.log('📤 [GameContext] ターン終了送信データ:', moveData);
       
-      // 非同期でFirebase送信
       state.sendMoveFunction(state.roomId, moveData).then(() => {
         console.log('✅ [GameContext] ターン終了Firebase送信成功');
       }).catch((error) => {
@@ -664,12 +653,11 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           remainingActions: char.team === startingTeam ? char.actions : 0,
         })),
         pendingAnimations: [{ id: startingTeam, type: 'turn-start' }],
-        isNetworkGame: true,
         isHost: action.isHost,
         roomId: action.roomId,
         hasTimeLimit: action.hasTimeLimit,
         timeLimitSeconds: action.timeLimitSeconds,
-        sendMoveFunction: state.sendMoveFunction, // 🔧 **既存の関数を保持**
+        sendMoveFunction: state.sendMoveFunction,
         selectedCharacter: null,
         selectedAction: null,
         selectedSkill: null,
@@ -712,7 +700,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       return {
         ...newState,
         savedDecks: state.savedDecks,
-        isNetworkGame: true, // 🔧 **常にネットワークゲーム**
         isHost: false,
         roomId: null,
         hasTimeLimit: true,
@@ -730,7 +717,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'APPLY_MOVE': {
-      // 🎯 棋譜を受信して適用する統一処理
       console.log('🔄 [GameContext] 棋譜受信・適用:', action.move);
       return applyMoveToState(state, action.move);
     }
@@ -743,7 +729,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(gameReducer, {
     ...createInitialGameState(),
-    isNetworkGame: true, // 🔧 **常にネットワークゲーム**
     isHost: false,
     roomId: null,
     hasTimeLimit: true,

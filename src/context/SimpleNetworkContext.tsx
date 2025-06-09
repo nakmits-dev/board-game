@@ -29,29 +29,25 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
   const isInitialized = useRef(false);
   const initialGameState = useRef<any>(null);
   
-  // 🔧 **修正: 最後に処理した棋譜のタイムスタンプを記録**
   const lastProcessedTimestamp = useRef<number>(0);
 
-  // 🔧 **修正: sendMove関数を常に設定（接続状態に関係なく）**
+  // sendMove関数を設定
   useEffect(() => {
     console.log('🔗 [SimpleNetworkContext] sendMove関数設定:', {
-      isNetworkGame: state.isNetworkGame,
       roomId: state.roomId,
-      isConnected,
       sendMoveExists: !!sendMove
     });
     
-    // ネットワークゲームの場合は常にsendMove関数を設定
-    if (state.isNetworkGame) {
+    if (state.roomId) {
       dispatch({ type: 'SET_SEND_MOVE_FUNCTION', sendMoveFunction: sendMove });
     } else {
       dispatch({ type: 'SET_SEND_MOVE_FUNCTION', sendMoveFunction: null });
     }
-  }, [state.isNetworkGame, sendMove, dispatch]);
+  }, [state.roomId, sendMove, dispatch]);
 
   // ネットワークゲーム開始時の監視開始
   useEffect(() => {
-    if (state.isNetworkGame && state.roomId && isConnected) {
+    if (state.roomId && isConnected) {
       if (isInitialized.current) {
         return;
       }
@@ -60,11 +56,11 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
       startRoomMonitoring(state.roomId, state.isHost);
       isInitialized.current = true;
     }
-  }, [state.isNetworkGame, state.roomId, state.isHost, isConnected, startRoomMonitoring]);
+  }, [state.roomId, state.isHost, isConnected, startRoomMonitoring]);
 
-  // 🎯 初期状態受信処理
+  // 初期状態受信処理
   useEffect(() => {
-    if (state.isNetworkGame) {
+    if (state.roomId) {
       const initialStateCallback = (initialState: any) => {
         console.log('📥 [SimpleNetworkContext] 初期状態受信:', initialState);
         initialGameState.current = initialState;
@@ -86,23 +82,22 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     } else {
       setOnInitialState(() => {});
     }
-  }, [state.isNetworkGame, setOnInitialState, dispatch, state.roomId, state.isHost]);
+  }, [state.roomId, setOnInitialState, dispatch, state.isHost]);
 
-  // 🔧 **修正: 新しい棋譜のみを処理（タイムスタンプベース）**
+  // 棋譜受信処理
   useEffect(() => {
-    if (state.isNetworkGame && state.roomId) {
+    if (state.roomId) {
       const moveCallback = (allMoves: GameMove[]) => {
         console.log('📋 [SimpleNetworkContext] 棋譜受信チェック:', {
           totalMoves: allMoves.length,
           lastProcessedTimestamp: lastProcessedTimestamp.current
         });
 
-        // 🔧 **重要: 新しい棋譜のみをフィルタリング**
         const newMoves = allMoves.filter(move => move.timestamp > lastProcessedTimestamp.current);
         
         if (newMoves.length === 0) {
           console.log('📋 [SimpleNetworkContext] 新しい棋譜なし - スキップ');
-          return; // 新しい棋譜がない場合は何もしない
+          return;
         }
 
         console.log('📋 [SimpleNetworkContext] 新しい棋譜を検出:', {
@@ -115,10 +110,8 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
           }))
         });
 
-        // 🔧 **重要: タイムスタンプ順でソート**
         newMoves.sort((a, b) => a.timestamp - b.timestamp);
 
-        // 🔧 **新しい棋譜のみを順番に処理**
         newMoves.forEach((move, index) => {
           console.log(`📋 [SimpleNetworkContext] 棋譜適用 ${index + 1}/${newMoves.length}:`, {
             action: move.action,
@@ -138,7 +131,6 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
 
           dispatch({ type: 'APPLY_MOVE', move: moveData });
           
-          // 🔧 **重要: 最新のタイムスタンプを更新**
           lastProcessedTimestamp.current = Math.max(lastProcessedTimestamp.current, move.timestamp);
         });
 
@@ -152,7 +144,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     } else {
       setOnMove(() => {});
     }
-  }, [state.isNetworkGame, setOnMove, dispatch, state.roomId]);
+  }, [state.roomId, setOnMove, dispatch]);
 
   // ターン変更時にタイマーをリセット
   useEffect(() => {
@@ -163,13 +155,13 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
 
   // ゲーム終了時のクリーンアップ
   useEffect(() => {
-    if (!state.isNetworkGame && isInitialized.current) {
+    if (!state.roomId && isInitialized.current) {
       console.log('🧹 [SimpleNetworkContext] ネットワークゲーム終了 - クリーンアップ');
       isInitialized.current = false;
       initialGameState.current = null;
-      lastProcessedTimestamp.current = 0; // タイムスタンプもリセット
+      lastProcessedTimestamp.current = 0;
     }
-  }, [state.isNetworkGame]);
+  }, [state.roomId]);
 
   return (
     <SimpleNetworkContext.Provider 
