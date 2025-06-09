@@ -19,19 +19,10 @@ export class GameBoardCalculator {
   private static readonly MAX_CRYSTALS = 8;
 
   /**
-   * 🔧 **核心機能: 現在の盤面状態に対して操作を適用し、新しい盤面状態を返す**
+   * 現在の盤面状態に対して操作を適用し、新しい盤面状態を返す
    */
   static calculateNewBoardState(currentState: GameState, command: MoveCommand): GameState {
-    console.log('🧮 [GameBoardCalculator] 現在の盤面に対して操作適用:', {
-      type: command.type,
-      team: command.team,
-      turn: command.turn,
-      currentTurn: currentState.currentTurn,
-      currentTeam: currentState.currentTeam,
-      charactersCount: currentState.characters.length
-    });
-
-    // 🔧 **重要: 現在の状態を完全にディープコピーしてベースにする**
+    // 現在の状態を完全にディープコピーしてベースにする
     let newState: GameState = {
       ...currentState,
       characters: currentState.characters.map(char => ({ ...char })),
@@ -41,13 +32,12 @@ export class GameBoardCalculator {
     let newCharacters = newState.characters;
     let animations: AnimationSequence[] = [];
 
-    // 🔧 **重要: 操作の妥当性チェック**
+    // 操作の妥当性チェック
     if (!this.validateCommand(newState, command)) {
-      console.warn('⚠️ [GameBoardCalculator] 無効な操作をスキップ:', command);
       return currentState;
     }
 
-    // 🔧 **操作タイプ別の処理**
+    // 操作タイプ別の処理
     switch (command.type) {
       case 'move':
         ({ characters: newCharacters, animations } = this.calculateMoveAction(newCharacters, command));
@@ -91,7 +81,7 @@ export class GameBoardCalculator {
         break;
     }
 
-    // 🔧 **ゲーム終了チェック**
+    // ゲーム終了チェック
     if (newState.gamePhase !== 'result') {
       const { hostMasterAlive, guestMasterAlive } = this.checkMasterStatus(newCharacters);
       if (!hostMasterAlive || !guestMasterAlive) {
@@ -99,21 +89,13 @@ export class GameBoardCalculator {
       }
     }
 
-    console.log('✅ [GameBoardCalculator] 盤面更新完了:', {
-      charactersCount: newCharacters.length,
-      newTurn: newState.currentTurn,
-      newTeam: newState.currentTeam,
-      newPhase: newState.gamePhase,
-      animationsCount: animations.length
-    });
-
-    // 🔧 **重要: 現在の状態をベースに、変更された部分のみを更新**
+    // 現在の状態をベースに、変更された部分のみを更新
     return {
       ...newState,
       characters: newCharacters,
       pendingAnimations: animations,
       animationTarget: null,
-      // 🔧 **重要: 他プレイヤーの操作による更新なので選択状態はクリア**
+      // 他プレイヤーの操作による更新なので選択状態はクリア
       selectedCharacter: null,
       selectedAction: null,
       selectedSkill: null,
@@ -161,7 +143,6 @@ export class GameBoardCalculator {
     const animations: AnimationSequence[] = [];
     
     if (character && command.to) {
-      console.log('📍 [GameBoardCalculator] 移動計算:', character.name, command.from, '->', command.to);
       animations.push({ id: character.id, type: 'move' });
       
       addGameHistoryMove(
@@ -212,7 +193,6 @@ export class GameBoardCalculator {
       return { characters, animations: [], gamePhase };
     }
     
-    console.log('⚔️ [GameBoardCalculator] 攻撃計算:', attacker.name, '->', target.name);
     const damage = Math.max(0, attacker.attack - target.defense);
     const newHp = Math.max(0, target.hp - damage);
     
@@ -287,8 +267,6 @@ export class GameBoardCalculator {
     if (!skill) {
       return { characters, animations: [], playerCrystals, enemyCrystals, gamePhase };
     }
-
-    console.log('✨ [GameBoardCalculator] スキル計算:', caster.name, '->', target.name, skill.name);
 
     addGameHistoryMove(
       command.turn,
@@ -390,8 +368,6 @@ export class GameBoardCalculator {
     playerCrystals: number, 
     enemyCrystals: number
   ) {
-    console.log('🔄 [GameBoardCalculator] ターン終了計算:', command.type);
-    
     const description = command.type === 'forced_end_turn' ? 'ターン終了（時間切れ）' : 'ターン終了';
     addGameHistoryMove(
       command.turn,
@@ -445,8 +421,6 @@ export class GameBoardCalculator {
    * 降参操作の計算
    */
   private static calculateSurrenderAction(characters: Character[], command: MoveCommand) {
-    console.log('🏳️ [GameBoardCalculator] 降参計算:', command.team);
-    
     addGameHistoryMove(
       command.turn,
       command.team,

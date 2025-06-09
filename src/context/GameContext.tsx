@@ -127,8 +127,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         return state;
       }
 
-      console.log('📤 [GameContext] 操作アップロード');
-      
       // OperationUploader を使用して送信
       if (state.pendingAction.type === 'move') {
         operationUploader.uploadMoveOperation(state, state.pendingAction.position!);
@@ -202,8 +200,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       const target = state.characters.find(char => char.id === action.targetId);
       if (!target) return state;
 
-      console.log('📤 [GameContext] スキルアップロード');
-      
       // OperationUploader を使用してスキル送信
       operationUploader.uploadSkillOperation(state, action.targetId, state.selectedSkill.id);
       
@@ -260,8 +256,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'SURRENDER': {
-      console.log('📤 [GameContext] 降参アップロード');
-      
       // OperationUploader を使用して降参送信
       operationUploader.uploadSurrenderOperation(state);
       
@@ -277,8 +271,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     case 'END_TURN': {
       if (state.gamePhase === 'preparation') return state;
 
-      console.log('📤 [GameContext] ターン終了アップロード');
-      
       // OperationUploader を使用してターン終了送信
       operationUploader.uploadEndTurnOperation(state);
       
@@ -292,13 +284,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'START_NETWORK_GAME': {
-      console.log('🎮 START_NETWORK_GAME - ネットワークゲーム開始:', {
-        roomId: action.roomId,
-        isHost: action.isHost,
-        hasTimeLimit: action.hasTimeLimit,
-        timeLimitSeconds: action.timeLimitSeconds,
-      });
-      
       const startingTeam: Team = 'player';
       
       let newState = state;
@@ -378,8 +363,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'SET_UPLOAD_FUNCTION': {
-      console.log('🔧 [GameContext] uploadFunction設定:', !!action.uploadFunction);
-      
       // OperationUploader に送信関数を設定
       operationUploader.setUploadFunction(action.uploadFunction);
       
@@ -390,7 +373,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'APPLY_BOARD_UPDATE': {
-      console.log('🧮 [GameContext] 盤面更新適用:', action.command);
       // GameBoardCalculator を使用して盤面更新
       return GameBoardCalculator.calculateNewBoardState(state, action.command);
     }

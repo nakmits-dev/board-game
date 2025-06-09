@@ -22,7 +22,6 @@ export class OperationUploader {
    */
   setUploadFunction(uploadFunction: ((roomId: string, operation: OperationData) => Promise<void>) | null) {
     this.uploadFunction = uploadFunction;
-    console.log('📤 [OperationUploader] アップロード関数設定:', !!uploadFunction);
   }
 
   /**
@@ -30,7 +29,6 @@ export class OperationUploader {
    */
   setRoomId(roomId: string | null) {
     this.roomId = roomId;
-    console.log('📤 [OperationUploader] ルームID設定:', roomId);
   }
 
   /**
@@ -48,7 +46,7 @@ export class OperationUploader {
       timestamp: Date.now()
     };
 
-    console.log('📤 [OperationUploader] 移動操作アップロード:', operationData);
+    console.log('📤 棋譜送信:', `${operationData.team} - ${operationData.action} - ターン${operationData.turn}`);
     return this.executeUpload(operationData);
   }
 
@@ -70,7 +68,7 @@ export class OperationUploader {
       timestamp: Date.now()
     };
 
-    console.log('📤 [OperationUploader] 攻撃操作アップロード:', operationData);
+    console.log('📤 棋譜送信:', `${operationData.team} - ${operationData.action} - ターン${operationData.turn}`);
     return this.executeUpload(operationData);
   }
 
@@ -93,7 +91,7 @@ export class OperationUploader {
       timestamp: Date.now()
     };
 
-    console.log('📤 [OperationUploader] スキル操作アップロード:', operationData);
+    console.log('📤 棋譜送信:', `${operationData.team} - ${operationData.action} - ターン${operationData.turn}`);
     return this.executeUpload(operationData);
   }
 
@@ -111,7 +109,7 @@ export class OperationUploader {
       timestamp: Date.now()
     };
 
-    console.log('📤 [OperationUploader] ターン終了操作アップロード:', operationData);
+    console.log('📤 棋譜送信:', `${operationData.team} - ${operationData.action} - ターン${operationData.turn}`);
     return this.executeUpload(operationData);
   }
 
@@ -129,7 +127,7 @@ export class OperationUploader {
       timestamp: Date.now()
     };
 
-    console.log('📤 [OperationUploader] 降参操作アップロード:', operationData);
+    console.log('📤 棋譜送信:', `${operationData.team} - ${operationData.action} - ターン${operationData.turn}`);
     return this.executeUpload(operationData);
   }
 
@@ -138,7 +136,6 @@ export class OperationUploader {
    */
   private async executeUpload(operationData: OperationData): Promise<boolean> {
     if (this.uploadInProgress) {
-      console.log('🚫 [OperationUploader] アップロード中 - 重複防止');
       return false;
     }
 
@@ -146,10 +143,9 @@ export class OperationUploader {
 
     try {
       await this.uploadFunction!(this.roomId!, operationData);
-      console.log('✅ [OperationUploader] アップロード成功');
       return true;
     } catch (error) {
-      console.error('❌ [OperationUploader] アップロードエラー:', error);
+      console.error('❌ 棋譜送信エラー:', error);
       return false;
     } finally {
       setTimeout(() => {
@@ -162,18 +158,7 @@ export class OperationUploader {
    * アップロード可能かチェック
    */
   private canUpload(): boolean {
-    if (this.uploadInProgress) {
-      return false;
-    }
-
-    const canUpload = !!(this.uploadFunction && this.roomId);
-    if (!canUpload) {
-      console.warn('⚠️ [OperationUploader] アップロード不可:', {
-        uploadFunction: !!this.uploadFunction,
-        roomId: this.roomId
-      });
-    }
-    return canUpload;
+    return !!(this.uploadFunction && this.roomId && !this.uploadInProgress);
   }
 }
 

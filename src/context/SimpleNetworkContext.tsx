@@ -29,27 +29,15 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
   const isInitialized = useRef(false);
   const initialGameState = useRef<any>(null);
 
-  // 🔧 **修正: OperationReceiver の盤面更新コールバック設定**
+  // OperationReceiver の盤面更新コールバック設定
   useEffect(() => {
-    console.log('🔗 [SimpleNetworkContext] OperationReceiver コールバック設定');
     operationReceiver.setOnBoardUpdateCallback((command) => {
-      console.log('🧮 [SimpleNetworkContext] 盤面更新実行:', {
-        type: command.type,
-        team: command.team,
-        turn: command.turn,
-        timestamp: command.timestamp
-      });
       dispatch({ type: 'APPLY_BOARD_UPDATE', command });
     });
   }, [dispatch]);
 
-  // 🔧 **修正: アップロード関数を設定**
+  // アップロード関数を設定
   useEffect(() => {
-    console.log('🔗 [SimpleNetworkContext] アップロード関数設定:', {
-      roomId: state.roomId,
-      sendMoveExists: !!sendMove
-    });
-    
     if (state.roomId && sendMove) {
       dispatch({ type: 'SET_UPLOAD_FUNCTION', uploadFunction: sendMove });
     } else {
@@ -64,7 +52,6 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
         return;
       }
 
-      console.log('🔗 [SimpleNetworkContext] ルーム監視開始:', state.roomId);
       startRoomMonitoring(state.roomId, state.isHost);
       isInitialized.current = true;
     }
@@ -74,7 +61,6 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
   useEffect(() => {
     if (state.roomId) {
       const initialStateCallback = (initialState: any) => {
-        console.log('📥 [SimpleNetworkContext] 初期状態受信:', initialState);
         initialGameState.current = initialState;
         
         dispatch({
@@ -96,21 +82,11 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.roomId, setOnInitialState, dispatch, state.isHost]);
 
-  // 🔧 **修正: 操作受信処理**
+  // 操作受信処理
   useEffect(() => {
     if (state.roomId) {
       const moveCallback = (allMoves: any[]) => {
-        console.log('📥 [SimpleNetworkContext] 操作受信:', {
-          totalMoves: allMoves.length,
-          moves: allMoves.map(m => ({
-            action: m.action,
-            team: m.team,
-            turn: m.turn,
-            timestamp: m.timestamp
-          }))
-        });
-        
-        // 🔧 **重要: OperationReceiver に処理を委譲**
+        // OperationReceiver に処理を委譲
         operationReceiver.processReceivedOperations(allMoves);
       };
 
@@ -130,7 +106,6 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
   // ゲーム終了時のクリーンアップ
   useEffect(() => {
     if (!state.roomId && isInitialized.current) {
-      console.log('🧹 [SimpleNetworkContext] ネットワークゲーム終了 - クリーンアップ');
       isInitialized.current = false;
       initialGameState.current = null;
       operationReceiver.resetTimestamp();
