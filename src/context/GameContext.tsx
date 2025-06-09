@@ -533,7 +533,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       // 現在の状態を保存（待った用）
       const previousState = deepCloneState(state);
 
-      // 🎯 ネットワークゲームの場合、棋譜を送信（ローカル適用はしない）
+      // 🎯 ネットワークゲームの場合、棋譜を送信してローカル適用も実行
       if (state.isNetworkGame && state.networkSyncCallback) {
         const networkAction = {
           turn: state.currentTurn,
@@ -543,22 +543,11 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           targetId: state.pendingAction.targetId,
           position: state.pendingAction.position,
         };
-        console.log('📤 棋譜送信のみ（ローカル適用なし）:', networkAction);
+        console.log('📤 棋譜送信:', networkAction);
         state.networkSyncCallback(networkAction);
-        
-        // ネットワークゲームでは棋譜送信のみ、ローカル適用は受信時に行う
-        return {
-          ...state,
-          selectedCharacter: null,
-          selectedAction: null,
-          selectedSkill: null,
-          pendingAction: { type: null },
-          previousState,
-          canUndo: false, // ネットワークゲームでは待ったを無効化
-        };
       }
 
-      // 🎯 ローカルゲームの場合のみローカル適用
+      // 🎯 ローカル適用（ネットワークゲーム・ローカルゲーム共通）
       const move = {
         turn: state.currentTurn,
         team: state.currentTeam,
@@ -652,7 +641,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       // 現在の状態を保存（待った用）
       const previousState = deepCloneState(state);
 
-      // ネットワークゲームの場合、棋譜を送信（ローカル適用はしない）
+      // ネットワークゲームの場合、棋譜を送信してローカル適用も実行
       if (state.isNetworkGame && state.networkSyncCallback) {
         const networkAction = {
           turn: state.currentTurn,
@@ -662,22 +651,11 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           targetId: action.targetId,
           skillId: state.selectedSkill.id,
         };
-        console.log('📤 スキル棋譜送信のみ（ローカル適用なし）:', networkAction);
+        console.log('📤 スキル棋譜送信:', networkAction);
         state.networkSyncCallback(networkAction);
-        
-        // ネットワークゲームでは棋譜送信のみ
-        return {
-          ...state,
-          selectedCharacter: null,
-          selectedAction: null,
-          selectedSkill: null,
-          pendingAction: { type: null },
-          previousState,
-          canUndo: false, // ネットワークゲームでは待ったを無効化
-        };
       }
       
-      // 🎯 ローカルゲームの場合のみローカル適用
+      // 🎯 ローカル適用（ネットワークゲーム・ローカルゲーム共通）
       const target = state.characters.find(char => char.id === action.targetId);
       if (!target) return state;
 
@@ -783,7 +761,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       // 現在の状態を保存（待った用）
       const previousState = deepCloneState(state);
 
-      // ネットワークゲームの場合、棋譜を送信（ローカル適用はしない）
+      // ネットワークゲームの場合、棋譜を送信してローカル適用も実行
       if (state.isNetworkGame && state.networkSyncCallback) {
         try {
           const networkAction = {
@@ -792,26 +770,15 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             type: 'end_turn',
             characterId: '',
           };
-          console.log('📤 ターン終了棋譜送信のみ（ローカル適用なし）:', networkAction);
+          console.log('📤 ターン終了棋譜送信:', networkAction);
           state.networkSyncCallback(networkAction);
-          
-          // ネットワークゲームでは棋譜送信のみ
-          return {
-            ...state,
-            selectedCharacter: null,
-            selectedAction: null,
-            selectedSkill: null,
-            pendingAction: { type: null },
-            previousState,
-            canUndo: false, // ネットワークゲームでは待ったを無効化
-          };
         } catch (error) {
           console.error('❌ ターン終了アクション送信エラー:', error);
           return state;
         }
       }
       
-      // 🎯 ローカルゲームの場合のみローカル適用
+      // 🎯 ローカル適用（ネットワークゲーム・ローカルゲーム共通）
       const move = {
         turn: state.currentTurn,
         team: state.currentTeam,
