@@ -54,7 +54,7 @@ const checkMasterStatus = (characters: Character[]): { hostMasterAlive: boolean;
   };
 };
 
-// 🎯 統一された棋譜適用関数（全プレイヤー共通）
+// 🎯 統一された棋譜適用関数（ネットワークゲーム専用）
 const applyMoveToState = (state: GameState, move: any): GameState => {
   console.log('🎯 棋譜適用:', {
     type: move.type,
@@ -402,9 +402,9 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         return state;
       }
 
-      // 🔧 **修正: ネットワークゲームでは棋譜送信のみ（画面反映なし）**
-      if (state.isNetworkGame && state.networkSyncCallback) {
-        console.log('📤 [GameContext] ネットワークゲーム - 棋譜送信のみ実行');
+      // 🔧 **ネットワークゲーム専用: 棋譜送信のみ（画面反映なし）**
+      if (state.networkSyncCallback) {
+        console.log('📤 [GameContext] 棋譜送信のみ実行');
         
         const networkAction = {
           turn: state.currentTurn,
@@ -429,20 +429,9 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         };
       }
 
-      // 🔧 **ローカルゲームの場合のみ即座に適用**
-      console.log('🎮 [GameContext] ローカルゲーム - 即座に適用');
-      const move = {
-        turn: state.currentTurn,
-        team: state.currentTeam,
-        type: state.pendingAction.type,
-        from: state.selectedCharacter.position,
-        to: state.pendingAction.position || (state.pendingAction.targetId ? 
-          state.characters.find(c => c.id === state.pendingAction.targetId)?.position : undefined
-        ),
-        targetId: state.pendingAction.targetId,
-      };
-
-      return applyMoveToState(state, move);
+      // 🚫 **ローカルゲーム処理を削除**
+      console.warn('⚠️ ネットワークゲーム専用です');
+      return state;
     }
 
     case 'EVOLVE_CHARACTER': {
@@ -502,8 +491,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       const target = state.characters.find(char => char.id === action.targetId);
       if (!target) return state;
 
-      // 🔧 **修正: ネットワークゲームでは棋譜送信のみ**
-      if (state.isNetworkGame && state.networkSyncCallback) {
+      // 🔧 **ネットワークゲーム専用: 棋譜送信のみ**
+      if (state.networkSyncCallback) {
         console.log('📤 [GameContext] スキル - 棋譜送信のみ実行');
         
         const networkAction = {
@@ -528,17 +517,9 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         };
       }
 
-      console.log('🎮 [GameContext] スキル - ローカルゲーム適用');
-      const move = {
-        turn: state.currentTurn,
-        team: state.currentTeam,
-        type: 'skill',
-        from: state.selectedCharacter.position,
-        to: target.position,
-        skillId: state.selectedSkill.id,
-      };
-
-      return applyMoveToState(state, move);
+      // 🚫 **ローカルゲーム処理を削除**
+      console.warn('⚠️ ネットワークゲーム専用です');
+      return state;
     }
 
     case 'REMOVE_DEFEATED_CHARACTERS': {
@@ -602,8 +583,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     case 'END_TURN': {
       if (state.gamePhase === 'preparation') return state;
 
-      // 🔧 **修正: ネットワークゲームでは棋譜送信のみ**
-      if (state.isNetworkGame && state.networkSyncCallback) {
+      // 🔧 **ネットワークゲーム専用: 棋譜送信のみ**
+      if (state.networkSyncCallback) {
         console.log('📤 [GameContext] ターン終了 - 棋譜送信のみ実行');
         
         try {
@@ -631,15 +612,9 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         }
       }
       
-      console.log('🎮 [GameContext] ターン終了 - ローカルゲーム適用');
-      const move = {
-        turn: state.currentTurn,
-        team: state.currentTeam,
-        type: 'end_turn',
-        from: { x: 0, y: 0 },
-      };
-
-      return applyMoveToState(state, move);
+      // 🚫 **ローカルゲーム処理を削除**
+      console.warn('⚠️ ネットワークゲーム専用です');
+      return state;
     }
 
     case 'START_NETWORK_GAME': {
@@ -714,7 +689,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       return {
         ...newState,
         savedDecks: state.savedDecks,
-        isNetworkGame: false,
+        isNetworkGame: true, // 🔧 **常にネットワークゲーム**
         isHost: false,
         roomId: null,
         hasTimeLimit: true,
@@ -744,7 +719,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(gameReducer, {
     ...createInitialGameState(),
-    isNetworkGame: true,
+    isNetworkGame: true, // 🔧 **常にネットワークゲーム**
     isHost: false,
     roomId: null,
     hasTimeLimit: true,
