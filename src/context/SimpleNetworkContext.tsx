@@ -90,12 +90,23 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.isNetworkGame, state.isHost, state.roomId, setOnInitialState, dispatch]);
 
-  // 🔧 改善されたネットワーク同期コールバック（移動・攻撃・スキルすべてに対応）
+  // 🎯 ターンプレイヤーのみが棋譜を送信する仕組み
   useEffect(() => {
     if (state.isNetworkGame && state.roomId) {
       const syncCallback = async (action: any) => {
         if (!state.roomId || !isConnected) {
           console.error('❌ ルームIDまたは接続が確立されていません');
+          return;
+        }
+
+        // 🎯 重要: 自分のターンの場合のみ棋譜を送信
+        const isMyTurn = state.isHost ? state.currentTeam === 'player' : state.currentTeam === 'enemy';
+        if (!isMyTurn) {
+          console.log('⏭️ 自分のターンではないため棋譜送信をスキップ:', {
+            currentTeam: state.currentTeam,
+            isHost: state.isHost,
+            isMyTurn
+          });
           return;
         }
         
@@ -172,7 +183,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
             return;
           }
 
-          console.log('📤 棋譜送信:', move);
+          console.log('📤 棋譜送信（ターンプレイヤー）:', move);
           await sendMove(state.roomId, move, state.isHost);
         } catch (error) {
           console.error('❌ 棋譜送信失敗:', error);
@@ -185,9 +196,9 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
       syncCallbackRef.current = null;
       dispatch({ type: 'SET_NETWORK_SYNC_CALLBACK', callback: null });
     }
-  }, [state.isNetworkGame, state.roomId, sendMove, dispatch, state.characters, state.isHost, isConnected]);
+  }, [state.isNetworkGame, state.roomId, sendMove, dispatch, state.characters, state.isHost, state.currentTeam, isConnected]);
 
-  // 🔧 改善された手の受信コールバック（チーム判定の修正）
+  // 🔧 改善された手の受信コールバック（非ターンプレイヤーが受信）
   useEffect(() => {
     if (state.isNetworkGame && state.roomId) {
       const moveCallback = (move: GameMove) => {
@@ -195,7 +206,18 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
           return;
         }
 
-        console.log('📥 相手の手を受信:', {
+        // 🎯 重要: 相手のターンの手のみ処理
+        const isOpponentMove = state.isHost ? move.player === 'guest' : move.player === 'host';
+        if (!isOpponentMove) {
+          console.log('⏭️ 自分の手なのでスキップ:', {
+            movePlayer: move.player,
+            isHost: state.isHost,
+            isOpponentMove
+          });
+          return;
+        }
+
+        console.log('📥 相手の手を受信（非ターンプレイヤー）:', {
           action: move.action,
           from: move.from,
           to: move.to,
