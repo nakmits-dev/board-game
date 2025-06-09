@@ -42,7 +42,12 @@ const GameContent = () => {
     hostDeck: { master: keyof typeof masterData; monsters: MonsterType[] },
     guestDeck: { master: keyof typeof masterData; monsters: MonsterType[] }
   ) => {
-    handleCloseDeckBuilder(hostDeck, guestDeck);
+    // 編成内容を保存
+    dispatch({ type: 'SET_SAVED_DECKS', hostDeck, guestDeck });
+    dispatch({ type: 'UPDATE_PREVIEW', hostDeck, guestDeck });
+    
+    // DeckBuilderを閉じる
+    setShowDeckBuilder(false);
     
     if (gamePhase === 'result') {
       dispatch({ type: 'RESET_GAME' });
@@ -53,6 +58,21 @@ const GameContent = () => {
       type: 'START_LOCAL_GAME', 
       hostDeck, 
       guestDeck 
+    });
+  };
+
+  const handleGameStart = () => {
+    if (!canStartGame()) return;
+    
+    if (gamePhase === 'result') {
+      dispatch({ type: 'RESET_GAME' });
+    }
+    
+    // 保存されたデッキでゲーム開始
+    dispatch({ 
+      type: 'START_LOCAL_GAME', 
+      hostDeck: savedDecks.host!, 
+      guestDeck: savedDecks.guest! 
     });
   };
 
@@ -113,7 +133,7 @@ const GameContent = () => {
                       ? 'bg-blue-600 hover:bg-blue-700 text-white hover:scale-105'
                       : 'bg-gray-400 text-gray-200 cursor-not-allowed'
                   }`}
-                  onClick={() => canStartGame() && handleShowDeckBuilder()}
+                  onClick={handleGameStart}
                   disabled={!canStartGame()}
                 >
                   {gamePhase === 'preparation' ? 'ゲーム開始' : 'もう一度プレイ'}
