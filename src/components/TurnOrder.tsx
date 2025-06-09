@@ -13,9 +13,10 @@ const TurnOrder: React.FC = () => {
   const lastSyncTime = useRef<number>(Date.now());
   const syncInterval = useRef<NodeJS.Timeout | null>(null);
 
-  // 自分のターンかどうかを判定
+  // 🎯 シンプル化: 自分のターンかどうかを判定
   const isMyTurn = () => {
-    return isHost ? currentTeam === 'player' : currentTeam === 'enemy';
+    const myTeam = isHost ? 'player' : 'enemy';
+    return currentTeam === myTeam;
   };
 
   // ターン表示のテキストを決定
@@ -36,7 +37,7 @@ const TurnOrder: React.FC = () => {
     }
   };
 
-  // 🆕 ネットワークゲームでの時間同期機能（残り時間も送信）
+  // タイマー同期機能
   const syncTimeWithNetwork = () => {
     if (!state.networkSyncCallback || !isMyTurn()) return;
 
@@ -48,7 +49,7 @@ const TurnOrder: React.FC = () => {
         timeLeft: timeLeft,
         timestamp: Date.now()
       };
-      console.log('⏰ タイマー同期送信（残り時間含む）:', { timeLeft, team: state.currentTeam });
+      console.log('⏰ タイマー同期送信:', { timeLeft, team: state.currentTeam });
       state.networkSyncCallback(networkAction);
       lastSyncTime.current = Date.now();
     } catch (error) {
@@ -56,7 +57,7 @@ const TurnOrder: React.FC = () => {
     }
   };
 
-  // 🆕 強制ターン終了の処理（ターンプレイヤーが送信）
+  // 強制ターン終了の処理
   const handleForcedTurnEnd = () => {
     if (isEndingTurn.current) return;
     
@@ -112,7 +113,6 @@ const TurnOrder: React.FC = () => {
     return () => clearInterval(timer);
   }, [gamePhase, currentTeam, dispatch, hasTimeLimit, timeLeft, isPaused]);
 
-  // 🆕 ネットワークゲームでの同期インターバル設定
   useEffect(() => {
     if (hasTimeLimit && gamePhase === 'action' && isMyTurn()) {
       syncInterval.current = setInterval(() => {
@@ -151,7 +151,7 @@ const TurnOrder: React.FC = () => {
     setShowSurrenderConfirm(false);
   };
 
-  // 🆕 降参処理（ネットワークゲームでは自分のターンのみ可能）
+  // 🎯 シンプル化: 降参処理
   const handleSurrender = () => {
     if (!isMyTurn()) {
       console.log('🚫 降参無効 - 自分のターンではありません');
@@ -159,7 +159,6 @@ const TurnOrder: React.FC = () => {
     }
 
     if (showSurrenderConfirm) {
-      // 🆕 降参棋譜を送信
       if (state.networkSyncCallback) {
         const networkAction = {
           turn: state.currentTurn,
@@ -190,7 +189,6 @@ const TurnOrder: React.FC = () => {
     dispatch({ type: 'END_TURN' });
   };
 
-  // 🆕 降参ボタンの活性化条件
   const canSurrender = () => {
     return isMyTurn();
   };
@@ -238,7 +236,6 @@ const TurnOrder: React.FC = () => {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
-          {/* 🆕 降参ボタン（自分のターンのみ有効） */}
           <button
             onClick={handleSurrender}
             disabled={!canSurrender()}
@@ -298,7 +295,6 @@ const TurnOrder: React.FC = () => {
           {isHost ? 'あなた: 青チーム' : 'あなた: 赤チーム'}
           {!isMyTurn() && ' | 相手の行動を待機中...'}
           {!hasTimeLimit && ' | 時間制限なし'}
-          {/* 🆕 降参制限の説明 */}
           {!isMyTurn() && ' | 降参は自分のターンでのみ可能'}
         </p>
       </div>

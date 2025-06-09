@@ -48,7 +48,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.isNetworkGame, state.roomId, state.isHost, isConnected, startRoomMonitoring]);
 
-  // 🎯 統一された棋譜送信処理（自分のターンのみ）
+  // 🎯 シンプル化: 全プレイヤーが同じ棋譜を送信
   useEffect(() => {
     if (state.isNetworkGame && state.roomId) {
       const syncCallback = async (action: any) => {
@@ -56,19 +56,9 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
           console.error('❌ ルームIDまたは接続が確立されていません');
           return;
         }
-
-        const isMyTurn = state.isHost ? state.currentTeam === 'player' : state.currentTeam === 'enemy';
-        if (!isMyTurn) {
-          console.log('⏭️ 自分のターンではないため棋譜送信をスキップ:', {
-            currentTeam: state.currentTeam,
-            isHost: state.isHost,
-            isMyTurn
-          });
-          return;
-        }
         
         try {
-          // 🆕 タイマー同期は別処理
+          // タイマー同期は別処理
           if (action.type === 'timer_sync') {
             const timerSync: Omit<TimerSync, 'id' | 'timestamp'> = {
               turn: action.turn,
@@ -141,7 +131,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
             return;
           }
 
-          console.log('📤 棋譜送信（自分のターンのみ）:', move);
+          console.log('📤 棋譜送信（全プレイヤー共通）:', move);
           await sendMove(state.roomId, move);
         } catch (error) {
           console.error('❌ 棋譜送信失敗:', error);
@@ -154,9 +144,9 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
       syncCallbackRef.current = null;
       dispatch({ type: 'SET_NETWORK_SYNC_CALLBACK', callback: null });
     }
-  }, [state.isNetworkGame, state.roomId, sendMove, sendTimerSync, dispatch, state.characters, state.isHost, state.currentTeam, isConnected]);
+  }, [state.isNetworkGame, state.roomId, sendMove, sendTimerSync, dispatch, state.characters, isConnected]);
 
-  // 🎯 統一された棋譜受信処理（全プレイヤー共通）
+  // 🎯 シンプル化: 全プレイヤーが同じ棋譜を受信
   useEffect(() => {
     if (state.isNetworkGame && state.roomId) {
       const moveCallback = (move: GameMove) => {
@@ -170,10 +160,10 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
           to: move.to
         });
 
-        // 🎯 統一されたチーム変換（プレイヤー情報なしでターン順で判定）
+        // 🎯 シンプル化: ターン数で自動的にチーム判定
         const moveData = {
           turn: move.turn,
-          team: move.turn % 2 === 0 ? 'player' : 'enemy', // 🆕 ターン数で判定
+          team: move.turn % 2 === 0 ? 'player' : 'enemy',
           type: move.action,
           from: move.from,
           to: move.to,
@@ -196,7 +186,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.isNetworkGame, setOnMove, dispatch, state.roomId]);
 
-  // 🆕 タイマー同期受信処理
+  // タイマー同期受信処理
   useEffect(() => {
     if (state.isNetworkGame && state.roomId) {
       const timerCallback = (timerSync: TimerSync) => {
@@ -209,9 +199,6 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
           timeLeft: timerSync.timeLeft,
           turn: timerSync.turn
         });
-
-        // タイマー同期はUIでのみ使用（ゲーム状態は変更しない）
-        // 必要に応じてタイマー表示を更新する処理を追加
 
         lastProcessedTimerId.current = timerSync.id;
       };

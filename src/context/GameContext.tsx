@@ -54,25 +54,13 @@ const checkMasterStatus = (characters: Character[]): { hostMasterAlive: boolean;
   };
 };
 
-// 🎯 統一されたチーム判定関数
-const getMyTeam = (isHost: boolean): Team => {
-  return isHost ? 'player' : 'enemy';
-};
-
-const isMyTurn = (currentTeam: Team, isHost: boolean): boolean => {
-  const myTeam = getMyTeam(isHost);
-  return currentTeam === myTeam;
-};
-
-// 🎯 統一された棋譜適用関数（全プレイヤー共通）
+// 🎯 シンプル化: 全プレイヤー共通の棋譜適用関数
 const applyMoveToState = (state: GameState, move: any): GameState => {
   console.log('🎯 棋譜適用開始:', {
     type: move.type,
     team: move.team,
     from: move.from,
-    to: move.to,
-    isHost: state.isHost,
-    currentTeam: state.currentTeam
+    to: move.to
   });
   
   let updatedCharacters = [...state.characters];
@@ -351,17 +339,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         };
       }
 
-      const myTeam = getMyTeam(state.isHost);
-      const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
-      
-      if (!isMyTurnNow || action.character.team !== myTeam) {
-        console.log('🚫 キャラクター選択無効:', {
-          isMyTurn: isMyTurnNow,
-          characterTeam: action.character.team,
-          myTeam,
-          currentTeam: state.currentTeam,
-          isHost: state.isHost
-        });
+      // 🎯 シンプル化: 自分のチームのキャラクターのみ選択可能
+      const myTeam = state.isHost ? 'player' : 'enemy';
+      if (action.character.team !== myTeam) {
+        console.log('🚫 自分のチームではないキャラクター');
         return state;
       }
 
@@ -388,11 +369,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       if (!state.selectedCharacter || state.selectedCharacter.team !== state.currentTeam) {
         return state;
       }
-
-      const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
-      if (!isMyTurnNow) {
-        return state;
-      }
       
       return {
         ...state,
@@ -405,11 +381,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       if (state.gamePhase === 'preparation') return state;
       
       if (!state.selectedCharacter || state.selectedCharacter.team !== state.currentTeam) {
-        return state;
-      }
-
-      const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
-      if (!isMyTurnNow) {
         return state;
       }
 
@@ -440,12 +411,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         return state;
       }
 
-      const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
-      if (!isMyTurnNow) {
-        return state;
-      }
-
-      // 🎯 統一された棋譜作成
+      // 🎯 シンプル化: 棋譜作成と送信を統一
       const move = {
         turn: state.currentTurn,
         team: state.currentTeam,
@@ -457,7 +423,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         targetId: state.pendingAction.targetId,
       };
 
-      // 🎯 棋譜を送信（ネットワークゲームのみ）
+      // 🎯 ネットワークゲームでは棋譜を送信
       if (state.networkSyncCallback) {
         const networkAction = {
           turn: state.currentTurn,
@@ -471,7 +437,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         state.networkSyncCallback(networkAction);
       }
 
-      // 🎯 統一された棋譜適用（全プレイヤー共通）
+      // 🎯 全プレイヤー共通の棋譜適用
       return applyMoveToState(state, move);
     }
 
@@ -513,11 +479,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         return state;
       }
 
-      const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
-      if (!isMyTurnNow) {
-        return state;
-      }
-
       const crystals = state.currentTeam === 'player' ? state.playerCrystals : state.enemyCrystals;
       if (crystals < action.skill.crystalCost) {
         return state;
@@ -534,12 +495,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     case 'USE_SKILL': {
       if (!state.selectedCharacter || !state.selectedSkill) return state;
       
-      const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
-      if (!isMyTurnNow) {
-        return state;
-      }
-
-      // 🎯 統一された棋譜作成
       const target = state.characters.find(char => char.id === action.targetId);
       if (!target) return state;
 
@@ -552,7 +507,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         skillId: state.selectedSkill.id,
       };
 
-      // 🎯 棋譜を送信（ネットワークゲームのみ）
+      // ネットワークゲームでは棋譜を送信
       if (state.networkSyncCallback) {
         const networkAction = {
           turn: state.currentTurn,
@@ -566,7 +521,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         state.networkSyncCallback(networkAction);
       }
       
-      // 🎯 統一された棋譜適用（全プレイヤー共通）
       return applyMoveToState(state, move);
     }
 
@@ -630,18 +584,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
     case 'END_TURN': {
       if (state.gamePhase === 'preparation') return state;
-      
-      const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
-      if (!isMyTurnNow) {
-        console.log('🚫 ターン終了無効 - 自分のターンではありません:', {
-          currentTeam: state.currentTeam,
-          isHost: state.isHost,
-          isMyTurn: isMyTurnNow
-        });
-        return state;
-      }
 
-      // 🎯 統一された棋譜作成
       const move = {
         turn: state.currentTurn,
         team: state.currentTeam,
@@ -649,7 +592,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         from: { x: 0, y: 0 },
       };
 
-      // 🎯 棋譜を送信（ネットワークゲームのみ）
+      // ネットワークゲームでは棋譜を送信
       if (state.networkSyncCallback) {
         try {
           const networkAction = {
@@ -666,7 +609,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         }
       }
       
-      // 🎯 統一された棋譜適用（全プレイヤー共通）
       return applyMoveToState(state, move);
     }
 
@@ -678,7 +620,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         timeLimitSeconds: action.timeLimitSeconds,
       });
       
-      // 🆕 先攻はstartingPlayerで決定（デフォルトはhost）
       const startingTeam: Team = 'player';
       
       let newState = state;
@@ -775,7 +716,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(gameReducer, {
     ...createInitialGameState(),
-    isNetworkGame: true, // 🆕 常にネットワークゲーム
+    isNetworkGame: true,
     isHost: false,
     roomId: null,
     hasTimeLimit: true,
@@ -834,13 +775,11 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [state.pendingAnimations]);
 
+  // 🎯 シンプル化: バリデーション関数も統一
   const isValidMove = (position: Position): boolean => {
     if (!state.selectedCharacter || state.selectedCharacter.remainingActions <= 0) return false;
     if (state.gamePhase === 'preparation') return false;
     if (state.selectedCharacter.team !== state.currentTeam) return false;
-
-    const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
-    if (!isMyTurnNow) return false;
 
     const { x: srcX, y: srcY } = state.selectedCharacter.position;
     const { x: destX, y: destY } = position;
@@ -863,9 +802,6 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (state.gamePhase === 'preparation') return false;
     if (state.selectedCharacter.team !== state.currentTeam) return false;
 
-    const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
-    if (!isMyTurnNow) return false;
-
     const target = state.characters.find(char => char.id === targetId);
     if (!target || target.team === state.selectedCharacter.team) return false;
 
@@ -882,9 +818,6 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!state.selectedCharacter || !state.selectedSkill || state.selectedCharacter.remainingActions <= 0) return false;
     if (state.gamePhase === 'preparation') return false;
     if (state.selectedCharacter.team !== state.currentTeam) return false;
-
-    const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
-    if (!isMyTurnNow) return false;
 
     const target = state.characters.find(char => char.id === targetId);
     if (!target) return false;
