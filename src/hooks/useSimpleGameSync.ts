@@ -23,14 +23,12 @@ export const useSimpleGameSync = () => {
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        console.log('🔐 Firebase認証成功:', user.uid);
         setUser(user);
         setConnectionStatus('connected');
       } else {
         setConnectionStatus('connecting');
         signInAnonymously(auth)
           .then((result) => {
-            console.log('🔐 匿名認証成功:', result.user.uid);
             setConnectionStatus('connected');
           })
           .catch((error) => {
@@ -48,7 +46,6 @@ export const useSimpleGameSync = () => {
       const timestamp = Date.now();
       const random = Math.random().toString(36).substr(2, 9);
       fixedUserId.current = `${timestamp}_${random}`;
-      console.log('🆔 固定ユーザーID生成:', fixedUserId.current);
     }
     return fixedUserId.current;
   };
@@ -69,7 +66,6 @@ export const useSimpleGameSync = () => {
           lastSeen: Date.now(),
           userId: userId
         });
-        console.log('💓 ハートビート送信:', { roomId, isHost, userId });
       } catch (error) {
         console.error('💔 ハートビート送信失敗:', error);
       }
@@ -83,7 +79,6 @@ export const useSimpleGameSync = () => {
     if (heartbeatInterval.current) {
       clearInterval(heartbeatInterval.current);
       heartbeatInterval.current = null;
-      console.log('💔 ハートビート停止');
     }
   }, []);
 
@@ -130,7 +125,6 @@ export const useSimpleGameSync = () => {
       }
 
       roomId = customRoomId.trim();
-      console.log('🎯 ルーム作成 - カスタムID:', roomId);
 
       const existingRoomRef = ref(database, `simple_rooms/${roomId}`);
       const existingSnapshot = await get(existingRoomRef);
@@ -142,7 +136,6 @@ export const useSimpleGameSync = () => {
       const roomsRef = ref(database, 'simple_rooms');
       const newRoomRef = push(roomsRef);
       roomId = newRoomRef.key!;
-      console.log('🎲 ルーム作成 - 自動生成ID:', roomId);
     }
 
     try {
@@ -164,7 +157,6 @@ export const useSimpleGameSync = () => {
       };
 
       await set(roomRef, newRoomData);
-      console.log('✅ ルーム作成成功:', { roomId, hostUserId: userId });
 
       currentRoomId.current = roomId;
       startHeartbeat(roomId, true);
@@ -183,7 +175,6 @@ export const useSimpleGameSync = () => {
     }
 
     const trimmedRoomId = roomId.trim();
-    console.log('🚪 ルーム参加:', trimmedRoomId);
 
     try {
       const roomRef = ref(database, `simple_rooms/${trimmedRoomId}`);
@@ -213,12 +204,6 @@ export const useSimpleGameSync = () => {
         guest: guestData
       });
 
-      console.log('✅ ルーム参加成功:', { 
-        roomId: trimmedRoomId, 
-        guestUserId: userId,
-        isReconnection: !!existingRoomData.guest
-      });
-
       currentRoomId.current = trimmedRoomId;
       startHeartbeat(trimmedRoomId, false);
     } catch (error: any) {
@@ -234,8 +219,6 @@ export const useSimpleGameSync = () => {
       return;
     }
 
-    console.log('📤 初期盤面アップロード開始:', roomId);
-
     try {
       const roomRef = ref(database, `simple_rooms/${roomId}`);
       await update(roomRef, { 
@@ -245,7 +228,6 @@ export const useSimpleGameSync = () => {
           uploadedBy: user?.uid
         }
       });
-      console.log('✅ 初期盤面アップロード成功');
     } catch (error: any) {
       console.error('❌ 初期盤面アップロードエラー:', error);
       throw new Error(`初期盤面のアップロードに失敗しました: ${error.message}`);
@@ -258,12 +240,9 @@ export const useSimpleGameSync = () => {
       return;
     }
 
-    console.log('🎮 ゲーム開始:', roomId);
-
     try {
       const roomRef = ref(database, `simple_rooms/${roomId}`);
       await update(roomRef, { status: 'playing' });
-      console.log('✅ ゲーム開始成功');
     } catch (error: any) {
       console.error('❌ ゲーム開始エラー:', error);
       throw new Error(`ゲーム開始に失敗しました: ${error.message}`);
@@ -287,28 +266,18 @@ export const useSimpleGameSync = () => {
       timestamp: Date.now()
     };
 
-    console.log('📤 棋譜送信:', {
-      action: moveData.action,
-      team: moveData.team,
-      from: moveData.from,
-      to: moveData.to
-    });
-
     try {
       const movesRef = ref(database, `simple_rooms/${roomId}/moves`);
       const newMoveRef = push(movesRef);
       await set(newMoveRef, moveData);
-      console.log('✅ 棋譜送信成功');
     } catch (error: any) {
       console.error('❌ 棋譜送信エラー:', error);
       throw new Error(`棋譜の送信に失敗しました: ${error.message}`);
     }
   }, [user]);
 
-  // 🔧 ルーム監視（棋譜リプレイ対応）
+  // ルーム監視（棋譜リプレイ対応）
   const startRoomMonitoring = useCallback((roomId: string, isHost: boolean) => {
-    console.log('👀 ルーム監視開始:', roomId);
-
     if (roomUnsubscribe.current) {
       roomUnsubscribe.current();
       roomUnsubscribe.current = null;
@@ -320,21 +289,8 @@ export const useSimpleGameSync = () => {
       const roomData = snapshot.val() as SimpleRoom;
       
       if (!roomData) {
-        console.log('🗑️ ルームが削除されました');
         return;
       }
-
-      console.log('📊 ルームデータ更新:', {
-        roomId: roomData.id,
-        status: roomData.status,
-        hostName: roomData.host.name,
-        hostConnected: roomData.host.connected,
-        guestExists: !!roomData.guest,
-        guestName: roomData.guest?.name,
-        guestConnected: roomData.guest?.connected,
-        movesCount: roomData.moves ? Object.keys(roomData.moves).length : 0,
-        hasInitialState: !!roomData.initialState
-      });
 
       // ルーム更新コールバックを呼び出し
       if (onRoomUpdateCallback.current) {
@@ -343,30 +299,23 @@ export const useSimpleGameSync = () => {
 
       // 初期盤面データの検出
       if (roomData.initialState && onInitialStateCallback.current) {
-        console.log('📥 初期盤面データを受信');
         onInitialStateCallback.current(roomData.initialState);
       }
 
       // ゲーム開始検出
       if (roomData.status === 'playing' && onGameStartCallback.current) {
-        console.log('🎮 ゲーム開始検出');
         onGameStartCallback.current(roomId, isHost);
       }
 
-      // 🔧 全棋譜を配列として渡す（リプレイ用）
+      // 全棋譜を配列として渡す（リプレイ用）
       if (roomData.moves && onMoveCallback.current) {
         const allMoves = Object.values(roomData.moves) as GameMove[];
-        // 🔧 ターン順でソート（重要）
+        // ターン順でソート（重要）
         allMoves.sort((a, b) => {
           if (a.turn !== b.turn) {
             return a.turn - b.turn;
           }
           return a.timestamp - b.timestamp;
-        });
-        
-        console.log('📋 全棋譜を送信:', {
-          totalMoves: allMoves.length,
-          moves: allMoves.map(m => ({ action: m.action, team: m.team, turn: m.turn }))
         });
         
         onMoveCallback.current(allMoves);
@@ -382,8 +331,6 @@ export const useSimpleGameSync = () => {
   // ルーム退出
   const leaveRoom = useCallback(async (roomId: string, isHost: boolean) => {
     if (!roomId) return;
-
-    console.log('🚪 ルーム退出:', roomId);
 
     stopHeartbeat();
 
@@ -411,8 +358,6 @@ export const useSimpleGameSync = () => {
 
     currentRoomId.current = null;
     fixedUserId.current = null;
-
-    console.log('✅ ルーム退出完了');
   }, [stopHeartbeat]);
 
   // コンポーネントアンマウント時のクリーンアップ

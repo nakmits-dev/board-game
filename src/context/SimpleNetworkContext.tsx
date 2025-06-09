@@ -57,10 +57,15 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.roomId, state.isHost, isConnected, startRoomMonitoring]);
 
-  // 初期状態受信処理
+  // 初期状態受信処理（修正）
   useEffect(() => {
     if (state.roomId) {
       const initialStateCallback = (initialState: any) => {
+        // 重複初期化を防ぐ
+        if (initialGameState.current) {
+          return;
+        }
+        
         initialGameState.current = initialState;
         
         dispatch({
@@ -73,7 +78,9 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
           guestDeck: initialState.guestDeck
         });
 
-        setCurrentTimeLeft(initialState.timeLimitSeconds || 30);
+        // タイマーを正しく設定
+        const timeLimit = initialState.timeLimitSeconds || 30;
+        setCurrentTimeLeft(timeLimit);
       };
 
       setOnInitialState(initialStateCallback);
@@ -96,9 +103,9 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.roomId, setOnMove]);
 
-  // ターン変更時にタイマーをリセット
+  // ターン変更時にタイマーをリセット（修正）
   useEffect(() => {
-    if (state.gamePhase === 'action') {
+    if (state.gamePhase === 'action' && state.timeLimitSeconds > 0) {
       setCurrentTimeLeft(state.timeLimitSeconds);
     }
   }, [state.currentTeam, state.gamePhase, state.timeLimitSeconds]);

@@ -45,14 +45,11 @@ const TurnOrder: React.FC = () => {
     }
 
     if (isMyTurn()) {
-      console.log('⏰ ローカルタイマー開始');
-      
       timerInterval.current = setInterval(() => {
         setCurrentTimeLeft((prev) => {
           const newTime = prev - 1;
           
           if (newTime <= 0 && !isEndingTurn.current) {
-            console.log('⏰ 時間切れ - 強制ターン終了');
             isEndingTurn.current = true;
             
             // OperationUploader を使用して強制ターン終了送信
@@ -78,7 +75,6 @@ const TurnOrder: React.FC = () => {
         }
       };
     } else {
-      console.log('⏰ ローカルタイマー停止（非ターンプレイヤー）');
       if (timerInterval.current) {
         clearInterval(timerInterval.current);
         timerInterval.current = null;
@@ -86,12 +82,10 @@ const TurnOrder: React.FC = () => {
     }
   }, [gamePhase, currentTeam, hasTimeLimit, isPaused, isMyTurn(), setCurrentTimeLeft, dispatch, state]);
 
-  // ターン変更時にタイマーをリセット
+  // ターン変更時にタイマーをリセット（修正）
   useEffect(() => {
-    if (gamePhase === 'action') {
+    if (gamePhase === 'action' && timeLimitSeconds > 0) {
       setCurrentTimeLeft(timeLimitSeconds);
-      setShowSurrenderConfirm(false);
-      console.log('🔄 ターン変更 - タイマーリセット:', timeLimitSeconds);
     }
   }, [currentTeam, gamePhase, timeLimitSeconds, setCurrentTimeLeft]);
   
@@ -111,12 +105,10 @@ const TurnOrder: React.FC = () => {
   // 降参処理
   const handleSurrender = () => {
     if (!isMyTurn()) {
-      console.log('🚫 降参無効 - 自分のターンではありません');
       return;
     }
 
     if (showSurrenderConfirm) {
-      console.log('📤 降参実行');
       dispatch({ type: 'SURRENDER', team: isHost ? 'player' : 'enemy' });
       setShowSurrenderConfirm(false);
     } else {
