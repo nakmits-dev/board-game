@@ -17,7 +17,7 @@ export class OperationReceiver {
   }
 
   /**
-   * 🔧 **新設計: 受信した操作データを現在の盤面に対して増分適用**
+   * 🔧 **修正: 受信した操作データを現在の盤面に対して増分適用**
    */
   processReceivedOperations(allOperations: GameMove[]) {
     console.log('📥 [OperationReceiver] 操作受信処理開始:', {
