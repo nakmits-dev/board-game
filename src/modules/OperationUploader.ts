@@ -15,6 +15,7 @@ export interface OperationData {
 export class OperationUploader {
   private uploadFunction: ((roomId: string, operation: OperationData) => Promise<void>) | null = null;
   private roomId: string | null = null;
+  private uploadInProgress: boolean = false; // 🔧 アップロード中フラグ
 
   /**
    * アップロード関数を設定
@@ -133,9 +134,16 @@ export class OperationUploader {
   }
 
   /**
-   * アップロード実行
+   * アップロード実行（重複防止機能付き）
    */
   private async executeUpload(operationData: OperationData): Promise<boolean> {
+    if (this.uploadInProgress) {
+      console.log('🚫 [OperationUploader] アップロード中 - 重複防止');
+      return false;
+    }
+
+    this.uploadInProgress = true;
+
     try {
       await this.uploadFunction!(this.roomId!, operationData);
       console.log('✅ [OperationUploader] アップロード成功');
@@ -143,6 +151,11 @@ export class OperationUploader {
     } catch (error) {
       console.error('❌ [OperationUploader] アップロードエラー:', error);
       return false;
+    } finally {
+      // 🔧 少し遅延してフラグをリセット
+      setTimeout(() => {
+        this.uploadInProgress = false;
+      }, 200);
     }
   }
 
@@ -150,6 +163,11 @@ export class OperationUploader {
    * アップロード可能かチェック
    */
   private canUpload(): boolean {
+    if (this.uploadInProgress) {
+      console.log('🚫 [OperationUploader] アップロード中のため無効');
+      return false;
+    }
+
     const canUpload = !!(this.uploadFunction && this.roomId);
     if (!canUpload) {
       console.warn('⚠️ [OperationUploader] アップロード不可:', {
