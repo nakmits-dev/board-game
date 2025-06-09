@@ -16,7 +16,7 @@ export class OperationReceiver {
   }
 
   /**
-   * 受信した操作データを処理
+   * 受信した操作データを処理（増分更新）
    */
   processReceivedOperations(allOperations: GameMove[]) {
     console.log('📥 [OperationReceiver] 操作受信チェック:', {
@@ -24,7 +24,7 @@ export class OperationReceiver {
       lastProcessedTimestamp: this.lastProcessedTimestamp
     });
 
-    // 新しい操作のみをフィルタリング
+    // 🔧 **重要: 新しい操作のみをフィルタリング（増分更新）**
     const newOperations = allOperations.filter(operation => 
       operation.timestamp > this.lastProcessedTimestamp
     );
@@ -34,7 +34,7 @@ export class OperationReceiver {
       return;
     }
 
-    console.log('📥 [OperationReceiver] 新しい操作を検出:', {
+    console.log('📥 [OperationReceiver] 新しい操作を検出（増分更新）:', {
       newOperationsCount: newOperations.length,
       operations: newOperations.map(op => ({ 
         action: op.action, 
@@ -47,16 +47,16 @@ export class OperationReceiver {
     // タイムスタンプ順でソート
     newOperations.sort((a, b) => a.timestamp - b.timestamp);
 
-    // 新しい操作のみを順番に処理
-    newOperations.forEach((operation) => {
-      console.log('📥 [OperationReceiver] 操作変換:', {
+    // 🔧 **重要: 新しい操作のみを現在の盤面に対して順番に適用**
+    newOperations.forEach((operation, index) => {
+      console.log(`📥 [OperationReceiver] 増分操作適用 ${index + 1}/${newOperations.length}:`, {
         action: operation.action,
         team: operation.team,
         turn: operation.turn,
         timestamp: operation.timestamp
       });
 
-      // 最新のタイムスタンプを更新
+      // 🔧 **重要: 最新のタイムスタンプを更新（各操作後）**
       this.lastProcessedTimestamp = Math.max(this.lastProcessedTimestamp, operation.timestamp);
 
       // GameMove を MoveCommand に変換
@@ -70,14 +70,14 @@ export class OperationReceiver {
         timestamp: operation.timestamp
       };
 
-      // 盤面更新コールバックを実行
+      // 🔧 **重要: 現在の盤面状態に対して増分更新を実行**
       if (this.onBoardUpdateCallback) {
-        console.log('🧮 [OperationReceiver] 盤面計算モジュール実行');
+        console.log('🧮 [OperationReceiver] 現在の盤面に対して増分更新実行');
         this.onBoardUpdateCallback(command);
       }
     });
 
-    console.log('✅ [OperationReceiver] 新しい操作処理完了:', {
+    console.log('✅ [OperationReceiver] 増分操作処理完了:', {
       processedCount: newOperations.length,
       latestTimestamp: this.lastProcessedTimestamp
     });

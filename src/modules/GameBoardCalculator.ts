@@ -19,16 +19,19 @@ export class GameBoardCalculator {
   private static readonly MAX_CRYSTALS = 8;
 
   /**
-   * 棋譜コマンドを受け取り、新しい盤面状態を計算して返す
+   * 🔧 **重要: 現在の盤面状態に対して棋譜コマンドを適用し、新しい盤面状態を返す（増分更新）**
    */
   static calculateNewBoardState(currentState: GameState, command: MoveCommand): GameState {
-    console.log('🧮 [GameBoardCalculator] 盤面計算開始:', {
+    console.log('🧮 [GameBoardCalculator] 現在の盤面に対して増分更新開始:', {
       type: command.type,
       team: command.team,
       from: command.from,
-      to: command.to
+      to: command.to,
+      currentTurn: currentState.currentTurn,
+      currentTeam: currentState.currentTeam
     });
 
+    // 🔧 **重要: 現在の状態をベースにして更新**
     let newCharacters = [...currentState.characters];
     let animations: AnimationSequence[] = [];
     let newPlayerCrystals = currentState.playerCrystals;
@@ -91,10 +94,16 @@ export class GameBoardCalculator {
       }
     }
 
-    console.log('✅ [GameBoardCalculator] 盤面計算完了');
+    console.log('✅ [GameBoardCalculator] 増分更新完了:', {
+      charactersCount: newCharacters.length,
+      newTurn: newCurrentTurn,
+      newTeam: newCurrentTeam,
+      newPhase: newGamePhase
+    });
 
+    // 🔧 **重要: 現在の状態をベースに更新された新しい状態を返す**
     return {
-      ...currentState,
+      ...currentState, // 現在の状態をベースにする
       characters: newCharacters,
       playerCrystals: newPlayerCrystals,
       enemyCrystals: newEnemyCrystals,
@@ -103,6 +112,11 @@ export class GameBoardCalculator {
       currentTurn: newCurrentTurn,
       pendingAnimations: animations,
       animationTarget: null,
+      // 🔧 **重要: 選択状態はクリア（他プレイヤーの操作による更新のため）**
+      selectedCharacter: null,
+      selectedAction: null,
+      selectedSkill: null,
+      pendingAction: { type: null },
     };
   }
 
@@ -133,7 +147,7 @@ export class GameBoardCalculator {
           ? {
               ...char,
               position: command.to!,
-              remainingActions: char.remainingActions - 1,
+              remainingActions: Math.max(0, char.remainingActions - 1), // 🔧 負の値を防ぐ
             }
           : char
       );
@@ -199,7 +213,7 @@ export class GameBoardCalculator {
 
     const newCharacters = characters.map(char => {
       if (char.id === attacker.id) {
-        return { ...char, remainingActions: char.remainingActions - 1 };
+        return { ...char, remainingActions: Math.max(0, char.remainingActions - 1) }; // 🔧 負の値を防ぐ
       }
       if (char.id === target.id) {
         return { ...char, hp: newHp };
@@ -254,9 +268,9 @@ export class GameBoardCalculator {
     let newEnemyCrystals = enemyCrystals;
 
     if (command.team === 'player') {
-      newPlayerCrystals -= skill.crystalCost;
+      newPlayerCrystals = Math.max(0, newPlayerCrystals - skill.crystalCost); // 🔧 負の値を防ぐ
     } else {
-      newEnemyCrystals -= skill.crystalCost;
+      newEnemyCrystals = Math.max(0, newEnemyCrystals - skill.crystalCost); // 🔧 負の値を防ぐ
     }
 
     const animations: AnimationSequence[] = [{ id: caster.id, type: 'attack' }];
@@ -317,7 +331,7 @@ export class GameBoardCalculator {
 
     newCharacters = newCharacters.map(char => {
       if (char.id === caster.id) {
-        return { ...char, remainingActions: char.remainingActions - 1 };
+        return { ...char, remainingActions: Math.max(0, char.remainingActions - 1) }; // 🔧 負の値を防ぐ
       }
       return char;
     });
