@@ -14,6 +14,7 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
   const [showModal, setShowModal] = React.useState(false);
   const [isDragOver, setIsDragOver] = React.useState(false);
   const [lastTap, setLastTap] = React.useState(0);
+  const [actionProcessed, setActionProcessed] = React.useState(false); // 🔧 重複防止フラグ
   
   const character = getCharacterAt(position);
   const isSelected = selectedCharacter?.id === character?.id;
@@ -24,6 +25,45 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
 
   // スマホかどうかを判定
   const isMobile = window.innerWidth < 1024;
+
+  // 🔧 アクション実行の統一関数
+  const executeAction = React.useCallback((actionType: 'move' | 'attack' | 'skill', targetId?: string, targetPosition?: Position) => {
+    if (actionProcessed) {
+      console.log('🚫 アクション重複防止 - スキップ');
+      return;
+    }
+
+    console.log('🎯 アクション実行:', { actionType, targetId, targetPosition });
+    setActionProcessed(true);
+
+    if (actionType === 'move' && targetPosition) {
+      dispatch({
+        type: 'SET_PENDING_ACTION',
+        action: { type: 'move', position: targetPosition }
+      });
+    } else if (actionType === 'attack' && targetId) {
+      dispatch({
+        type: 'SET_PENDING_ACTION',
+        action: { type: 'attack', targetId }
+      });
+    } else if (actionType === 'skill' && targetId) {
+      dispatch({ type: 'USE_SKILL', targetId });
+      setActionProcessed(false); // スキルは即座にリセット
+      return;
+    }
+
+    dispatch({ type: 'CONFIRM_ACTION' });
+    
+    // 🔧 少し遅延してフラグをリセット
+    setTimeout(() => {
+      setActionProcessed(false);
+    }, 100);
+  }, [actionProcessed, dispatch]);
+
+  // 🔧 選択状態変更時にフラグをリセット
+  React.useEffect(() => {
+    setActionProcessed(false);
+  }, [selectedCharacter?.id, selectedAction]);
 
   // PCドラッグイベントハンドラー（PC専用）
   const handleDragStart = (e: React.DragEvent) => {
@@ -66,18 +106,11 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
     const draggedCharacterId = e.dataTransfer.getData('text/plain');
     if (!draggedCharacterId || !selectedCharacter) return;
 
+    // 🔧 ドラッグ&ドロップでのアクション実行
     if (!character && isValidMove(position)) {
-      dispatch({
-        type: 'SET_PENDING_ACTION',
-        action: { type: 'move', position }
-      });
-      dispatch({ type: 'CONFIRM_ACTION' });
+      executeAction('move', undefined, position);
     } else if (character && isValidAttack(character.id)) {
-      dispatch({
-        type: 'SET_PENDING_ACTION',
-        action: { type: 'attack', targetId: character.id }
-      });
-      dispatch({ type: 'CONFIRM_ACTION' });
+      executeAction('attack', character.id);
     }
   };
 
@@ -104,22 +137,16 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
   const handleClick = () => {
     if (character) {
       if (selectedCharacter && selectedAction === 'attack' && isValidAttack(character.id)) {
-        dispatch({
-          type: 'SET_PENDING_ACTION',
-          action: { type: 'attack', targetId: character.id }
-        });
-        dispatch({ type: 'CONFIRM_ACTION' });
+        // 🔧 クリックでのアクション実行
+        executeAction('attack', character.id);
       } else if (selectedCharacter && selectedAction === 'skill' && isValidSkillTarget(character.id)) {
-        dispatch({ type: 'USE_SKILL', targetId: character.id });
+        executeAction('skill', character.id);
       } else {
         dispatch({ type: 'SELECT_CHARACTER', character });
       }
     } else if (selectedCharacter && canMoveTo) {
-      dispatch({
-        type: 'SET_PENDING_ACTION',
-        action: { type: 'move', position }
-      });
-      dispatch({ type: 'CONFIRM_ACTION' });
+      // 🔧 クリックでのアクション実行
+      executeAction('move', undefined, position);
     } else if (!character && !canMoveTo && !canAttack && !canUseSkill) {
       dispatch({ type: 'SELECT_CHARACTER', character: null });
     }
