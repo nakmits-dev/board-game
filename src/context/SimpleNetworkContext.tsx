@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useRef } from 'react';
 import { useSimpleGameSync } from '../hooks/useSimpleGameSync';
 import { useGame } from './GameContext';
-import { GameMove, TimerSync } from '../types/networkTypes';
+import { GameMove } from '../types/networkTypes';
 
 interface SimpleNetworkContextType {
   isConnected: boolean;
@@ -30,9 +30,8 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
   const isInitialized = useRef(false);
   const initialGameState = useRef<any>(null);
   
-  // 🔧 **重要: 処理済み棋譜IDを記録（毎秒リセット防止）**
-  const processedMoveIds = useRef<Set<string>>(new Set());
-  const lastProcessedMoveCount = useRef<number>(0);
+  // 🔧 **修正: 最後に処理した棋譜のタイムスタンプを記録**
+  const lastProcessedTimestamp = useRef<number>(0);
 
   // 🎯 自分のターンかどうかを判定
   const isMyTurn = () => {
@@ -44,37 +43,24 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
   useEffect(() => {
     if (state.isNetworkGame && state.roomId && isConnected) {
       if (isInitialized.current) {
-        console.log('✅ 既に監視開始済み:', state.roomId);
         return;
       }
 
-      console.log('🔗 ルーム監視開始:', {
-        roomId: state.roomId,
-        isHost: state.isHost
-      });
-
+      console.log('🔗 ルーム監視開始:', state.roomId);
       startRoomMonitoring(state.roomId, state.isHost);
       isInitialized.current = true;
     }
   }, [state.isNetworkGame, state.roomId, state.isHost, isConnected, startRoomMonitoring]);
 
-  // 🎯 **棋譜送信（アクション時のみ）**
+  // 🎯 **修正: 棋譜送信のみ（画面反映なし）**
   useEffect(() => {
     if (state.isNetworkGame && state.roomId) {
       const syncCallback = async (action: any) => {
-        if (!state.roomId || !isConnected) {
-          console.error('❌ ルームIDまたは接続が確立されていません');
-          return;
-        }
-
-        // 🎯 自分のターンでない場合は送信しない
-        if (!isMyTurn()) {
-          console.log('⏭️ 自分のターンではないため棋譜送信をスキップ');
+        if (!state.roomId || !isConnected || !isMyTurn()) {
           return;
         }
         
         try {
-          // 🎯 通常の棋譜作成（盤面に影響する手のみ）
           const move: Omit<GameMove, 'id' | 'timestamp'> = {
             turn: action.turn,
             team: action.team,
@@ -88,15 +74,6 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
             if (character && action.position) {
               move.from = character.position;
               move.to = action.position;
-              console.log('🚶 移動棋譜作成:', {
-                character: character.name,
-                team: action.team,
-                from: character.position,
-                to: action.position
-              });
-            } else {
-              console.error('❌ 移動: キャラクターまたは移動先が見つかりません');
-              return;
             }
           } else if (action.type === 'attack') {
             const attacker = state.characters.find(c => c.id === action.characterId);
@@ -104,14 +81,6 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
             if (attacker && target) {
               move.from = attacker.position;
               move.to = target.position;
-              console.log('⚔️ 攻撃棋譜作成:', {
-                attacker: attacker.name,
-                target: target.name,
-                team: action.team
-              });
-            } else {
-              console.error('❌ 攻撃: 攻撃者または対象が見つかりません');
-              return;
             }
           } else if (action.type === 'skill') {
             const caster = state.characters.find(c => c.id === action.characterId);
@@ -119,38 +88,20 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
             if (caster && target) {
               move.from = caster.position;
               move.to = target.position;
-              console.log('✨ スキル棋譜作成:', {
-                caster: caster.name,
-                target: target.name,
-                skill: action.skillId,
-                team: action.team
-              });
-            } else {
-              console.error('❌ スキル: 使用者または対象が見つかりません');
-              return;
             }
-          } else if (action.type === 'end_turn' || action.type === 'forced_end_turn') {
+          } else if (action.type === 'end_turn' || action.type === 'forced_end_turn' || action.type === 'surrender') {
             move.from = { x: 0, y: 0 };
-            console.log('🔄 ターン終了棋譜作成:', action.type, 'team:', action.team);
-          } else if (action.type === 'surrender') {
-            move.from = { x: 0, y: 0 };
-            console.log('🏳️ 降参棋譜作成:', action.team);
-          } else {
-            console.warn('⚠️ 未対応のアクションタイプ:', action.type);
-            return;
           }
 
-          console.log('📤 棋譜送信（アクション時）:', move);
+          console.log('📤 棋譜送信のみ（画面反映なし）:', move);
           await sendMove(state.roomId, move);
         } catch (error) {
           console.error('❌ 棋譜送信失敗:', error);
         }
       };
       
-      syncCallbackRef.current = syncCallback;
       dispatch({ type: 'SET_NETWORK_SYNC_CALLBACK', callback: syncCallback });
-    } else if (!state.isNetworkGame) {
-      syncCallbackRef.current = null;
+    } else {
       dispatch({ type: 'SET_NETWORK_SYNC_CALLBACK', callback: null });
     }
   }, [state.isNetworkGame, state.roomId, sendMove, dispatch, state.characters, isConnected, state.currentTeam, state.isHost]);
@@ -162,7 +113,6 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
         console.log('📥 初期状態受信:', initialState);
         initialGameState.current = initialState;
         
-        // 初期状態をゲームに適用
         dispatch({
           type: 'START_NETWORK_GAME',
           roomId: state.roomId!,
@@ -173,7 +123,6 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
           guestDeck: initialState.guestDeck
         });
 
-        // タイマーを初期化
         setCurrentTimeLeft(initialState.timeLimitSeconds || 30);
       };
 
@@ -183,49 +132,36 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.isNetworkGame, setOnInitialState, dispatch, state.roomId, state.isHost]);
 
-  // 🔧 **修正: 新しい棋譜のみを処理する差分更新システム**
+  // 🔧 **修正: 新しい棋譜のみを処理（タイムスタンプベース）**
   useEffect(() => {
     if (state.isNetworkGame && state.roomId) {
       const moveCallback = (allMoves: GameMove[]) => {
-        console.log('📥 棋譜監視コールバック実行:', {
-          totalMoves: allMoves.length,
-          lastProcessedCount: lastProcessedMoveCount.current,
-          processedMoveIds: processedMoveIds.current.size
-        });
-
-        // 🔧 **重要: 棋譜数が変わっていない場合は処理をスキップ**
-        if (allMoves.length === lastProcessedMoveCount.current) {
-          console.log('⏭️ 棋譜数に変化なし - 処理をスキップ');
-          return;
-        }
-
         // 🔧 **重要: 新しい棋譜のみをフィルタリング**
-        const newMoves = allMoves.filter(move => !processedMoveIds.current.has(move.id));
+        const newMoves = allMoves.filter(move => move.timestamp > lastProcessedTimestamp.current);
         
         if (newMoves.length === 0) {
-          console.log('⏭️ 新しい棋譜なし - 処理をスキップ');
-          return;
+          return; // 新しい棋譜がない場合は何もしない
         }
 
         console.log('📋 新しい棋譜を検出:', {
           newMovesCount: newMoves.length,
           moves: newMoves.map(m => ({ 
-            id: m.id.slice(-6), 
             action: m.action, 
             team: m.team, 
-            turn: m.turn 
+            turn: m.turn,
+            timestamp: m.timestamp
           }))
         });
 
+        // 🔧 **重要: タイムスタンプ順でソート**
+        newMoves.sort((a, b) => a.timestamp - b.timestamp);
+
         // 🔧 **新しい棋譜のみを順番に処理**
         newMoves.forEach((move, index) => {
-          console.log(`📋 新しい棋譜適用 ${index + 1}/${newMoves.length}:`, {
-            id: move.id.slice(-6),
+          console.log(`📋 棋譜適用 ${index + 1}/${newMoves.length}:`, {
             action: move.action,
             team: move.team,
-            turn: move.turn,
-            from: move.from,
-            to: move.to
+            turn: move.turn
           });
 
           const moveData = {
@@ -239,17 +175,13 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
 
           dispatch({ type: 'APPLY_MOVE', move: moveData });
           
-          // 🔧 **重要: 処理済みIDを記録**
-          processedMoveIds.current.add(move.id);
+          // 🔧 **重要: 最新のタイムスタンプを更新**
+          lastProcessedTimestamp.current = Math.max(lastProcessedTimestamp.current, move.timestamp);
         });
 
-        // 🔧 **重要: 処理済み棋譜数を更新**
-        lastProcessedMoveCount.current = allMoves.length;
-
         console.log('✅ 新しい棋譜処理完了:', {
-          newMovesProcessed: newMoves.length,
-          totalProcessedIds: processedMoveIds.current.size,
-          updatedProcessedCount: lastProcessedMoveCount.current
+          processedCount: newMoves.length,
+          latestTimestamp: lastProcessedTimestamp.current
         });
       };
 
@@ -263,7 +195,6 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
   useEffect(() => {
     if (state.gamePhase === 'action') {
       setCurrentTimeLeft(state.timeLimitSeconds);
-      console.log('🔄 ターン変更 - タイマーリセット:', state.timeLimitSeconds);
     }
   }, [state.currentTeam, state.gamePhase, state.timeLimitSeconds]);
 
@@ -273,10 +204,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
       console.log('🧹 ネットワークゲーム終了 - クリーンアップ');
       isInitialized.current = false;
       initialGameState.current = null;
-      
-      // 🔧 **重要: 処理済みIDもクリア**
-      processedMoveIds.current.clear();
-      lastProcessedMoveCount.current = 0;
+      lastProcessedTimestamp.current = 0; // タイムスタンプもリセット
     }
   }, [state.isNetworkGame]);
 

@@ -54,9 +54,9 @@ const checkMasterStatus = (characters: Character[]): { hostMasterAlive: boolean;
   };
 };
 
-// 🎯 シンプル化: 全プレイヤー共通の棋譜適用関数
+// 🎯 統一された棋譜適用関数（全プレイヤー共通）
 const applyMoveToState = (state: GameState, move: any): GameState => {
-  console.log('🎯 棋譜適用開始:', {
+  console.log('🎯 棋譜適用:', {
     type: move.type,
     team: move.team,
     from: move.from,
@@ -302,13 +302,6 @@ const applyMoveToState = (state: GameState, move: any): GameState => {
     }
   }
 
-  console.log('✅ 棋譜適用完了:', {
-    type: move.type,
-    charactersChanged: updatedCharacters.length !== state.characters.length,
-    gamePhaseChanged: newGamePhase !== state.gamePhase,
-    teamChanged: newCurrentTeam !== state.currentTeam
-  });
-
   return {
     ...state,
     characters: updatedCharacters,
@@ -339,10 +332,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         };
       }
 
-      // 🎯 シンプル化: 自分のチームのキャラクターのみ選択可能
       const myTeam = state.isHost ? 'player' : 'enemy';
       if (action.character.team !== myTeam) {
-        console.log('🚫 自分のチームではないキャラクター');
         return state;
       }
 
@@ -411,7 +402,30 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         return state;
       }
 
-      // 🎯 シンプル化: 棋譜作成と送信を統一
+      // 🔧 **修正: ネットワークゲームでは棋譜送信のみ（画面反映なし）**
+      if (state.networkSyncCallback) {
+        const networkAction = {
+          turn: state.currentTurn,
+          team: state.currentTeam,
+          type: state.pendingAction.type,
+          characterId: state.selectedCharacter.id,
+          targetId: state.pendingAction.targetId,
+          position: state.pendingAction.position,
+        };
+        console.log('📤 棋譜送信のみ（画面反映なし）:', networkAction);
+        state.networkSyncCallback(networkAction);
+        
+        // 🔧 **重要: 選択状態のみクリア（画面反映は受信時に行う）**
+        return {
+          ...state,
+          selectedCharacter: null,
+          selectedAction: null,
+          selectedSkill: null,
+          pendingAction: { type: null },
+        };
+      }
+
+      // 🔧 **ローカルゲームの場合のみ即座に適用**
       const move = {
         turn: state.currentTurn,
         team: state.currentTeam,
@@ -423,21 +437,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         targetId: state.pendingAction.targetId,
       };
 
-      // 🎯 ネットワークゲームでは棋譜を送信
-      if (state.networkSyncCallback) {
-        const networkAction = {
-          turn: state.currentTurn,
-          team: state.currentTeam,
-          type: state.pendingAction.type,
-          characterId: state.selectedCharacter.id,
-          targetId: state.pendingAction.targetId,
-          position: state.pendingAction.position,
-        };
-        console.log('📤 棋譜送信:', networkAction);
-        state.networkSyncCallback(networkAction);
-      }
-
-      // 🎯 全プレイヤー共通の棋譜適用
       return applyMoveToState(state, move);
     }
 
@@ -498,16 +497,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       const target = state.characters.find(char => char.id === action.targetId);
       if (!target) return state;
 
-      const move = {
-        turn: state.currentTurn,
-        team: state.currentTeam,
-        type: 'skill',
-        from: state.selectedCharacter.position,
-        to: target.position,
-        skillId: state.selectedSkill.id,
-      };
-
-      // ネットワークゲームでは棋譜を送信
+      // 🔧 **修正: ネットワークゲームでは棋譜送信のみ**
       if (state.networkSyncCallback) {
         const networkAction = {
           turn: state.currentTurn,
@@ -517,10 +507,27 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           targetId: action.targetId,
           skillId: state.selectedSkill.id,
         };
-        console.log('📤 スキル棋譜送信:', networkAction);
+        console.log('📤 スキル棋譜送信のみ:', networkAction);
         state.networkSyncCallback(networkAction);
+        
+        return {
+          ...state,
+          selectedCharacter: null,
+          selectedAction: null,
+          selectedSkill: null,
+          pendingAction: { type: null },
+        };
       }
-      
+
+      const move = {
+        turn: state.currentTurn,
+        team: state.currentTeam,
+        type: 'skill',
+        from: state.selectedCharacter.position,
+        to: target.position,
+        skillId: state.selectedSkill.id,
+      };
+
       return applyMoveToState(state, move);
     }
 
@@ -585,14 +592,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     case 'END_TURN': {
       if (state.gamePhase === 'preparation') return state;
 
-      const move = {
-        turn: state.currentTurn,
-        team: state.currentTeam,
-        type: 'end_turn',
-        from: { x: 0, y: 0 },
-      };
-
-      // ネットワークゲームでは棋譜を送信
+      // 🔧 **修正: ネットワークゲームでは棋譜送信のみ**
       if (state.networkSyncCallback) {
         try {
           const networkAction = {
@@ -601,14 +601,29 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             type: 'end_turn',
             characterId: '',
           };
-          console.log('📤 ターン終了棋譜送信:', networkAction);
+          console.log('📤 ターン終了棋譜送信のみ:', networkAction);
           state.networkSyncCallback(networkAction);
+          
+          return {
+            ...state,
+            selectedCharacter: null,
+            selectedAction: null,
+            selectedSkill: null,
+            pendingAction: { type: null },
+          };
         } catch (error) {
           console.error('❌ ターン終了アクション送信エラー:', error);
           return state;
         }
       }
       
+      const move = {
+        turn: state.currentTurn,
+        team: state.currentTeam,
+        type: 'end_turn',
+        from: { x: 0, y: 0 },
+      };
+
       return applyMoveToState(state, move);
     }
 
@@ -625,7 +640,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       let newState = state;
       if (action.hostDeck && action.guestDeck) {
         newState = createInitialGameState(action.hostDeck, action.guestDeck);
-        console.log('🔧 新しい初期状態を作成');
       }
       
       return {
@@ -695,7 +709,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'SET_NETWORK_SYNC_CALLBACK': {
-      console.log('SET_NETWORK_SYNC_CALLBACK - コールバック設定:', !!action.callback);
       return {
         ...state,
         networkSyncCallback: action.callback,
@@ -775,7 +788,6 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [state.pendingAnimations]);
 
-  // 🎯 シンプル化: バリデーション関数も統一
   const isValidMove = (position: Position): boolean => {
     if (!state.selectedCharacter || state.selectedCharacter.remainingActions <= 0) return false;
     if (state.gamePhase === 'preparation') return false;
