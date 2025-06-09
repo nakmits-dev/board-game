@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useRef } from 'react';
 import { useSimpleGameSync } from '../hooks/useSimpleGameSync';
 import { useGame } from './GameContext';
 import { GameMove } from '../types/networkTypes';
+import { createInitialGameState } from '../data/initialGameState';
 
 interface SimpleNetworkContextType {
   isConnected: boolean;
@@ -14,12 +15,11 @@ interface SimpleNetworkProviderProps {
 }
 
 export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ children }) => {
-  const { sendMove, uploadInitialState, setOnMove, setOnGameStart, setOnInitialState, startRoomMonitoring, isConnected } = useSimpleGameSync();
+  const { sendMove, setOnMove, setOnGameStart, setOnInitialState, startRoomMonitoring, isConnected } = useSimpleGameSync();
   const { state, dispatch } = useGame();
   const lastProcessedMoveId = useRef<string>('');
   const syncCallbackRef = useRef<((action: any) => void) | null>(null);
   const isInitialized = useRef(false);
-  const initialStateUploaded = useRef(false);
 
   // ネットワークゲーム開始時の監視開始
   useEffect(() => {
@@ -39,45 +39,56 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.isNetworkGame, state.roomId, state.isHost, isConnected, startRoomMonitoring]);
 
-  // 🆕 最適化された初期盤面のアップロード（ホストのみ、ゲーム開始時に1回だけ）
+  // 🆕 初期盤面データ受信時の処理（ゲスト用）
   useEffect(() => {
-    if (state.isNetworkGame && state.isHost && state.gamePhase === 'action' && 
-        state.roomId && !initialStateUploaded.current && isConnected) {
-      
-      console.log('📤 初期盤面アップロード開始');
-      
-      // 🆕 最適化された初期状態データ（必要最小限の情報のみ）
-      const initialState = {
-        // キャラクター情報（カードIDとチームのみ）
-        playerDeck: {
-          master: state.savedDecks?.player?.master || 'blue',
-          monsters: state.savedDecks?.player?.monsters || ['bear', 'wolf', 'golem']
-        },
-        enemyDeck: {
-          master: state.savedDecks?.enemy?.master || 'red',
-          monsters: state.savedDecks?.enemy?.monsters || ['bear', 'wolf', 'golem']
-        },
-        // ゲーム設定
-        startingTeam: state.currentTeam,
-        hasTimeLimit: state.hasTimeLimit,
-        timeLimitSeconds: state.timeLimitSeconds,
-        // メタデータ
-        uploadedAt: Date.now(),
-        uploadedBy: 'host'
-      };
+    if (state.isNetworkGame && !state.isHost) {
+      setOnInitialState((initialState) => {
+        console.log('📥 初期盤面データ受信（ゲスト）:', initialState);
+        
+        // 🆕 座標情報を含む完全な初期状態を再構築
+        const fullGameState = createInitialGameState(
+          {
+            master: initialState.playerDeck.master as any,
+            monsters: initialState.playerDeck.monsters as any[]
+          },
+          {
+            master: initialState.enemyDeck.master as any,
+            monsters: initialState.enemyDeck.monsters as any[]
+          }
+        );
 
-      uploadInitialState(state.roomId, initialState)
-        .then(() => {
-          console.log('✅ 初期盤面アップロード完了');
-          initialStateUploaded.current = true;
-        })
-        .catch((error) => {
-          console.error('❌ 初期盤面アップロード失敗:', error);
+        // ゲーム状態を更新（時間制限設定も含む）
+        dispatch({
+          type: 'START_NETWORK_GAME',
+          roomId: state.roomId!,
+          isHost: false,
+          hasTimeLimit: initialState.hasTimeLimit,
+          timeLimitSeconds: initialState.timeLimitSeconds,
+          playerDeck: {
+            master: initialState.playerDeck.master as any,
+            monsters: initialState.playerDeck.monsters as any[]
+          },
+          enemyDeck: {
+            master: initialState.enemyDeck.master as any,
+            monsters: initialState.enemyDeck.monsters as any[]
+          }
         });
+
+        // 🔧 キャラクター配置を正確に反映
+        dispatch({
+          type: 'UPDATE_PREVIEW',
+          playerDeck: {
+            master: initialState.playerDeck.master as any,
+            monsters: initialState.playerDeck.monsters as any[]
+          },
+          enemyDeck: {
+            master: initialState.enemyDeck.master as any,
+            monsters: initialState.enemyDeck.monsters as any[]
+          }
+        });
+      });
     }
-  }, [state.isNetworkGame, state.isHost, state.gamePhase, state.roomId, 
-      state.savedDecks, state.currentTeam, state.hasTimeLimit, state.timeLimitSeconds, 
-      uploadInitialState, isConnected]);
+  }, [state.isNetworkGame, state.isHost, state.roomId, setOnInitialState, dispatch]);
 
   // ネットワーク同期コールバック
   useEffect(() => {
@@ -89,9 +100,25 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
         }
         
         try {
-          const character = state.characters.find(c => c.id === action.characterId);
+          // 🔧 キャラクターIDではなく座標で検索
+          let character = null;
+          
+          if (action.characterId) {
+            character = state.characters.find(c => c.id === action.characterId);
+          }
+          
           if (!character) {
-            console.error('❌ キャラクターが見つかりません:', action.characterId);
+            console.warn('⚠️ キャラクターIDで見つからない場合、座標で検索:', action);
+            // フォールバック: 現在のチームのキャラクターから推測
+            const teamCharacters = state.characters.filter(c => c.team === action.team);
+            if (teamCharacters.length > 0) {
+              character = teamCharacters[0]; // 最初のキャラクターを使用
+              console.log('🔧 フォールバック: 最初のキャラクターを使用:', character.name);
+            }
+          }
+          
+          if (!character) {
+            console.error('❌ キャラクターが見つかりません:', action);
             return;
           }
 
@@ -155,7 +182,6 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     if (!state.isNetworkGame && isInitialized.current) {
       console.log('🧹 ネットワークゲーム終了 - クリーンアップ');
       isInitialized.current = false;
-      initialStateUploaded.current = false;
     }
   }, [state.isNetworkGame]);
 

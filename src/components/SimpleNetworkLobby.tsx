@@ -11,7 +11,7 @@ interface SimpleNetworkLobbyProps {
 
 const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStartNetworkGame }) => {
   const { savedDecks } = useGame();
-  const { createRoom, joinRoom, startGame, leaveRoom, setOnGameStart, setOnRoomUpdate, validateRoomId, isConnected, startRoomMonitoring } = useSimpleGameSync();
+  const { createRoom, joinRoom, startGame, leaveRoom, setOnGameStart, setOnRoomUpdate, validateRoomId, isConnected, startRoomMonitoring, uploadInitialState } = useSimpleGameSync();
   
   const [mode, setMode] = useState<'menu' | 'waiting'>('menu');
   const [playerName, setPlayerName] = useState('プレイヤー');
@@ -194,6 +194,29 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
       
       // ルーム監視開始
       startRoomMonitoring(newRoomId, true);
+
+      // 🆕 ルーム作成直後に設定をアップロード
+      const hasTimeLimit = timeLimitOption !== 'none';
+      const timeLimitSeconds = timeLimitOption === 'none' ? 0 : parseInt(timeLimitOption);
+      
+      const initialState = {
+        playerDeck: {
+          master: savedDecks.player?.master || 'blue',
+          monsters: savedDecks.player?.monsters || ['bear', 'wolf', 'golem']
+        },
+        enemyDeck: {
+          master: savedDecks.enemy?.master || 'red',
+          monsters: savedDecks.enemy?.monsters || ['bear', 'wolf', 'golem']
+        },
+        startingTeam: 'player' as const,
+        hasTimeLimit,
+        timeLimitSeconds,
+        uploadedAt: Date.now(),
+        uploadedBy: 'host'
+      };
+
+      await uploadInitialState(newRoomId, initialState);
+      console.log('✅ ルーム設定アップロード完了');
     } catch (err: any) {
       console.error('❌ ルーム作成エラー:', err);
       setError(err.message || 'ルームの作成に失敗しました');

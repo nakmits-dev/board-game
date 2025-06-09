@@ -6,7 +6,7 @@ const TurnOrder: React.FC = () => {
   const { state, dispatch } = useGame();
   const { currentTeam, gamePhase, animationTarget, canUndo, isNetworkGame, isHost, hasTimeLimit, timeLimitSeconds } = state;
   const [timeLeft, setTimeLeft] = useState(timeLimitSeconds);
-  const [isPaused, setIsPaused] = useState(true); // デフォルトでストップ状態
+  const [isPaused, setIsPaused] = useState(!isNetworkGame); // 🆕 オンライン対戦ではデフォルトで開始
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
   const endTurnButtonRef = useRef<HTMLButtonElement>(null);
   const isEndingTurn = useRef(false);
