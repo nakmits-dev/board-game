@@ -6,7 +6,7 @@ import { GameMove, TimerSync } from '../types/networkTypes';
 interface SimpleNetworkContextType {
   isConnected: boolean;
   currentTimeLeft: number;
-  setCurrentTimeLeft: (time: number) => void;
+  setCurrentTimeLeft: (time: number | ((prev: number) => number)) => void;
 }
 
 const SimpleNetworkContext = createContext<SimpleNetworkContextType | undefined>(undefined);
@@ -33,6 +33,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
   const timerSyncInterval = useRef<NodeJS.Timeout | null>(null);
   const isInitialized = useRef(false);
   const initialGameState = useRef<any>(null);
+  const isReplayingMoves = useRef(false); // 🔧 リプレイ中フラグを追加
 
   // 🎯 自分のターンかどうかを判定
   const isMyTurn = () => {
@@ -221,67 +222,57 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.isNetworkGame, setOnInitialState, dispatch, state.roomId, state.isHost]);
 
-  // 🎯 **非ターンプレイヤー: 棋譜リプレイで盤面再現**
+  // 🔧 **修正: 新しい棋譜のみを処理する差分更新システム**
   useEffect(() => {
     if (state.isNetworkGame && state.roomId) {
       const moveCallback = (allMoves: GameMove[]) => {
-        // 🎯 新しい棋譜があるかチェック
+        // 🔧 新しい棋譜があるかチェック
         if (allMoves.length <= lastProcessedMoveCount.current) {
           return; // 新しい棋譜なし
         }
 
-        console.log('🎬 棋譜リプレイ開始（非ターンプレイヤー）:', {
+        // 🔧 リプレイ中は処理をスキップ
+        if (isReplayingMoves.current) {
+          console.log('⏭️ リプレイ中のため棋譜処理をスキップ');
+          return;
+        }
+
+        console.log('📥 新しい棋譜を検出:', {
           totalMoves: allMoves.length,
           processedMoves: lastProcessedMoveCount.current,
           newMoves: allMoves.length - lastProcessedMoveCount.current
         });
 
-        // 🎯 初期状態から全棋譜を再計算
-        if (!initialGameState.current) {
-          console.warn('⚠️ 初期状態が設定されていません');
-          return;
-        }
+        // 🔧 **重要: 新しい棋譜のみを処理（差分更新）**
+        const newMoves = allMoves.slice(lastProcessedMoveCount.current);
+        
+        newMoves.forEach((move, index) => {
+          console.log(`📋 新しい棋譜適用 ${index + 1}/${newMoves.length}:`, {
+            action: move.action,
+            team: move.team,
+            turn: move.turn,
+            from: move.from,
+            to: move.to
+          });
 
-        // 🎯 初期状態を復元
-        dispatch({
-          type: 'START_NETWORK_GAME',
-          roomId: state.roomId!,
-          isHost: state.isHost,
-          hasTimeLimit: initialGameState.current.hasTimeLimit,
-          timeLimitSeconds: initialGameState.current.timeLimitSeconds,
-          hostDeck: initialGameState.current.hostDeck,
-          guestDeck: initialGameState.current.guestDeck
+          const moveData = {
+            turn: move.turn,
+            team: move.team,
+            type: move.action,
+            from: move.from,
+            to: move.to,
+            skillId: move.action === 'skill' ? 'rage-strike' : undefined
+          };
+
+          dispatch({ type: 'APPLY_MOVE', move: moveData });
         });
 
-        // 🎯 全棋譜を順番に適用（非同期で実行）
-        setTimeout(() => {
-          allMoves.forEach((move, index) => {
-            console.log(`📋 棋譜適用 ${index + 1}/${allMoves.length}:`, {
-              action: move.action,
-              team: move.team,
-              turn: move.turn,
-              from: move.from,
-              to: move.to
-            });
-
-            const moveData = {
-              turn: move.turn,
-              team: move.team,
-              type: move.action,
-              from: move.from,
-              to: move.to,
-              skillId: move.action === 'skill' ? 'rage-strike' : undefined // 🔧 スキルIDは別途実装が必要
-            };
-
-            dispatch({ type: 'APPLY_MOVE', move: moveData });
-          });
-
-          // 🎯 処理済み棋譜数を更新
-          lastProcessedMoveCount.current = allMoves.length;
-          console.log('✅ 棋譜リプレイ完了（非ターンプレイヤー）:', {
-            totalMovesProcessed: allMoves.length
-          });
-        }, 100); // 初期状態復元後に棋譜を適用
+        // 🔧 処理済み棋譜数を更新
+        lastProcessedMoveCount.current = allMoves.length;
+        console.log('✅ 新しい棋譜処理完了:', {
+          newMovesProcessed: newMoves.length,
+          totalMovesProcessed: allMoves.length
+        });
       };
 
       setOnMove(moveCallback);
@@ -329,6 +320,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
       isInitialized.current = false;
       lastProcessedMoveCount.current = 0;
       initialGameState.current = null;
+      isReplayingMoves.current = false;
       
       if (timerSyncInterval.current) {
         clearInterval(timerSyncInterval.current);
@@ -353,7 +345,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
 export const useSimpleNetwork = (): SimpleNetworkContextType => {
   const context = useContext(SimpleNetworkContext);
   if (context === undefined) {
-    throw new Error('useSimpleNetwork must be used within a SimpleNetworkProvider');
+    throw new error('useSimpleNetwork must be used within a SimpleNetworkProvider');
   }
   return context;
 };
