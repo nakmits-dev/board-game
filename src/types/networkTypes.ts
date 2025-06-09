@@ -20,11 +20,11 @@ export interface TimerSync {
 // 🆕 最適化された初期盤面データ（必要最小限の情報のみ）
 export interface InitialGameState {
   // キャラクター情報（カードIDとチームのみ）
-  playerDeck: {
+  hostDeck: {
     master: string;
     monsters: string[];
   };
-  enemyDeck: {
+  guestDeck: {
     master: string;
     monsters: string[];
   };
