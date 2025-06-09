@@ -24,6 +24,9 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
   const [loading, setLoading] = useState(false);
   const [roomIdValidation, setRoomIdValidation] = useState<{ isValid: boolean; error?: string }>({ isValid: true });
   
+  // 🔧 **修正1: ゲーム開始処理の重複防止**
+  const [gameStartProcessed, setGameStartProcessed] = useState(false);
+  
   const [localRoomData, setLocalRoomData] = useState<{
     id: string;
     isHost: boolean;
@@ -47,12 +50,21 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
 
   useEffect(() => {
     setOnGameStart((roomId: string, isHost: boolean) => {
+      // 🔧 **修正2: 重複処理チェック**
+      if (gameStartProcessed) {
+        console.log('🔧 [SimpleNetworkLobby] ゲーム開始処理済み - スキップ');
+        return;
+      }
+      
+      console.log('🎮 [SimpleNetworkLobby] ゲーム開始処理実行:', { roomId, isHost });
+      setGameStartProcessed(true);
+      
       const timeLimit = localRoomData?.timeLimitOption ?? '30';
       const hasTimeLimit = timeLimit !== 'none';
       const timeLimitSeconds = timeLimit === 'none' ? 0 : parseInt(timeLimit);
       onStartNetworkGame(roomId, isHost, hasTimeLimit, timeLimitSeconds);
     });
-  }, [setOnGameStart, onStartNetworkGame, localRoomData?.timeLimitOption]);
+  }, [setOnGameStart, onStartNetworkGame, localRoomData?.timeLimitOption, gameStartProcessed]);
 
   useEffect(() => {
     setOnRoomUpdate((roomData: SimpleRoom) => {
@@ -113,12 +125,15 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
           initialState: roomData.initialState
         } : null);
 
-        if (roomData.status === 'playing' && mode !== 'reconnect') {
+        // 🔧 **修正3: ゲーム開始状態の重複チェック**
+        if (roomData.status === 'playing' && mode !== 'reconnect' && !gameStartProcessed) {
+          console.log('🎮 [SimpleNetworkLobby] ゲーム開始状態検出 - ロビーを閉じる');
+          setGameStartProcessed(true);
           onClose();
         }
       }
     });
-  }, [setOnRoomUpdate, localRoomData, onClose, mode]);
+  }, [setOnRoomUpdate, localRoomData, onClose, mode, gameStartProcessed]);
 
   const generateRandomRoomId = () => {
     const adjectives = ['cool', 'epic', 'fun', 'wild', 'mega', 'super', 'ultra', 'pro', 'ace', 'top'];
@@ -149,8 +164,15 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
       }
     }
 
+    // 🔧 **修正4: ローディング状態での重複防止**
+    if (loading) {
+      console.log('🔧 [SimpleNetworkLobby] ルーム作成中 - 重複防止');
+      return;
+    }
+
     setLoading(true);
     setError('');
+    setGameStartProcessed(false); // リセット
 
     try {
       const finalRoomId = useCustomRoomId ? customRoomId.trim() : undefined;
@@ -211,8 +233,15 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
       return;
     }
 
+    // 🔧 **修正5: ローディング状態での重複防止**
+    if (loading) {
+      console.log('🔧 [SimpleNetworkLobby] ルーム参加中 - 重複防止');
+      return;
+    }
+
     setLoading(true);
     setError('');
+    setGameStartProcessed(false); // リセット
 
     try {
       await joinRoom(roomId.trim(), playerName);
@@ -239,11 +268,19 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
   const handleStartGame = async () => {
     if (!localRoomData?.isHost || !localRoomData.opponent) return;
 
+    // 🔧 **修正6: ゲーム開始ボタンの重複防止**
+    if (loading || gameStartProcessed) {
+      console.log('🔧 [SimpleNetworkLobby] ゲーム開始処理中 - 重複防止');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
     try {
       await startGame(localRoomData.id);
+      // 🔧 **修正7: ゲーム開始後は即座にフラグを設定**
+      setGameStartProcessed(true);
     } catch (err: any) {
       console.error('❌ ゲーム開始エラー:', err);
       setError(err.message || 'ゲームの開始に失敗しました');
@@ -290,6 +327,7 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
       setRoomId('');
       setLocalRoomData(null);
       setError('');
+      setGameStartProcessed(false); // リセット
     } catch (err) {
       console.error('❌ ルーム退出エラー:', err);
     } finally {
@@ -297,7 +335,12 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
     }
   };
 
-  const canStartGame = localRoomData?.isHost && localRoomData.opponent && localRoomData.opponent.connected && !loading;
+  // 🔧 **修正8: ゲーム開始ボタンの活性化条件を厳格化**
+  const canStartGame = localRoomData?.isHost && 
+                      localRoomData.opponent && 
+                      localRoomData.opponent.connected && 
+                      !loading && 
+                      !gameStartProcessed;
 
   const getConnectionStatus = () => {
     if (!isConnected) {
@@ -431,6 +474,7 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
                 onClick={() => {
                   setMode('menu');
                   setLocalRoomData(null);
+                  setGameStartProcessed(false);
                 }}
                 className="flex-1 px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
               >
@@ -734,10 +778,12 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
                 }`}
               >
                 <Play size={20} />
-                {loading ? 'ゲーム開始中...' : canStartGame ? 'ゲーム開始' : 
-                  !localRoomData.opponent ? '対戦相手を待機中' : 
-                  !localRoomData.opponent.connected ? '相手の再接続を待機中' : 
-                  'ゲーム開始'}
+                {loading ? 'ゲーム開始中...' : 
+                 gameStartProcessed ? 'ゲーム開始済み' :
+                 canStartGame ? 'ゲーム開始' : 
+                 !localRoomData.opponent ? '対戦相手を待機中' : 
+                 !localRoomData.opponent.connected ? '相手の再接続を待機中' : 
+                 'ゲーム開始'}
               </button>
             )}
 
