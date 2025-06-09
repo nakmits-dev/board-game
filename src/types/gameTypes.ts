@@ -112,5 +112,5 @@ export interface GameState {
   roomId: string | null;
   hasTimeLimit: boolean;
   timeLimitSeconds: number;
-  networkSyncCallback: ((action: any) => void) | null;
+  sendMoveFunction: ((roomId: string, move: any) => Promise<void>) | null;
 }

@@ -24,7 +24,7 @@ type GameAction =
   | { type: 'EVOLVE_CHARACTER'; characterId: string }
   | { type: 'SURRENDER'; team: Team }
   | { type: 'APPLY_MOVE'; move: any }
-  | { type: 'SET_NETWORK_SYNC_CALLBACK'; callback: ((action: any) => void) | null };
+  | { type: 'SET_SEND_MOVE_FUNCTION'; sendMoveFunction: ((roomId: string, move: any) => Promise<void>) | null };
 
 interface GameContextType {
   state: GameState;
@@ -402,33 +402,31 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         return state;
       }
 
-      // 🔧 **ネットワークゲーム専用: 棋譜送信のみ（画面反映なし）**
-      if (state.networkSyncCallback) {
-        console.log('📤 [GameContext] 棋譜送信のみ実行');
-        console.log('📤 [GameContext] networkSyncCallback:', !!state.networkSyncCallback);
-        console.log('📤 [GameContext] selectedCharacter:', state.selectedCharacter.name);
-        console.log('📤 [GameContext] pendingAction:', state.pendingAction);
+      // 🔧 **シンプル化: 直接Firebase送信**
+      if (state.sendMoveFunction && state.roomId) {
+        console.log('📤 [GameContext] 直接Firebase送信');
         
-        const networkAction = {
+        const moveData = {
           turn: state.currentTurn,
           team: state.currentTeam,
-          type: state.pendingAction.type,
-          characterId: state.selectedCharacter.id,
-          targetId: state.pendingAction.targetId,
-          position: state.pendingAction.position,
+          action: state.pendingAction.type,
+          from: state.selectedCharacter.position,
+          to: state.pendingAction.position || (state.pendingAction.targetId ? 
+            state.characters.find(c => c.id === state.pendingAction.targetId)?.position : undefined
+          ),
           timestamp: Date.now()
         };
         
-        console.log('📤 [GameContext] 棋譜送信:', networkAction);
+        console.log('📤 [GameContext] 送信データ:', moveData);
         
-        try {
-          state.networkSyncCallback(networkAction);
-          console.log('✅ [GameContext] 棋譜送信成功');
-        } catch (error) {
-          console.error('❌ [GameContext] 棋譜送信エラー:', error);
-        }
+        // 非同期でFirebase送信
+        state.sendMoveFunction(state.roomId, moveData).then(() => {
+          console.log('✅ [GameContext] Firebase送信成功');
+        }).catch((error) => {
+          console.error('❌ [GameContext] Firebase送信エラー:', error);
+        });
         
-        // 🔧 **重要: 選択状態のみクリア（画面反映は受信時に行う）**
+        // 選択状態のみクリア
         return {
           ...state,
           selectedCharacter: null,
@@ -437,7 +435,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           pendingAction: { type: null },
         };
       } else {
-        console.warn('⚠️ [GameContext] networkSyncCallback が設定されていません');
+        console.warn('⚠️ [GameContext] sendMoveFunction または roomId が設定されていません');
         return state;
       }
     }
@@ -499,32 +497,28 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       const target = state.characters.find(char => char.id === action.targetId);
       if (!target) return state;
 
-      // 🔧 **ネットワークゲーム専用: 棋譜送信のみ**
-      if (state.networkSyncCallback) {
-        console.log('📤 [GameContext] スキル - 棋譜送信のみ実行');
-        console.log('📤 [GameContext] networkSyncCallback:', !!state.networkSyncCallback);
-        console.log('📤 [GameContext] selectedCharacter:', state.selectedCharacter.name);
-        console.log('📤 [GameContext] selectedSkill:', state.selectedSkill.name);
-        console.log('📤 [GameContext] target:', target.name);
+      // 🔧 **シンプル化: 直接Firebase送信**
+      if (state.sendMoveFunction && state.roomId) {
+        console.log('📤 [GameContext] スキル - 直接Firebase送信');
         
-        const networkAction = {
+        const moveData = {
           turn: state.currentTurn,
           team: state.currentTeam,
-          type: 'skill',
-          characterId: state.selectedCharacter.id,
-          targetId: action.targetId,
+          action: 'skill',
+          from: state.selectedCharacter.position,
+          to: target.position,
           skillId: state.selectedSkill.id,
           timestamp: Date.now()
         };
         
-        console.log('📤 [GameContext] スキル棋譜送信:', networkAction);
+        console.log('📤 [GameContext] スキル送信データ:', moveData);
         
-        try {
-          state.networkSyncCallback(networkAction);
-          console.log('✅ [GameContext] スキル棋譜送信成功');
-        } catch (error) {
-          console.error('❌ [GameContext] スキル棋譜送信エラー:', error);
-        }
+        // 非同期でFirebase送信
+        state.sendMoveFunction(state.roomId, moveData).then(() => {
+          console.log('✅ [GameContext] スキルFirebase送信成功');
+        }).catch((error) => {
+          console.error('❌ [GameContext] スキルFirebase送信エラー:', error);
+        });
         
         return {
           ...state,
@@ -534,7 +528,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           pendingAction: { type: null },
         };
       } else {
-        console.warn('⚠️ [GameContext] networkSyncCallback が設定されていません');
+        console.warn('⚠️ [GameContext] sendMoveFunction または roomId が設定されていません');
         return state;
       }
     }
@@ -600,39 +594,36 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     case 'END_TURN': {
       if (state.gamePhase === 'preparation') return state;
 
-      // 🔧 **ネットワークゲーム専用: 棋譜送信のみ**
-      if (state.networkSyncCallback) {
-        console.log('📤 [GameContext] ターン終了 - 棋譜送信のみ実行');
-        console.log('📤 [GameContext] networkSyncCallback:', !!state.networkSyncCallback);
-        console.log('📤 [GameContext] currentTeam:', state.currentTeam);
-        console.log('📤 [GameContext] currentTurn:', state.currentTurn);
+      // 🔧 **シンプル化: 直接Firebase送信**
+      if (state.sendMoveFunction && state.roomId) {
+        console.log('📤 [GameContext] ターン終了 - 直接Firebase送信');
         
-        try {
-          const networkAction = {
-            turn: state.currentTurn,
-            team: state.currentTeam,
-            type: 'end_turn',
-            characterId: '',
-            timestamp: Date.now()
-          };
-          
-          console.log('📤 [GameContext] ターン終了棋譜送信:', networkAction);
-          state.networkSyncCallback(networkAction);
-          console.log('✅ [GameContext] ターン終了棋譜送信成功');
-          
-          return {
-            ...state,
-            selectedCharacter: null,
-            selectedAction: null,
-            selectedSkill: null,
-            pendingAction: { type: null },
-          };
-        } catch (error) {
-          console.error('❌ [GameContext] ターン終了アクション送信エラー:', error);
-          return state;
-        }
+        const moveData = {
+          turn: state.currentTurn,
+          team: state.currentTeam,
+          action: 'end_turn',
+          from: { x: 0, y: 0 },
+          timestamp: Date.now()
+        };
+        
+        console.log('📤 [GameContext] ターン終了送信データ:', moveData);
+        
+        // 非同期でFirebase送信
+        state.sendMoveFunction(state.roomId, moveData).then(() => {
+          console.log('✅ [GameContext] ターン終了Firebase送信成功');
+        }).catch((error) => {
+          console.error('❌ [GameContext] ターン終了Firebase送信エラー:', error);
+        });
+        
+        return {
+          ...state,
+          selectedCharacter: null,
+          selectedAction: null,
+          selectedSkill: null,
+          pendingAction: { type: null },
+        };
       } else {
-        console.warn('⚠️ [GameContext] networkSyncCallback が設定されていません');
+        console.warn('⚠️ [GameContext] sendMoveFunction または roomId が設定されていません');
         return state;
       }
     }
@@ -666,7 +657,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         roomId: action.roomId,
         hasTimeLimit: action.hasTimeLimit,
         timeLimitSeconds: action.timeLimitSeconds,
-        networkSyncCallback: null,
+        sendMoveFunction: null,
         selectedCharacter: null,
         selectedAction: null,
         selectedSkill: null,
@@ -714,15 +705,15 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         roomId: null,
         hasTimeLimit: true,
         timeLimitSeconds: 30,
-        networkSyncCallback: null,
+        sendMoveFunction: null,
       };
     }
 
-    case 'SET_NETWORK_SYNC_CALLBACK': {
-      console.log('🔧 [GameContext] networkSyncCallback設定:', !!action.callback);
+    case 'SET_SEND_MOVE_FUNCTION': {
+      console.log('🔧 [GameContext] sendMoveFunction設定:', !!action.sendMoveFunction);
       return {
         ...state,
-        networkSyncCallback: action.callback,
+        sendMoveFunction: action.sendMoveFunction,
       };
     }
 
@@ -745,7 +736,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     roomId: null,
     hasTimeLimit: true,
     timeLimitSeconds: 30,
-    networkSyncCallback: null,
+    sendMoveFunction: null,
   });
   const [savedDecks, setSavedDecks] = React.useState<{
     host?: { master: keyof typeof masterData; monsters: MonsterType[] };
