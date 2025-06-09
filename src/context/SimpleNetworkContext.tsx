@@ -162,6 +162,11 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
             // ターン終了系は座標不要（ダミー座標を設定）
             move.from = { x: 0, y: 0 };
             console.log('🔄 ターン終了棋譜作成:', action.type);
+          } else if (action.type === 'timer_sync') {
+            // 🆕 タイマー同期の場合
+            move.from = { x: 0, y: 0 };
+            move.timeLeft = action.timeLeft;
+            console.log('⏰ タイマー同期棋譜作成:', { timeLeft: action.timeLeft });
           } else {
             console.warn('⚠️ 未対応のアクションタイプ:', action.type);
             return;
@@ -182,7 +187,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.isNetworkGame, state.roomId, sendMove, dispatch, state.characters, state.isHost, isConnected]);
 
-  // 🔧 改善された手の受信コールバック（移動・攻撃処理の修正）
+  // 🔧 改善された手の受信コールバック（チーム判定の修正）
   useEffect(() => {
     if (state.isNetworkGame && state.roomId) {
       const moveCallback = (move: GameMove) => {
@@ -194,13 +199,14 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
           action: move.action,
           from: move.from,
           to: move.to,
-          player: move.player
+          player: move.player,
+          isHost: state.isHost
         });
 
-        // 🔧 青チーム=host、赤チーム=guest の統一
+        // 🔧 チーム判定の修正：host=青チーム(player)、guest=赤チーム(enemy)
         const networkAction = {
           turn: move.turn,
-          team: state.isHost ? 'enemy' : 'player', // host=青チーム(player)、guest=赤チーム(enemy)
+          team: move.player === 'host' ? 'player' : 'enemy', // host→player、guest→enemy
           type: move.action,
           from: move.from,
           to: move.to,
@@ -210,7 +216,8 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
         console.log('🔄 ネットワークアクション変換:', {
           original: { player: move.player, action: move.action },
           converted: { team: networkAction.team, type: networkAction.type },
-          isHost: state.isHost
+          isHost: state.isHost,
+          explanation: `${move.player} → ${networkAction.team} (host=青チーム, guest=赤チーム)`
         });
 
         dispatch({ type: 'SYNC_NETWORK_ACTION', action: networkAction });

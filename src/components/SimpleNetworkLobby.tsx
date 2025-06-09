@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSimpleGameSync } from '../hooks/useSimpleGameSync';
 import { useGame } from '../context/GameContext';
-import { Wifi, Users, Copy, Check, X, Play, Clock, UserCheck, UserX, WifiOff, AlertCircle, Shuffle, Edit3, RefreshCw, Timer, TimerOff } from 'lucide-react';
+import { Wifi, Users, Copy, Check, X, Play, Clock, UserCheck, UserX, WifiOff, AlertCircle, Shuffle, Edit3, RefreshCw, Timer, TimerOff, RotateCcw } from 'lucide-react';
 import { SimpleRoom } from '../types/networkTypes';
 
 interface SimpleNetworkLobbyProps {
@@ -13,7 +13,7 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
   const { savedDecks } = useGame();
   const { createRoom, joinRoom, startGame, leaveRoom, setOnGameStart, setOnRoomUpdate, validateRoomId, isConnected, startRoomMonitoring, uploadInitialState } = useSimpleGameSync();
   
-  const [mode, setMode] = useState<'menu' | 'waiting'>('menu');
+  const [mode, setMode] = useState<'menu' | 'waiting' | 'reconnect'>('menu'); // 🆕 再接続モード追加
   const [playerName, setPlayerName] = useState('プレイヤー');
   const [roomId, setRoomId] = useState('');
   const [customRoomId, setCustomRoomId] = useState('');
@@ -71,13 +71,13 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
         guestExists: !!roomData.guest,
         guestName: roomData.guest?.name,
         guestConnected: roomData.guest?.connected,
-        hasInitialState: !!roomData.initialState
+        hasInitialState: !!roomData.initialState,
+        status: roomData.status
       });
 
       // 🔧 初回参加時または再参加時の状態設定
       if (!localRoomData && (roomData.host || roomData.guest)) {
         // 自分がホストかゲストかを判定
-        const currentUserId = roomData.host.userId; // 仮の判定ロジック
         const isHost = true; // 実際の判定ロジックに置き換え
         
         // 🆕 ホストの設定から時間制限を取得
@@ -97,7 +97,14 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
           initialState: roomData.initialState
         });
         
-        setMode('waiting');
+        // 🆕 ゲーム中の部屋に再接続した場合
+        if (roomData.status === 'playing') {
+          console.log('🔄 ゲーム中の部屋に再接続');
+          setMode('reconnect');
+        } else {
+          setMode('waiting');
+        }
+        
         setRoomId(roomData.id);
       }
 
@@ -134,13 +141,13 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
         } : null);
 
         // ゲーム開始時にロビーを閉じる
-        if (roomData.status === 'playing') {
+        if (roomData.status === 'playing' && mode !== 'reconnect') {
           console.log('🎮 ゲーム開始状態検出 - ロビーを閉じる');
           onClose();
         }
       }
     });
-  }, [setOnRoomUpdate, localRoomData, onClose]);
+  }, [setOnRoomUpdate, localRoomData, onClose, mode]);
 
   // ランダムルームID生成
   const generateRandomRoomId = () => {
@@ -281,6 +288,20 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
     }
   };
 
+  // 🆕 ゲーム中の部屋に再接続する処理
+  const handleReconnectToGame = () => {
+    if (!localRoomData) return;
+    
+    console.log('🔄 ゲーム中の部屋に再接続:', localRoomData.id);
+    
+    // 時間制限情報を含めてゲームを再開
+    const timeLimit = localRoomData.timeLimitOption;
+    const hasTimeLimit = timeLimit !== 'none';
+    const timeLimitSeconds = timeLimit === 'none' ? 0 : parseInt(timeLimit);
+    
+    onStartNetworkGame(localRoomData.id, localRoomData.isHost, hasTimeLimit, timeLimitSeconds);
+  };
+
   const copyRoomId = async () => {
     if (!localRoomData?.id) return;
 
@@ -387,6 +408,66 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
             <p className="text-yellow-700 text-sm">
               ⚠️ 先にチーム編成を完了してください
             </p>
+          </div>
+        )}
+
+        {/* 🆕 再接続画面 */}
+        {mode === 'reconnect' && localRoomData && (
+          <div className="space-y-4">
+            <div className="text-center">
+              <RotateCcw size={48} className="text-blue-500 mx-auto mb-4" />
+              <h3 className="text-lg font-bold text-gray-800 mb-2">ゲーム中の部屋を発見</h3>
+              <p className="text-gray-600 text-sm">
+                進行中のゲームに再接続しますか？
+              </p>
+            </div>
+
+            {/* ルーム情報表示 */}
+            <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+              <div className="text-center">
+                <p className="text-sm text-gray-600">ルームID</p>
+                <p className="font-mono font-bold text-gray-800">{localRoomData.id}</p>
+              </div>
+            </div>
+
+            {/* ゲーム設定表示 */}
+            <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+              <div className="flex items-center gap-2 justify-center">
+                {localRoomData.timeLimitOption === 'none' ? (
+                  <>
+                    <TimerOff size={16} className="text-gray-600" />
+                    <span className="text-sm text-gray-800 font-medium">時間制限なし</span>
+                  </>
+                ) : (
+                  <>
+                    <Timer size={16} className="text-blue-600" />
+                    <span className="text-sm text-blue-800 font-medium">
+                      時間制限あり ({localRoomData.timeLimitOption}秒/ターン)
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* 再接続ボタン */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setMode('menu');
+                  setLocalRoomData(null);
+                }}
+                className="flex-1 px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                新しいゲーム
+              </button>
+              <button
+                onClick={handleReconnectToGame}
+                className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+              >
+                <RotateCcw size={16} />
+                再接続
+              </button>
+            </div>
           </div>
         )}
 
