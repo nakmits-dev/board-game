@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, ReactNode, useEffect } from 'react';
-import { GameState, Character, Position, ActionType, Skill, Team, AnimationSequence, MonsterType, BoardAction } from '../types/gameTypes';
+import { GameState, Character, Position, ActionType, Skill, Team, AnimationSequence, MonsterType, BoardAction, GameRecord } from '../types/gameTypes';
 import { createInitialGameState, getEvolvedMonsterType, monsterData } from '../data/initialGameState';
 import { skillData } from '../data/skillData';
 import { masterData } from '../data/cardData';
@@ -23,7 +23,10 @@ type GameAction =
   | { type: 'REMOVE_DEFEATED_CHARACTERS'; targetId: string; killerTeam?: Team }
   | { type: 'EVOLVE_CHARACTER'; characterId: string }
   | { type: 'SURRENDER'; team: Team }
-  | { type: 'APPLY_BOARD_ACTION'; boardAction: BoardAction };
+  | { type: 'APPLY_BOARD_ACTION'; boardAction: BoardAction }
+  | { type: 'CREATE_GAME_RECORD'; actions: BoardAction[]; description: string }
+  | { type: 'EXECUTE_GAME_RECORD'; recordId: string }
+  | { type: 'SET_EXECUTION_STATE'; isExecuting: boolean; index?: number };
 
 interface GameContextType {
   state: GameState;
@@ -33,6 +36,8 @@ interface GameContextType {
   isValidSkillTarget: (targetId: string) => boolean;
   getCharacterAt: (position: Position) => Character | undefined;
   applyBoardAction: (boardAction: BoardAction) => boolean;
+  createGameRecord: (actions: BoardAction[], description: string) => string;
+  executeGameRecord: (recordId: string) => Promise<boolean>;
   savedDecks: {
     host?: { master: keyof typeof masterData; monsters: MonsterType[] };
     guest?: { master: keyof typeof masterData; monsters: MonsterType[] };
@@ -45,6 +50,28 @@ const ANIMATION_DURATION = 300;
 
 function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
+    case 'CREATE_GAME_RECORD': {
+      const newRecord: GameRecord = {
+        id: `record_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        actions: action.actions,
+        description: action.description,
+        createdAt: Date.now()
+      };
+
+      return {
+        ...state,
+        gameRecords: [...state.gameRecords, newRecord]
+      };
+    }
+
+    case 'SET_EXECUTION_STATE': {
+      return {
+        ...state,
+        isExecutingRecord: action.isExecuting,
+        executionIndex: action.index || 0
+      };
+    }
+
     case 'APPLY_BOARD_ACTION': {
       const { boardAction } = action;
       
@@ -820,6 +847,9 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           host: action.hostDeck,
           guest: action.guestDeck
         },
+        gameRecords: [],
+        isExecutingRecord: false,
+        executionIndex: 0,
       };
     }
 
@@ -854,6 +884,9 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       return {
         ...newState,
         savedDecks: state.savedDecks,
+        gameRecords: [],
+        isExecutingRecord: false,
+        executionIndex: 0,
       };
     }
 
@@ -863,7 +896,12 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 }
 
 export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [state, dispatch] = useReducer(gameReducer, createInitialGameState());
+  const [state, dispatch] = useReducer(gameReducer, {
+    ...createInitialGameState(),
+    gameRecords: [],
+    isExecutingRecord: false,
+    executionIndex: 0,
+  });
   const [savedDecks, setSavedDecks] = React.useState<{
     host?: { master: keyof typeof masterData; monsters: MonsterType[] };
     guest?: { master: keyof typeof masterData; monsters: MonsterType[] };
@@ -1000,6 +1038,59 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  // 🆕 棋譜レコードを作成する関数
+  const createGameRecord = (actions: BoardAction[], description: string): string => {
+    const recordId = `record_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    dispatch({ 
+      type: 'CREATE_GAME_RECORD', 
+      actions, 
+      description 
+    });
+    return recordId;
+  };
+
+  // 🆕 棋譜レコードを実行する関数
+  const executeGameRecord = async (recordId: string): Promise<boolean> => {
+    const record = state.gameRecords.find(r => r.id === recordId);
+    if (!record) {
+      console.error('棋譜レコードが見つかりません:', recordId);
+      return false;
+    }
+
+    try {
+      dispatch({ type: 'SET_EXECUTION_STATE', isExecuting: true, index: 0 });
+      
+      for (let i = 0; i < record.actions.length; i++) {
+        const action = record.actions[i];
+        
+        // 実行前に少し待機
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // アクションを実行
+        const success = applyBoardAction(action);
+        if (!success) {
+          console.error('アクション実行失敗:', action);
+          dispatch({ type: 'SET_EXECUTION_STATE', isExecuting: false, index: 0 });
+          return false;
+        }
+        
+        // 実行インデックスを更新
+        dispatch({ type: 'SET_EXECUTION_STATE', isExecuting: true, index: i + 1 });
+        
+        // アニメーション完了まで待機
+        await new Promise(resolve => setTimeout(resolve, ANIMATION_DURATION + 100));
+      }
+      
+      dispatch({ type: 'SET_EXECUTION_STATE', isExecuting: false, index: 0 });
+      console.log('✅ 棋譜実行完了:', record.description);
+      return true;
+    } catch (error) {
+      console.error('棋譜実行エラー:', error);
+      dispatch({ type: 'SET_EXECUTION_STATE', isExecuting: false, index: 0 });
+      return false;
+    }
+  };
+
   return (
     <GameContext.Provider 
       value={{ 
@@ -1010,6 +1101,8 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         isValidSkillTarget,
         getCharacterAt,
         applyBoardAction,
+        createGameRecord,
+        executeGameRecord,
         savedDecks: state.savedDecks || savedDecks
       }}
     >

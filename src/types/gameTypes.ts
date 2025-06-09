@@ -86,11 +86,19 @@ export interface AnimationSequence {
   type: 'move' | 'attack' | 'damage' | 'heal' | 'ko' | 'crystal-gain' | 'turn-start' | 'evolve';
 }
 
-// 🆕 棋譜アクション用の型定義（skillId削除）
+// 🆕 棋譜アクション用の型定義
 export interface BoardAction {
   action: 'move' | 'attack' | 'skill' | 'end_turn';
   from?: Position;
   to?: Position;
+}
+
+// 🆕 棋譜レコード用の型定義
+export interface GameRecord {
+  id: string;
+  actions: BoardAction[];
+  description: string;
+  createdAt: number;
 }
 
 export interface GameState {
@@ -113,4 +121,8 @@ export interface GameState {
     host?: { master: keyof typeof import('../data/cardData').masterData; monsters: MonsterType[] };
     guest?: { master: keyof typeof import('../data/cardData').masterData; monsters: MonsterType[] };
   };
+  // 🆕 棋譜関連の状態
+  gameRecords: GameRecord[];
+  isExecutingRecord: boolean;
+  executionIndex: number;
 }
