@@ -1,5 +1,6 @@
 import React from 'react';
 import { useGame } from '../context/GameContext';
+import { useSimpleNetwork } from '../context/SimpleNetworkContext';
 import { Position } from '../types/gameTypes';
 import { Sword, Shield, Sparkle, Heart } from 'lucide-react';
 import CharacterModal from './CharacterModal';
@@ -9,7 +10,8 @@ interface BoardCellProps {
 }
 
 const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
-  const { state, dispatch, isValidMove, isValidAttack, isValidSkillTarget, getCharacterAt, sendMove } = useGame();
+  const { state, dispatch, isValidMove, isValidAttack, isValidSkillTarget, getCharacterAt } = useGame();
+  const { sendMove } = useSimpleNetwork();
   const { selectedCharacter, currentTeam, gamePhase, animationTarget, selectedAction, selectedSkill, playerCrystals, enemyCrystals } = state;
   const [showModal, setShowModal] = React.useState(false);
   const [isDragOver, setIsDragOver] = React.useState(false);

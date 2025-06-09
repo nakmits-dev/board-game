@@ -4,8 +4,8 @@ import { useSimpleNetwork } from '../context/SimpleNetworkContext';
 import { Pause, Play, Flag } from 'lucide-react';
 
 const TurnOrder: React.FC = () => {
-  const { state, dispatch, sendMove } = useGame();
-  const { currentTimeLeft, setCurrentTimeLeft } = useSimpleNetwork();
+  const { state, dispatch } = useGame();
+  const { currentTimeLeft, setCurrentTimeLeft, sendMove } = useSimpleNetwork();
   const { currentTeam, gamePhase, animationTarget, isHost, hasTimeLimit, timeLimitSeconds } = state;
   const [isPaused, setIsPaused] = useState(false);
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);

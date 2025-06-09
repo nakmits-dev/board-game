@@ -36,8 +36,6 @@ interface GameContextType {
     host?: { master: keyof typeof masterData; monsters: MonsterType[] };
     guest?: { master: keyof typeof masterData; monsters: MonsterType[] };
   };
-  // 🔧 **シンプル化: 直接sendMove関数を公開**
-  sendMove?: (roomId: string, move: any) => Promise<void>;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -658,9 +656,6 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     guest: { master: 'red', monsters: ['bear', 'wolf', 'golem'] }
   });
 
-  // 🔧 **シンプル化: sendMove関数を外部から受け取る**
-  const [sendMoveFunction, setSendMoveFunction] = React.useState<((roomId: string, move: any) => Promise<void>) | null>(null);
-
   React.useEffect(() => {
     dispatch({ 
       type: 'SET_SAVED_DECKS', 
@@ -787,8 +782,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         isValidAttack, 
         isValidSkillTarget,
         getCharacterAt,
-        savedDecks: state.savedDecks || savedDecks,
-        sendMove: sendMoveFunction || undefined
+        savedDecks: state.savedDecks || savedDecks
       }}
     >
       {children}

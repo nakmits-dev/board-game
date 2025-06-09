@@ -7,6 +7,7 @@ interface SimpleNetworkContextType {
   isConnected: boolean;
   currentTimeLeft: number;
   setCurrentTimeLeft: (time: number | ((prev: number) => number)) => void;
+  sendMove?: (roomId: string, move: any) => Promise<void>;
 }
 
 const SimpleNetworkContext = createContext<SimpleNetworkContextType | undefined>(undefined);
@@ -31,18 +32,6 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
   
   // 🔧 **最後に処理した棋譜のタイムスタンプを記録**
   const lastProcessedTimestamp = useRef<number>(0);
-
-  // 🔧 **シンプル化: sendMove関数を直接GameContextに渡す**
-  useEffect(() => {
-    if (state.isNetworkGame && sendMove) {
-      console.log('🔗 [SimpleNetworkContext] sendMove関数をGameContextに設定');
-      // GameContextのsendMoveFunction状態を更新
-      const gameContext = useGame();
-      if (gameContext && 'setSendMoveFunction' in gameContext) {
-        (gameContext as any).setSendMoveFunction(sendMove);
-      }
-    }
-  }, [state.isNetworkGame, sendMove]);
 
   // ネットワークゲーム開始時の監視開始
   useEffect(() => {
@@ -171,7 +160,8 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
       value={{ 
         isConnected,
         currentTimeLeft,
-        setCurrentTimeLeft
+        setCurrentTimeLeft,
+        sendMove
       }}
     >
       {children}
