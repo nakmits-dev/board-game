@@ -46,9 +46,7 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
   }, [customRoomId, useCustomRoomId, validateRoomId]);
 
   useEffect(() => {
-    console.log('ゲーム開始コールバック設定');
     setOnGameStart((roomId: string, isHost: boolean) => {
-      console.log('ゲーム開始コールバック実行:', { roomId, isHost });
       const timeLimit = localRoomData?.timeLimitOption ?? '30';
       const hasTimeLimit = timeLimit !== 'none';
       const timeLimitSeconds = timeLimit === 'none' ? 0 : parseInt(timeLimit);
@@ -58,17 +56,6 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
 
   useEffect(() => {
     setOnRoomUpdate((roomData: SimpleRoom) => {
-      console.log('📊 ルーム更新受信:', {
-        roomId: roomData.id,
-        hostName: roomData.host.name,
-        hostConnected: roomData.host.connected,
-        guestExists: !!roomData.guest,
-        guestName: roomData.guest?.name,
-        guestConnected: roomData.guest?.connected,
-        hasInitialState: !!roomData.initialState,
-        status: roomData.status
-      });
-
       if (!localRoomData && (roomData.host || roomData.guest)) {
         const isHost = true;
         
@@ -89,7 +76,6 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
         });
         
         if (roomData.status === 'playing') {
-          console.log('🔄 ゲーム中の部屋に再接続');
           setMode('reconnect');
         } else {
           setMode('waiting');
@@ -117,7 +103,6 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
           updatedTimeLimitOption = roomData.initialState.hasTimeLimit ? 
             (roomData.initialState.timeLimitSeconds === 60 ? '60' : '30') : 
             'none';
-          console.log('🔄 ゲスト側で時間制限設定を同期:', updatedTimeLimitOption);
         }
 
         setLocalRoomData(prev => prev ? {
@@ -129,7 +114,6 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
         } : null);
 
         if (roomData.status === 'playing' && mode !== 'reconnect') {
-          console.log('🎮 ゲーム開始状態検出 - ロビーを閉じる');
           onClose();
         }
       }
@@ -169,10 +153,8 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
     setError('');
 
     try {
-      console.log('🏗️ ルーム作成開始');
       const finalRoomId = useCustomRoomId ? customRoomId.trim() : undefined;
       const newRoomId = await createRoom(playerName, finalRoomId);
-      console.log('✅ ルーム作成完了:', newRoomId);
       
       setRoomId(newRoomId);
       setLocalRoomData({
@@ -190,6 +172,9 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
       const hasTimeLimit = timeLimitOption !== 'none';
       const timeLimitSeconds = timeLimitOption === 'none' ? 0 : parseInt(timeLimitOption);
       
+      // 🔧 先攻プレイヤーをランダムに決定
+      const startingPlayer: 'host' | 'guest' = Math.random() < 0.5 ? 'host' : 'guest';
+      
       const initialState = {
         hostDeck: {
           master: savedDecks.host?.master || 'blue',
@@ -199,7 +184,7 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
           master: savedDecks.guest?.master || 'red',
           monsters: savedDecks.guest?.monsters || ['bear', 'wolf', 'golem']
         },
-        startingPlayer: 'host' as const,
+        startingPlayer, // 🔧 ランダムに決定された先攻プレイヤー
         hasTimeLimit,
         timeLimitSeconds,
         uploadedAt: Date.now(),
@@ -207,7 +192,6 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
       };
 
       await uploadInitialState(newRoomId, initialState);
-      console.log('✅ ルーム設定アップロード完了');
     } catch (err: any) {
       console.error('❌ ルーム作成エラー:', err);
       setError(err.message || 'ルームの作成に失敗しました');
@@ -231,9 +215,7 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
     setError('');
 
     try {
-      console.log('🚪 ルーム参加開始:', roomId.trim());
       await joinRoom(roomId.trim(), playerName);
-      console.log('✅ ルーム参加完了');
       
       setLocalRoomData({
         id: roomId.trim(),
@@ -261,9 +243,7 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
     setError('');
 
     try {
-      console.log('🎮 ゲーム開始処理開始');
       await startGame(localRoomData.id);
-      console.log('✅ ゲーム開始処理完了');
     } catch (err: any) {
       console.error('❌ ゲーム開始エラー:', err);
       setError(err.message || 'ゲームの開始に失敗しました');
@@ -273,8 +253,6 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
 
   const handleReconnectToGame = () => {
     if (!localRoomData) return;
-    
-    console.log('🔄 ゲーム中の部屋に再接続:', localRoomData.id);
     
     const timeLimit = localRoomData.timeLimitOption;
     const hasTimeLimit = timeLimit !== 'none';
@@ -307,9 +285,7 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
     
     setLoading(true);
     try {
-      console.log('🚪 ルーム退出処理開始');
       await leaveRoom(localRoomData.id, localRoomData.isHost);
-      console.log('✅ ルーム退出処理完了');
       setMode('menu');
       setRoomId('');
       setLocalRoomData(null);
@@ -331,6 +307,26 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
   };
 
   const connectionStatus = getConnectionStatus();
+
+  // 🔧 先攻プレイヤー表示の追加
+  const getStartingPlayerDisplay = () => {
+    if (!localRoomData?.initialState?.startingPlayer) return null;
+    
+    const startingPlayer = localRoomData.initialState.startingPlayer;
+    const isMyTurn = (localRoomData.isHost && startingPlayer === 'host') || 
+                     (!localRoomData.isHost && startingPlayer === 'guest');
+    
+    return (
+      <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+        <div className="flex items-center gap-2 justify-center">
+          <span className="text-sm text-yellow-800 font-medium">
+            先攻: {isMyTurn ? 'あなた' : '相手'}
+            {startingPlayer === 'host' ? ' (青チーム)' : ' (赤チーム)'}
+          </span>
+        </div>
+      </div>
+    );
+  };
 
   if (!isConnected) {
     return (
@@ -426,6 +422,9 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
                 )}
               </div>
             </div>
+
+            {/* 🔧 先攻プレイヤー表示 */}
+            {getStartingPlayerDisplay()}
 
             <div className="flex gap-2">
               <button
@@ -673,6 +672,9 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
                 )}
               </div>
             </div>
+
+            {/* 🔧 先攻プレイヤー表示 */}
+            {getStartingPlayerDisplay()}
 
             {/* プレイヤー情報表示（青チーム・赤チーム表記） */}
             <div className="space-y-2">

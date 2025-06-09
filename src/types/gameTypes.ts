@@ -112,4 +112,5 @@ export interface GameState {
   hasTimeLimit: boolean;
   timeLimitSeconds: number;
   sendMoveFunction: ((roomId: string, move: any) => Promise<void>) | null;
+  startingPlayer: 'host' | 'guest'; // 🔧 先攻プレイヤー情報を追加
 }

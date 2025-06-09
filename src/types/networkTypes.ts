@@ -2,7 +2,7 @@
 export interface GameMove {
   id: string;
   turn: number;
-  team: 'player' | 'enemy'; // 🔧 チーム情報を追加
+  team: 'host' | 'guest'; // 🔧 host/guest制御に変更
   action: 'move' | 'attack' | 'skill' | 'end_turn' | 'surrender' | 'forced_end_turn';
   from: { x: number; y: number };  // 移動前の座標
   to?: { x: number; y: number };   // 移動先（移動の場合）
@@ -13,7 +13,7 @@ export interface GameMove {
 export interface TimerSync {
   id: string;
   turn: number;
-  team: 'player' | 'enemy';
+  team: 'host' | 'guest';
   timeLeft: number;
   timestamp: number;
 }
@@ -30,7 +30,7 @@ export interface InitialGameState {
     monsters: string[];
   };
   // ゲーム設定
-  startingPlayer: 'host' | 'guest'; // 🆕 先攻プレイヤー
+  startingPlayer: 'host' | 'guest'; // 🔧 先攻プレイヤー（ランダム決定）
   hasTimeLimit: boolean;
   timeLimitSeconds: number;
   // メタデータ

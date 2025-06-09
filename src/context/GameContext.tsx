@@ -15,7 +15,7 @@ type GameAction =
   | { type: 'SELECT_SKILL'; skill: Skill }
   | { type: 'USE_SKILL'; targetId: string }
   | { type: 'END_TURN' }
-  | { type: 'START_NETWORK_GAME'; roomId: string; isHost: boolean; hasTimeLimit: boolean; timeLimitSeconds: number; hostDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }; guestDeck?: { master: keyof typeof masterData; monsters: MonsterType[] } }
+  | { type: 'START_NETWORK_GAME'; roomId: string; isHost: boolean; hasTimeLimit: boolean; timeLimitSeconds: number; startingPlayer: 'host' | 'guest'; hostDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }; guestDeck?: { master: keyof typeof masterData; monsters: MonsterType[] } }
   | { type: 'RESET_GAME' }
   | { type: 'UPDATE_PREVIEW'; hostDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }; guestDeck?: { master: keyof typeof masterData; monsters: MonsterType[] } }
   | { type: 'SET_SAVED_DECKS'; hostDeck: { master: keyof typeof masterData; monsters: MonsterType[] }; guestDeck: { master: keyof typeof masterData; monsters: MonsterType[] } }
@@ -127,14 +127,14 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         return state;
       }
 
-      // 🔧 **修正: ターンプレイヤーは送信のみ（即座反映なし）**
+      // ターンプレイヤーは送信のみ（即座反映なし）
       if (state.pendingAction.type === 'move') {
         operationUploader.uploadMoveOperation(state, state.pendingAction.position!);
       } else if (state.pendingAction.type === 'attack') {
         operationUploader.uploadAttackOperation(state, state.pendingAction.targetId!);
       }
       
-      // 🔧 **重要: 選択状態のみクリア（画面反映は受信時に行う）**
+      // 選択状態のみクリア（画面反映は受信時に行う）
       return {
         ...state,
         selectedCharacter: null,
@@ -201,10 +201,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       const target = state.characters.find(char => char.id === action.targetId);
       if (!target) return state;
 
-      // 🔧 **修正: スキルも送信のみ（即座反映なし）**
+      // スキルも送信のみ（即座反映なし）
       operationUploader.uploadSkillOperation(state, action.targetId, state.selectedSkill.id);
       
-      // 🔧 **重要: 選択状態のみクリア（画面反映は受信時に行う）**
+      // 選択状態のみクリア（画面反映は受信時に行う）
       return {
         ...state,
         selectedCharacter: null,
@@ -258,10 +258,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'SURRENDER': {
-      // 🔧 **修正: 降参も送信のみ（即座反映なし）**
+      // 降参も送信のみ（即座反映なし）
       operationUploader.uploadSurrenderOperation(state);
       
-      // 🔧 **重要: 選択状態のみクリア（画面反映は受信時に行う）**
+      // 選択状態のみクリア（画面反映は受信時に行う）
       return {
         ...state,
         selectedCharacter: null,
@@ -274,10 +274,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     case 'END_TURN': {
       if (state.gamePhase === 'preparation') return state;
 
-      // 🔧 **修正: ターン終了も送信のみ（即座反映なし）**
+      // ターン終了も送信のみ（即座反映なし）
       operationUploader.uploadEndTurnOperation(state);
       
-      // 🔧 **重要: 選択状態のみクリア（画面反映は受信時に行う）**
+      // 選択状態のみクリア（画面反映は受信時に行う）
       return {
         ...state,
         selectedCharacter: null,
@@ -288,7 +288,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'START_NETWORK_GAME': {
-      const startingTeam: Team = 'player';
+      // 🔧 先攻プレイヤーに基づいてゲーム開始チームを決定
+      const startingTeam: Team = action.startingPlayer === 'host' ? 'player' : 'enemy';
       
       let newState = state;
       if (action.hostDeck && action.guestDeck) {
@@ -311,6 +312,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         roomId: action.roomId,
         hasTimeLimit: action.hasTimeLimit,
         timeLimitSeconds: action.timeLimitSeconds,
+        startingPlayer: action.startingPlayer, // 🔧 先攻プレイヤー情報を保存
         sendMoveFunction: state.sendMoveFunction,
         selectedCharacter: null,
         selectedAction: null,
@@ -362,6 +364,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         roomId: null,
         hasTimeLimit: true,
         timeLimitSeconds: 30,
+        startingPlayer: 'host', // デフォルト値
         sendMoveFunction: null,
       };
     }
@@ -377,7 +380,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'APPLY_BOARD_UPDATE': {
-      // 🔧 **重要: 受信時の画面反映（ターンプレイヤー・非ターンプレイヤー共通）**
+      // 受信時の画面反映（ターンプレイヤー・非ターンプレイヤー共通）
       return GameBoardCalculator.calculateNewBoardState(state, action.command);
     }
 
@@ -393,6 +396,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     roomId: null,
     hasTimeLimit: true,
     timeLimitSeconds: 30,
+    startingPlayer: 'host', // デフォルト値
     sendMoveFunction: null,
   });
   const [savedDecks, setSavedDecks] = React.useState<{
@@ -540,7 +544,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 export const useGame = (): GameContextType => {
   const context = useContext(GameContext);
   if (context === undefined) {
-    throw new Error('useGame must be used within a GameProvider');
+    throw new error('useGame must be used within a GameProvider');
   }
   return context;
 };

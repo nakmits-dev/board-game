@@ -7,7 +7,7 @@ import { addGameHistoryMove } from '../components/GameHistory';
 
 export interface MoveCommand {
   type: 'move' | 'attack' | 'skill' | 'end_turn' | 'forced_end_turn' | 'surrender';
-  team: Team;
+  team: 'host' | 'guest'; // 🔧 host/guest制御に変更
   turn: number;
   from: Position;
   to?: Position;
@@ -22,6 +22,9 @@ export class GameBoardCalculator {
    * 現在の盤面状態に対して操作を適用し、新しい盤面状態を返す
    */
   static calculateNewBoardState(currentState: GameState, command: MoveCommand): GameState {
+    // 🔧 host/guest を player/enemy に変換
+    const gameTeam: Team = this.convertToGameTeam(command.team, currentState.isHost);
+    
     // 現在の状態を完全にディープコピーしてベースにする
     let newState: GameState = {
       ...currentState,
@@ -33,14 +36,14 @@ export class GameBoardCalculator {
     let animations: AnimationSequence[] = [];
 
     // 操作の妥当性チェック
-    if (!this.validateCommand(newState, command)) {
+    if (!this.validateCommand(newState, command, gameTeam)) {
       return currentState;
     }
 
     // 操作タイプ別の処理
     switch (command.type) {
       case 'move':
-        ({ characters: newCharacters, animations } = this.calculateMoveAction(newCharacters, command));
+        ({ characters: newCharacters, animations } = this.calculateMoveAction(newCharacters, command, gameTeam));
         break;
 
       case 'attack':
@@ -48,7 +51,7 @@ export class GameBoardCalculator {
           characters: newCharacters, 
           animations,
           gamePhase: newState.gamePhase 
-        } = this.calculateAttackAction(newCharacters, command, newState.gamePhase));
+        } = this.calculateAttackAction(newCharacters, command, gameTeam, newState.gamePhase));
         break;
 
       case 'skill':
@@ -58,7 +61,7 @@ export class GameBoardCalculator {
           playerCrystals: newState.playerCrystals,
           enemyCrystals: newState.enemyCrystals,
           gamePhase: newState.gamePhase 
-        } = this.calculateSkillAction(newCharacters, command, newState.playerCrystals, newState.enemyCrystals, newState.gamePhase));
+        } = this.calculateSkillAction(newCharacters, command, gameTeam, newState.playerCrystals, newState.enemyCrystals, newState.gamePhase));
         break;
 
       case 'end_turn':
@@ -70,14 +73,14 @@ export class GameBoardCalculator {
           currentTurn: newState.currentTurn,
           playerCrystals: newState.playerCrystals,
           enemyCrystals: newState.enemyCrystals 
-        } = this.calculateEndTurnAction(newCharacters, command, newState.currentTeam, newState.currentTurn, newState.playerCrystals, newState.enemyCrystals));
+        } = this.calculateEndTurnAction(newCharacters, command, gameTeam, newState.currentTeam, newState.currentTurn, newState.playerCrystals, newState.enemyCrystals));
         break;
 
       case 'surrender':
         ({ 
           characters: newCharacters, 
           gamePhase: newState.gamePhase 
-        } = this.calculateSurrenderAction(newCharacters, command));
+        } = this.calculateSurrenderAction(newCharacters, command, gameTeam));
         break;
     }
 
@@ -104,9 +107,31 @@ export class GameBoardCalculator {
   }
 
   /**
+   * 🔧 host/guest を player/enemy に変換
+   */
+  private static convertToGameTeam(hostGuestTeam: 'host' | 'guest', isHost: boolean): Team {
+    if (isHost) {
+      return hostGuestTeam === 'host' ? 'player' : 'enemy';
+    } else {
+      return hostGuestTeam === 'host' ? 'enemy' : 'player';
+    }
+  }
+
+  /**
+   * 🔧 player/enemy を host/guest に変換
+   */
+  private static convertToHostGuest(gameTeam: Team, isHost: boolean): 'host' | 'guest' {
+    if (isHost) {
+      return gameTeam === 'player' ? 'host' : 'guest';
+    } else {
+      return gameTeam === 'player' ? 'guest' : 'host';
+    }
+  }
+
+  /**
    * 操作の妥当性チェック
    */
-  private static validateCommand(currentState: GameState, command: MoveCommand): boolean {
+  private static validateCommand(currentState: GameState, command: MoveCommand, gameTeam: Team): boolean {
     if (command.turn < 0 || !command.team || !command.type) {
       return false;
     }
@@ -119,7 +144,7 @@ export class GameBoardCalculator {
       const character = currentState.characters.find(char => 
         char.position.x === command.from.x && 
         char.position.y === command.from.y &&
-        char.team === command.team
+        char.team === gameTeam
       );
       
       if (!character) {
@@ -133,11 +158,11 @@ export class GameBoardCalculator {
   /**
    * 移動操作の計算
    */
-  private static calculateMoveAction(characters: Character[], command: MoveCommand) {
+  private static calculateMoveAction(characters: Character[], command: MoveCommand, gameTeam: Team) {
     const character = characters.find(char => 
       char.position.x === command.from.x && 
       char.position.y === command.from.y &&
-      char.team === command.team
+      char.team === gameTeam
     );
     
     const animations: AnimationSequence[] = [];
@@ -147,7 +172,7 @@ export class GameBoardCalculator {
       
       addGameHistoryMove(
         command.turn,
-        command.team,
+        gameTeam,
         'move',
         `${character.name}が (${command.from.x},${command.from.y}) → (${command.to.x},${command.to.y}) に移動`,
         command.timestamp
@@ -172,11 +197,11 @@ export class GameBoardCalculator {
   /**
    * 攻撃操作の計算
    */
-  private static calculateAttackAction(characters: Character[], command: MoveCommand, gamePhase: string) {
+  private static calculateAttackAction(characters: Character[], command: MoveCommand, gameTeam: Team, gamePhase: string) {
     const attacker = characters.find(char => 
       char.position.x === command.from.x && 
       char.position.y === command.from.y &&
-      char.team === command.team
+      char.team === gameTeam
     );
     
     if (!attacker || !command.to) {
@@ -186,7 +211,7 @@ export class GameBoardCalculator {
     const target = characters.find(char => 
       char.position.x === command.to!.x && 
       char.position.y === command.to!.y &&
-      char.team !== command.team
+      char.team !== gameTeam
     );
     
     if (!target) {
@@ -198,7 +223,7 @@ export class GameBoardCalculator {
     
     addGameHistoryMove(
       command.turn,
-      command.team,
+      gameTeam,
       'attack',
       `${attacker.name}が${target.name}を攻撃 (ダメージ: ${damage})`,
       command.timestamp
@@ -244,6 +269,7 @@ export class GameBoardCalculator {
   private static calculateSkillAction(
     characters: Character[], 
     command: MoveCommand, 
+    gameTeam: Team,
     playerCrystals: number, 
     enemyCrystals: number, 
     gamePhase: string
@@ -251,7 +277,7 @@ export class GameBoardCalculator {
     const caster = characters.find(char => 
       char.position.x === command.from.x && 
       char.position.y === command.from.y &&
-      char.team === command.team
+      char.team === gameTeam
     );
     
     const target = characters.find(char => 
@@ -270,7 +296,7 @@ export class GameBoardCalculator {
 
     addGameHistoryMove(
       command.turn,
-      command.team,
+      gameTeam,
       'skill',
       `${caster.name}が「${skill.name}」を${target.name}に使用`,
       command.timestamp
@@ -279,7 +305,7 @@ export class GameBoardCalculator {
     let newPlayerCrystals = playerCrystals;
     let newEnemyCrystals = enemyCrystals;
 
-    if (command.team === 'player') {
+    if (gameTeam === 'player') {
       newPlayerCrystals = Math.max(0, newPlayerCrystals - skill.crystalCost);
     } else {
       newEnemyCrystals = Math.max(0, newEnemyCrystals - skill.crystalCost);
@@ -363,6 +389,7 @@ export class GameBoardCalculator {
   private static calculateEndTurnAction(
     characters: Character[], 
     command: MoveCommand, 
+    gameTeam: Team,
     currentTeam: Team, 
     currentTurn: number, 
     playerCrystals: number, 
@@ -371,13 +398,13 @@ export class GameBoardCalculator {
     const description = command.type === 'forced_end_turn' ? 'ターン終了（時間切れ）' : 'ターン終了';
     addGameHistoryMove(
       command.turn,
-      command.team,
+      gameTeam,
       command.type,
       description,
       command.timestamp
     );
     
-    const newCurrentTeam: Team = command.team === 'player' ? 'enemy' : 'player';
+    const newCurrentTeam: Team = gameTeam === 'player' ? 'enemy' : 'player';
     
     const refreshedCharacters = characters.map(character => {
       if (character.team === newCurrentTeam) {
@@ -420,17 +447,17 @@ export class GameBoardCalculator {
   /**
    * 降参操作の計算
    */
-  private static calculateSurrenderAction(characters: Character[], command: MoveCommand) {
+  private static calculateSurrenderAction(characters: Character[], command: MoveCommand, gameTeam: Team) {
     addGameHistoryMove(
       command.turn,
-      command.team,
+      gameTeam,
       'surrender',
       '降参',
       command.timestamp
     );
     
     const newCharacters = characters.filter(char => 
-      !(char.team === command.team && char.type === 'master')
+      !(char.team === gameTeam && char.type === 'master')
     );
     
     return { characters: newCharacters, gamePhase: 'result' };

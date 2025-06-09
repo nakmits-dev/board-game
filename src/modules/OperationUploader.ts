@@ -1,10 +1,10 @@
 // 3️⃣ 操作をアップロードするモジュール（重複防止機能付き）
 
-import { GameState, Position } from '../types/gameTypes';
+import { GameState, Position, Team } from '../types/gameTypes';
 
 export interface OperationData {
   turn: number;
-  team: 'player' | 'enemy';
+  team: 'host' | 'guest'; // 🔧 host/guest制御に変更
   action: 'move' | 'attack' | 'skill' | 'end_turn' | 'forced_end_turn' | 'surrender';
   from: Position;
   to?: Position;
@@ -32,6 +32,17 @@ export class OperationUploader {
   }
 
   /**
+   * 🔧 player/enemy を host/guest に変換
+   */
+  private convertToHostGuest(gameTeam: Team, isHost: boolean): 'host' | 'guest' {
+    if (isHost) {
+      return gameTeam === 'player' ? 'host' : 'guest';
+    } else {
+      return gameTeam === 'player' ? 'guest' : 'host';
+    }
+  }
+
+  /**
    * 移動操作をアップロード
    */
   async uploadMoveOperation(state: GameState, targetPosition: Position): Promise<boolean> {
@@ -39,7 +50,7 @@ export class OperationUploader {
 
     const operationData: OperationData = {
       turn: state.currentTurn,
-      team: state.currentTeam,
+      team: this.convertToHostGuest(state.currentTeam, state.isHost),
       action: 'move',
       from: state.selectedCharacter.position,
       to: targetPosition,
@@ -61,7 +72,7 @@ export class OperationUploader {
 
     const operationData: OperationData = {
       turn: state.currentTurn,
-      team: state.currentTeam,
+      team: this.convertToHostGuest(state.currentTeam, state.isHost),
       action: 'attack',
       from: state.selectedCharacter.position,
       to: target.position,
@@ -83,7 +94,7 @@ export class OperationUploader {
 
     const operationData: OperationData = {
       turn: state.currentTurn,
-      team: state.currentTeam,
+      team: this.convertToHostGuest(state.currentTeam, state.isHost),
       action: 'skill',
       from: state.selectedCharacter.position,
       to: target.position,
@@ -103,7 +114,7 @@ export class OperationUploader {
 
     const operationData: OperationData = {
       turn: state.currentTurn,
-      team: state.currentTeam,
+      team: this.convertToHostGuest(state.currentTeam, state.isHost),
       action: forced ? 'forced_end_turn' : 'end_turn',
       from: { x: 0, y: 0 },
       timestamp: Date.now()
@@ -121,7 +132,7 @@ export class OperationUploader {
 
     const operationData: OperationData = {
       turn: state.currentTurn,
-      team: state.currentTeam,
+      team: this.convertToHostGuest(state.currentTeam, state.isHost),
       action: 'surrender',
       from: { x: 0, y: 0 },
       timestamp: Date.now()

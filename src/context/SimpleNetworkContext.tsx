@@ -74,6 +74,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
           isHost: state.isHost,
           hasTimeLimit: initialState.hasTimeLimit,
           timeLimitSeconds: initialState.timeLimitSeconds,
+          startingPlayer: initialState.startingPlayer, // 🔧 先攻プレイヤー情報を追加
           hostDeck: initialState.hostDeck,
           guestDeck: initialState.guestDeck
         });
