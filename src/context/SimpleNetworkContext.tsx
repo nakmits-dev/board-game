@@ -5,6 +5,8 @@ import { GameMove, TimerSync } from '../types/networkTypes';
 
 interface SimpleNetworkContextType {
   isConnected: boolean;
+  currentTimeLeft: number;
+  setCurrentTimeLeft: (time: number) => void;
 }
 
 const SimpleNetworkContext = createContext<SimpleNetworkContextType | undefined>(undefined);
@@ -25,11 +27,18 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     isConnected 
   } = useSimpleGameSync();
   const { state, dispatch } = useGame();
-  const lastProcessedMoveCount = useRef<number>(0); // 🎯 処理済み棋譜数で管理
-  const lastProcessedTimerId = useRef<string>('');
+  const lastProcessedMoveCount = useRef<number>(0);
+  const [currentTimeLeft, setCurrentTimeLeft] = React.useState(30);
   const syncCallbackRef = useRef<((action: any) => void) | null>(null);
+  const timerSyncInterval = useRef<NodeJS.Timeout | null>(null);
   const isInitialized = useRef(false);
-  const initialGameState = useRef<any>(null); // 🎯 初期状態を保存
+  const initialGameState = useRef<any>(null);
+
+  // 🎯 自分のターンかどうかを判定
+  const isMyTurn = () => {
+    const myTeam = state.isHost ? 'player' : 'enemy';
+    return state.currentTeam === myTeam;
+  };
 
   // ネットワークゲーム開始時の監視開始
   useEffect(() => {
@@ -49,7 +58,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.isNetworkGame, state.roomId, state.isHost, isConnected, startRoomMonitoring]);
 
-  // 🎯 棋譜送信（自分の手のみ）
+  // 🎯 **ターンプレイヤー: 棋譜送信**
   useEffect(() => {
     if (state.isNetworkGame && state.roomId) {
       const syncCallback = async (action: any) => {
@@ -57,20 +66,14 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
           console.error('❌ ルームIDまたは接続が確立されていません');
           return;
         }
+
+        // 🎯 自分のターンでない場合は送信しない
+        if (!isMyTurn()) {
+          console.log('⏭️ 自分のターンではないため棋譜送信をスキップ');
+          return;
+        }
         
         try {
-          // 🎯 タイマー同期は別処理（盤面に影響しない）
-          if (action.type === 'timer_sync') {
-            const timerSync: Omit<TimerSync, 'id' | 'timestamp'> = {
-              turn: action.turn,
-              team: action.team,
-              timeLeft: action.timeLeft
-            };
-            console.log('⏰ タイマー同期送信:', timerSync);
-            await sendTimerSync(state.roomId, timerSync);
-            return;
-          }
-
           // 🎯 通常の棋譜作成（盤面に影響する手のみ）
           const move: Omit<GameMove, 'id' | 'timestamp'> = {
             turn: action.turn,
@@ -137,7 +140,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
             return;
           }
 
-          console.log('📤 棋譜送信:', move);
+          console.log('📤 棋譜送信（ターンプレイヤー）:', move);
           await sendMove(state.roomId, move);
         } catch (error) {
           console.error('❌ 棋譜送信失敗:', error);
@@ -150,7 +153,45 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
       syncCallbackRef.current = null;
       dispatch({ type: 'SET_NETWORK_SYNC_CALLBACK', callback: null });
     }
-  }, [state.isNetworkGame, state.roomId, sendMove, sendTimerSync, dispatch, state.characters, isConnected]);
+  }, [state.isNetworkGame, state.roomId, sendMove, dispatch, state.characters, isConnected, state.currentTeam, state.isHost]);
+
+  // 🎯 **ターンプレイヤー: 毎秒タイマー送信**
+  useEffect(() => {
+    if (state.isNetworkGame && state.roomId && state.hasTimeLimit && state.gamePhase === 'action') {
+      // 自分のターンの場合のみタイマー送信
+      if (isMyTurn()) {
+        console.log('⏰ タイマー送信開始（ターンプレイヤー）');
+        
+        timerSyncInterval.current = setInterval(async () => {
+          try {
+            const timerSync: Omit<TimerSync, 'id' | 'timestamp'> = {
+              turn: state.currentTurn,
+              team: state.currentTeam,
+              timeLeft: currentTimeLeft
+            };
+            
+            console.log('⏰ タイマー同期送信:', { timeLeft: currentTimeLeft, team: state.currentTeam });
+            await sendTimerSync(state.roomId!, timerSync);
+          } catch (error) {
+            console.error('❌ タイマー同期送信エラー:', error);
+          }
+        }, 1000); // 毎秒送信
+
+        return () => {
+          if (timerSyncInterval.current) {
+            clearInterval(timerSyncInterval.current);
+            timerSyncInterval.current = null;
+          }
+        };
+      } else {
+        console.log('⏰ タイマー送信停止（非ターンプレイヤー）');
+        if (timerSyncInterval.current) {
+          clearInterval(timerSyncInterval.current);
+          timerSyncInterval.current = null;
+        }
+      }
+    }
+  }, [state.isNetworkGame, state.roomId, state.hasTimeLimit, state.gamePhase, state.currentTeam, state.isHost, state.currentTurn, currentTimeLeft, sendTimerSync]);
 
   // 🎯 初期状態受信処理
   useEffect(() => {
@@ -169,6 +210,9 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
           hostDeck: initialState.hostDeck,
           guestDeck: initialState.guestDeck
         });
+
+        // タイマーを初期化
+        setCurrentTimeLeft(initialState.timeLimitSeconds || 30);
       };
 
       setOnInitialState(initialStateCallback);
@@ -177,7 +221,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.isNetworkGame, setOnInitialState, dispatch, state.roomId, state.isHost]);
 
-  // 🎯 **棋譜リプレイベースの同期処理**（メイン機能）
+  // 🎯 **非ターンプレイヤー: 棋譜リプレイで盤面再現**
   useEffect(() => {
     if (state.isNetworkGame && state.roomId) {
       const moveCallback = (allMoves: GameMove[]) => {
@@ -186,7 +230,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
           return; // 新しい棋譜なし
         }
 
-        console.log('🎬 棋譜リプレイ開始:', {
+        console.log('🎬 棋譜リプレイ開始（非ターンプレイヤー）:', {
           totalMoves: allMoves.length,
           processedMoves: lastProcessedMoveCount.current,
           newMoves: allMoves.length - lastProcessedMoveCount.current
@@ -234,7 +278,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
 
           // 🎯 処理済み棋譜数を更新
           lastProcessedMoveCount.current = allMoves.length;
-          console.log('✅ 棋譜リプレイ完了:', {
+          console.log('✅ 棋譜リプレイ完了（非ターンプレイヤー）:', {
             totalMovesProcessed: allMoves.length
           });
         }, 100); // 初期状態復元後に棋譜を適用
@@ -246,31 +290,37 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.isNetworkGame, setOnMove, dispatch, state.roomId, state.isHost]);
 
-  // 🎯 タイマー同期受信処理（盤面に影響しない）
+  // 🎯 **非ターンプレイヤー: タイマー受信で画面反映**
   useEffect(() => {
     if (state.isNetworkGame && state.roomId) {
       const timerCallback = (timerSync: TimerSync) => {
-        if (timerSync.id === lastProcessedTimerId.current) {
-          return;
-        }
-
-        console.log('⏰ タイマー同期受信:', {
+        console.log('⏰ タイマー同期受信（非ターンプレイヤー）:', {
           team: timerSync.team,
           timeLeft: timerSync.timeLeft,
-          turn: timerSync.turn
+          turn: timerSync.turn,
+          isMyTurn: isMyTurn()
         });
 
-        // 🎯 タイマー情報は盤面に影響しないため、UIのみ更新
-        // 必要に応じてタイマー表示を同期する処理をここに追加
-
-        lastProcessedTimerId.current = timerSync.id;
+        // 🎯 非ターンプレイヤーの場合のみタイマーを更新
+        if (!isMyTurn()) {
+          setCurrentTimeLeft(timerSync.timeLeft);
+          console.log('⏰ タイマー画面反映:', timerSync.timeLeft);
+        }
       };
 
       setOnTimerSync(timerCallback);
     } else {
       setOnTimerSync(() => {});
     }
-  }, [state.isNetworkGame, setOnTimerSync, state.roomId]);
+  }, [state.isNetworkGame, setOnTimerSync, state.roomId, state.currentTeam, state.isHost]);
+
+  // ターン変更時にタイマーをリセット
+  useEffect(() => {
+    if (state.gamePhase === 'action') {
+      setCurrentTimeLeft(state.timeLimitSeconds);
+      console.log('🔄 ターン変更 - タイマーリセット:', state.timeLimitSeconds);
+    }
+  }, [state.currentTeam, state.gamePhase, state.timeLimitSeconds]);
 
   // ゲーム終了時のクリーンアップ
   useEffect(() => {
@@ -279,13 +329,20 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
       isInitialized.current = false;
       lastProcessedMoveCount.current = 0;
       initialGameState.current = null;
+      
+      if (timerSyncInterval.current) {
+        clearInterval(timerSyncInterval.current);
+        timerSyncInterval.current = null;
+      }
     }
   }, [state.isNetworkGame]);
 
   return (
     <SimpleNetworkContext.Provider 
       value={{ 
-        isConnected
+        isConnected,
+        currentTimeLeft,
+        setCurrentTimeLeft
       }}
     >
       {children}
