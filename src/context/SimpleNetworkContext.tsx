@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef } from 'react';
 import { useSimpleGameSync } from '../hooks/useSimpleGameSync';
 import { useGame } from './GameContext';
-import { operationReceiver } from '../modules/OperationReceiver';
 
 interface SimpleNetworkContextType {
   isConnected: boolean;
@@ -28,20 +27,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
   const [currentTimeLeft, setCurrentTimeLeft] = React.useState(30);
   const isInitialized = useRef(false);
   const initialGameState = useRef<any>(null);
-
-  // 🔧 **修正: OperationReceiver の盤面更新コールバック設定**
-  useEffect(() => {
-    console.log('🔗 [SimpleNetworkContext] OperationReceiver コールバック設定');
-    operationReceiver.setOnBoardUpdateCallback((command) => {
-      console.log('🧮 [SimpleNetworkContext] 盤面更新実行:', {
-        type: command.type,
-        team: command.team,
-        turn: command.turn,
-        timestamp: command.timestamp
-      });
-      dispatch({ type: 'APPLY_BOARD_UPDATE', command });
-    });
-  }, [dispatch]);
+  const lastProcessedMoveId = useRef<string | null>(null);
 
   // 🔧 **修正: アップロード関数を設定**
   useEffect(() => {
@@ -96,29 +82,56 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.roomId, setOnInitialState, dispatch, state.isHost]);
 
-  // 🔧 **修正: 操作受信処理**
+  // 🔧 **修正: シンプルな最新手反映処理**
   useEffect(() => {
     if (state.roomId) {
       const moveCallback = (allMoves: any[]) => {
-        console.log('📥 [SimpleNetworkContext] 操作受信:', {
-          totalMoves: allMoves.length,
-          moves: allMoves.map(m => ({
-            action: m.action,
-            team: m.team,
-            turn: m.turn,
-            timestamp: m.timestamp
-          }))
-        });
+        if (allMoves.length === 0) {
+          console.log('📥 [SimpleNetworkContext] 棋譜なし');
+          return;
+        }
+
+        // 🔧 **重要: 最新の手のみを取得**
+        const latestMove = allMoves[allMoves.length - 1];
         
-        // 🔧 **重要: OperationReceiver に処理を委譲**
-        operationReceiver.processReceivedOperations(allMoves);
+        // 🔧 **重要: 既に処理済みの手はスキップ**
+        if (lastProcessedMoveId.current === latestMove.id) {
+          console.log('📥 [SimpleNetworkContext] 既に処理済み - スキップ:', latestMove.id);
+          return;
+        }
+
+        console.log('📥 [SimpleNetworkContext] 最新の手を反映:', {
+          id: latestMove.id,
+          action: latestMove.action,
+          team: latestMove.team,
+          turn: latestMove.turn,
+          timestamp: latestMove.timestamp
+        });
+
+        // 🔧 **重要: 最新の手を現在の盤面に反映**
+        const command = {
+          type: latestMove.action,
+          team: latestMove.team,
+          turn: latestMove.turn,
+          from: latestMove.from,
+          to: latestMove.to,
+          skillId: latestMove.action === 'skill' ? 'rage-strike' : undefined,
+          timestamp: latestMove.timestamp
+        };
+
+        dispatch({ type: 'APPLY_BOARD_UPDATE', command });
+        
+        // 🔧 **重要: 処理済みとしてマーク**
+        lastProcessedMoveId.current = latestMove.id;
+        
+        console.log('✅ [SimpleNetworkContext] 最新手反映完了:', latestMove.id);
       };
 
       setOnMove(moveCallback);
     } else {
       setOnMove(() => {});
     }
-  }, [state.roomId, setOnMove]);
+  }, [state.roomId, setOnMove, dispatch]);
 
   // ターン変更時にタイマーをリセット
   useEffect(() => {
@@ -133,7 +146,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
       console.log('🧹 [SimpleNetworkContext] ネットワークゲーム終了 - クリーンアップ');
       isInitialized.current = false;
       initialGameState.current = null;
-      operationReceiver.resetTimestamp();
+      lastProcessedMoveId.current = null;
     }
   }, [state.roomId]);
 
