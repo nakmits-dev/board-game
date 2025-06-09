@@ -127,21 +127,42 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         return state;
       }
 
-      // ターンプレイヤーは送信のみ（即座反映なし）
-      if (state.pendingAction.type === 'move') {
-        operationUploader.uploadMoveOperation(state, state.pendingAction.position!);
-      } else if (state.pendingAction.type === 'attack') {
-        operationUploader.uploadAttackOperation(state, state.pendingAction.targetId!);
+      // 🔧 ネットワークゲームの場合は送信のみ（即座反映なし）
+      if (state.roomId) {
+        console.log('📤 [GameContext] ネットワークゲーム - 操作送信のみ実行');
+        
+        // ターンプレイヤーは送信のみ（即座反映なし）
+        if (state.pendingAction.type === 'move') {
+          operationUploader.uploadMoveOperation(state, state.pendingAction.position!);
+        } else if (state.pendingAction.type === 'attack') {
+          operationUploader.uploadAttackOperation(state, state.pendingAction.targetId!);
+        }
+        
+        // 選択状態のみクリア（画面反映は受信時に行う）
+        return {
+          ...state,
+          selectedCharacter: null,
+          selectedAction: null,
+          selectedSkill: null,
+          pendingAction: { type: null },
+        };
       }
-      
-      // 選択状態のみクリア（画面反映は受信時に行う）
-      return {
-        ...state,
-        selectedCharacter: null,
-        selectedAction: null,
-        selectedSkill: null,
-        pendingAction: { type: null },
+
+      // 🔧 ローカルゲームの場合は即座に適用
+      console.log('🎮 [GameContext] ローカルゲーム - 即座に適用');
+      const move = {
+        turn: state.currentTurn,
+        team: state.isHost ? 'host' : 'guest',
+        type: state.pendingAction.type,
+        from: state.selectedCharacter.position,
+        to: state.pendingAction.position || (state.pendingAction.targetId ? 
+          state.characters.find(c => c.id === state.pendingAction.targetId)?.position : undefined
+        ),
+        targetId: state.pendingAction.targetId,
+        timestamp: Date.now()
       };
+
+      return GameBoardCalculator.calculateNewBoardState(state, move);
     }
 
     case 'EVOLVE_CHARACTER': {
@@ -201,17 +222,34 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       const target = state.characters.find(char => char.id === action.targetId);
       if (!target) return state;
 
-      // スキルも送信のみ（即座反映なし）
-      operationUploader.uploadSkillOperation(state, action.targetId, state.selectedSkill.id);
-      
-      // 選択状態のみクリア（画面反映は受信時に行う）
-      return {
-        ...state,
-        selectedCharacter: null,
-        selectedAction: null,
-        selectedSkill: null,
-        pendingAction: { type: null },
+      // 🔧 ネットワークゲームの場合は送信のみ（即座反映なし）
+      if (state.roomId) {
+        console.log('📤 [GameContext] スキル - ネットワークゲーム送信のみ実行');
+        
+        operationUploader.uploadSkillOperation(state, action.targetId, state.selectedSkill.id);
+        
+        return {
+          ...state,
+          selectedCharacter: null,
+          selectedAction: null,
+          selectedSkill: null,
+          pendingAction: { type: null },
+        };
+      }
+
+      // 🔧 ローカルゲームの場合は即座に適用
+      console.log('🎮 [GameContext] スキル - ローカルゲーム適用');
+      const move = {
+        turn: state.currentTurn,
+        team: state.isHost ? 'host' : 'guest',
+        type: 'skill',
+        from: state.selectedCharacter.position,
+        to: target.position,
+        skillId: state.selectedSkill.id,
+        timestamp: Date.now()
       };
+
+      return GameBoardCalculator.calculateNewBoardState(state, move);
     }
 
     case 'REMOVE_DEFEATED_CHARACTERS': {
@@ -258,33 +296,73 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'SURRENDER': {
-      // 降参も送信のみ（即座反映なし）
-      operationUploader.uploadSurrenderOperation(state);
-      
-      // 選択状態のみクリア（画面反映は受信時に行う）
+      // 🔧 ネットワークゲームの場合は送信のみ（即座反映なし）
+      if (state.roomId) {
+        console.log('📤 [GameContext] 降参 - ネットワークゲーム送信のみ実行');
+        
+        operationUploader.uploadSurrenderOperation(state);
+        
+        return {
+          ...state,
+          selectedCharacter: null,
+          selectedAction: null,
+          selectedSkill: null,
+          pendingAction: { type: null },
+        };
+      }
+
+      // 🔧 ローカルゲームの場合は即座に適用
+      console.log('🎮 [GameContext] 降参 - ローカルゲーム適用');
       return {
         ...state,
+        gamePhase: 'result',
         selectedCharacter: null,
         selectedAction: null,
         selectedSkill: null,
         pendingAction: { type: null },
+        animationTarget: null,
+        pendingAnimations: [],
+        characters: state.characters.filter(char => 
+          !(char.team === action.team && char.type === 'master')
+        ),
       };
     }
 
     case 'END_TURN': {
       if (state.gamePhase === 'preparation') return state;
 
-      // ターン終了も送信のみ（即座反映なし）
-      operationUploader.uploadEndTurnOperation(state);
+      // 🔧 ネットワークゲームの場合は送信のみ（即座反映なし）
+      if (state.roomId) {
+        console.log('📤 [GameContext] ターン終了 - ネットワークゲーム送信のみ実行');
+        
+        try {
+          operationUploader.uploadEndTurnOperation(state);
+          console.log('✅ [GameContext] ターン終了送信完了');
+          
+          return {
+            ...state,
+            selectedCharacter: null,
+            selectedAction: null,
+            selectedSkill: null,
+            pendingAction: { type: null },
+          };
+        } catch (error) {
+          console.error('❌ [GameContext] ターン終了送信エラー:', error);
+          return state;
+        }
+      }
       
-      // 選択状態のみクリア（画面反映は受信時に行う）
-      return {
-        ...state,
-        selectedCharacter: null,
-        selectedAction: null,
-        selectedSkill: null,
-        pendingAction: { type: null },
+      // 🔧 ローカルゲームの場合は即座に適用
+      console.log('🎮 [GameContext] ターン終了 - ローカルゲーム適用');
+      const move = {
+        turn: state.currentTurn,
+        team: state.isHost ? 'host' : 'guest',
+        type: 'end_turn',
+        from: { x: 0, y: 0 },
+        timestamp: Date.now()
       };
+
+      return GameBoardCalculator.calculateNewBoardState(state, move);
     }
 
     case 'START_NETWORK_GAME': {
@@ -544,7 +622,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 export const useGame = (): GameContextType => {
   const context = useContext(GameContext);
   if (context === undefined) {
-    throw new error('useGame must be used within a GameProvider');
+    throw new Error('useGame must be used within a GameProvider');
   }
   return context;
 };

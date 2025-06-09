@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useGame } from '../context/GameContext';
 import { useSimpleNetwork } from '../context/SimpleNetworkContext';
-import { operationUploader } from '../modules/OperationUploader';
 import { Pause, Play, Flag } from 'lucide-react';
 
 const TurnOrder: React.FC = () => {
@@ -10,6 +9,7 @@ const TurnOrder: React.FC = () => {
   const { currentTeam, gamePhase, animationTarget, isHost, hasTimeLimit, timeLimitSeconds } = state;
   const [isPaused, setIsPaused] = useState(false);
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
+  const [endTurnInProgress, setEndTurnInProgress] = useState(false); // 🔧 ターン終了処理中フラグ
   const endTurnButtonRef = useRef<HTMLButtonElement>(null);
   const isEndingTurn = useRef(false);
   const timerInterval = useRef<NodeJS.Timeout | null>(null);
@@ -49,16 +49,17 @@ const TurnOrder: React.FC = () => {
         setCurrentTimeLeft((prev) => {
           const newTime = prev - 1;
           
-          if (newTime <= 0 && !isEndingTurn.current) {
+          if (newTime <= 0 && !isEndingTurn.current && !endTurnInProgress) {
+            console.log('⏰ 時間切れ - 強制ターン終了');
             isEndingTurn.current = true;
+            setEndTurnInProgress(true);
             
-            // OperationUploader を使用して強制ターン終了送信
-            operationUploader.uploadEndTurnOperation(state, true);
-            
+            // 🔧 強制ターン終了を送信
             dispatch({ type: 'END_TURN' });
             
             setTimeout(() => {
               isEndingTurn.current = false;
+              setEndTurnInProgress(false);
             }, 1000);
             
             return 0;
@@ -80,12 +81,14 @@ const TurnOrder: React.FC = () => {
         timerInterval.current = null;
       }
     }
-  }, [gamePhase, currentTeam, hasTimeLimit, isPaused, isMyTurn(), setCurrentTimeLeft, dispatch, state]);
+  }, [gamePhase, currentTeam, hasTimeLimit, isPaused, isMyTurn(), setCurrentTimeLeft, dispatch, endTurnInProgress]);
 
   // ターン変更時にタイマーをリセット（修正）
   useEffect(() => {
     if (gamePhase === 'action' && timeLimitSeconds > 0) {
       setCurrentTimeLeft(timeLimitSeconds);
+      setShowSurrenderConfirm(false);
+      setEndTurnInProgress(false); // 🔧 ターン終了フラグもリセット
     }
   }, [currentTeam, gamePhase, timeLimitSeconds, setCurrentTimeLeft]);
   
@@ -116,15 +119,40 @@ const TurnOrder: React.FC = () => {
     }
   };
 
-  const handleEndTurn = () => {
-    if (!isMyTurn()) return;
+  // 🔧 ターン終了処理（重複防止機能付き）
+  const handleEndTurn = async () => {
+    if (!isMyTurn() || endTurnInProgress) {
+      console.log('🚫 ターン終了無効:', {
+        isMyTurn: isMyTurn(),
+        endTurnInProgress
+      });
+      return;
+    }
     
+    console.log('🔄 ターン終了処理開始');
+    setEndTurnInProgress(true);
     setShowSurrenderConfirm(false);
-    dispatch({ type: 'END_TURN' });
+    
+    try {
+      dispatch({ type: 'END_TURN' });
+      console.log('✅ ターン終了ディスパッチ完了');
+    } catch (error) {
+      console.error('❌ ターン終了エラー:', error);
+    } finally {
+      // 🔧 少し遅延してフラグをリセット
+      setTimeout(() => {
+        console.log('🔧 ターン終了フラグリセット');
+        setEndTurnInProgress(false);
+      }, 500);
+    }
   };
 
   const canSurrender = () => {
-    return isMyTurn();
+    return isMyTurn() && !endTurnInProgress;
+  };
+
+  const canEndTurn = () => {
+    return isMyTurn() && !endTurnInProgress;
   };
   
   return (
@@ -146,9 +174,9 @@ const TurnOrder: React.FC = () => {
               </div>
               <button
                 onClick={handlePauseToggle}
-                disabled={!isMyTurn() || !hasTimeLimit}
+                disabled={!isMyTurn() || !hasTimeLimit || endTurnInProgress}
                 className={`p-2 rounded-lg transition-colors ${
-                  (!isMyTurn()) || !hasTimeLimit
+                  (!isMyTurn()) || !hasTimeLimit || endTurnInProgress
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                     : isPaused 
                       ? 'bg-green-100 text-green-600 hover:bg-green-200' 
@@ -191,16 +219,14 @@ const TurnOrder: React.FC = () => {
           <button
             ref={endTurnButtonRef}
             onClick={handleEndTurn}
-            disabled={!isMyTurn()}
+            disabled={!canEndTurn()}
             className={`px-3 py-2 font-bold rounded transform transition text-sm sm:text-base ${
-              !isMyTurn()
+              !canEndTurn()
                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : isMyTurn()
-                ? 'bg-blue-600 hover:bg-blue-700 text-white hover:scale-105'
-                : 'bg-red-600 hover:bg-red-700 text-white hover:scale-105'
+                : 'bg-blue-600 hover:bg-blue-700 text-white hover:scale-105'
             }`}
           >
-            ターン終了
+            {endTurnInProgress ? 'ターン終了中...' : 'ターン終了'}
           </button>
         </div>
       </div>
@@ -230,6 +256,7 @@ const TurnOrder: React.FC = () => {
           {!isMyTurn() && ' | 相手の行動を待機中...'}
           {!hasTimeLimit && ' | 時間制限なし'}
           {!isMyTurn() && ' | 降参は自分のターンでのみ可能'}
+          {endTurnInProgress && ' | ターン終了処理中...'}
         </p>
       </div>
     </div>
