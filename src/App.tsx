@@ -10,6 +10,7 @@ import DeckBuilder from './components/DeckBuilder';
 import ShareButton from './components/ShareButton';
 import Tutorial from './components/Tutorial';
 import SimpleNetworkLobby from './components/SimpleNetworkLobby';
+import GameHistory from './components/GameHistory';
 import DebugPanel from './components/DebugPanel';
 import { useGame } from './context/GameContext';
 import { MonsterType } from './types/gameTypes';
@@ -18,7 +19,7 @@ import { HelpCircle, Wifi } from 'lucide-react';
 
 const GameContent = () => {
   const { state, dispatch, savedDecks } = useGame();
-  const { gamePhase, isNetworkGame, roomId, isHost, hasTimeLimit, timeLimitSeconds } = state;
+  const { gamePhase, roomId, isHost, hasTimeLimit, timeLimitSeconds } = state;
   const [showDeckBuilder, setShowDeckBuilder] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [showNetworkLobby, setShowNetworkLobby] = useState(false);
@@ -88,7 +89,7 @@ const GameContent = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <h1 className="text-2xl font-bold text-blue-900">ボードdeモンスターズ</h1>
-              {isNetworkGame && (
+              {roomId && (
                 <div className="flex items-center gap-2 px-3 py-1 bg-purple-100 text-purple-800 rounded-lg text-sm">
                   <Wifi size={16} />
                   <span>オンライン対戦</span>
@@ -161,9 +162,16 @@ const GameContent = () => {
             </div>
           </div>
           
-          <div className="hidden lg:block">
+          <div className="hidden lg:block space-y-4">
             <CharacterPanel />
+            {/* 🆕 棋譜表示を追加 */}
+            <GameHistory />
           </div>
+        </div>
+
+        {/* モバイル用棋譜表示 */}
+        <div className="lg:hidden mt-6">
+          <GameHistory />
         </div>
       </main>
       
