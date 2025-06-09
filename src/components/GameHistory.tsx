@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
 import { ChevronDown, ChevronUp, History, Move, Sword, Sparkle, Flag, RotateCcw, Clock } from 'lucide-react';
 
@@ -17,60 +17,82 @@ interface HistoryMove {
   color: string;
 }
 
+// 🎯 棋譜データを管理するシングルトンクラス
+class GameHistoryManager {
+  private static instance: GameHistoryManager;
+  private history: HistoryMove[] = [];
+  private listeners: ((history: HistoryMove[]) => void)[] = [];
+
+  static getInstance(): GameHistoryManager {
+    if (!GameHistoryManager.instance) {
+      GameHistoryManager.instance = new GameHistoryManager();
+    }
+    return GameHistoryManager.instance;
+  }
+
+  addMove(move: HistoryMove) {
+    // 重複チェック（同じタイムスタンプの棋譜は追加しない）
+    const exists = this.history.some(h => h.timestamp === move.timestamp);
+    if (exists) {
+      console.log('📋 [GameHistoryManager] 重複棋譜スキップ:', move.description);
+      return;
+    }
+
+    console.log('📋 [GameHistoryManager] 棋譜追加:', move.description);
+    this.history.push(move);
+    
+    // タイムスタンプ順でソート（新しいものが後）
+    this.history.sort((a, b) => a.timestamp - b.timestamp);
+    
+    // リスナーに通知
+    this.listeners.forEach(listener => listener([...this.history]));
+  }
+
+  getHistory(): HistoryMove[] {
+    return [...this.history];
+  }
+
+  addListener(listener: (history: HistoryMove[]) => void) {
+    this.listeners.push(listener);
+  }
+
+  removeListener(listener: (history: HistoryMove[]) => void) {
+    this.listeners = this.listeners.filter(l => l !== listener);
+  }
+
+  reset() {
+    console.log('📋 [GameHistoryManager] 棋譜リセット');
+    this.history = [];
+    this.listeners.forEach(listener => listener([]));
+  }
+}
+
 const GameHistory: React.FC<GameHistoryProps> = ({ className = '' }) => {
   const { state } = useGame();
   const [isExpanded, setIsExpanded] = useState(false);
   const [gameHistory, setGameHistory] = useState<HistoryMove[]>([]);
+  const historyManager = GameHistoryManager.getInstance();
 
-  // 棋譜データを監視して履歴を更新
-  React.useEffect(() => {
-    // 実際の棋譜データがあれば、それを履歴に変換
-    // 現在はサンプルデータを表示
-    const sampleHistory: HistoryMove[] = [
-      {
-        id: '1',
-        turn: 1,
-        team: 'player',
-        action: 'move',
-        description: 'ウルフが (1,3) → (1,2) に移動',
-        timestamp: Date.now() - 30000,
-        icon: <Move size={14} className="text-blue-500" />,
-        color: 'text-blue-600'
-      },
-      {
-        id: '2',
-        turn: 1,
-        team: 'enemy',
-        action: 'attack',
-        description: 'ベアーがウルフを攻撃 (ダメージ: 2)',
-        timestamp: Date.now() - 25000,
-        icon: <Sword size={14} className="text-red-500" />,
-        color: 'text-red-600'
-      },
-      {
-        id: '3',
-        turn: 2,
-        team: 'player',
-        action: 'skill',
-        description: 'レッドマスターが「いかりのいちげき」を使用',
-        timestamp: Date.now() - 20000,
-        icon: <Sparkle size={14} className="text-purple-500" />,
-        color: 'text-blue-600'
-      },
-      {
-        id: '4',
-        turn: 2,
-        team: 'enemy',
-        action: 'end_turn',
-        description: 'ターン終了',
-        timestamp: Date.now() - 15000,
-        icon: <RotateCcw size={14} className="text-gray-500" />,
-        color: 'text-red-600'
-      }
-    ];
+  // 🎯 棋譜マネージャーからの更新を監視
+  useEffect(() => {
+    const updateHistory = (history: HistoryMove[]) => {
+      setGameHistory(history);
+    };
 
-    setGameHistory(sampleHistory);
-  }, [state.currentTurn]);
+    historyManager.addListener(updateHistory);
+    setGameHistory(historyManager.getHistory());
+
+    return () => {
+      historyManager.removeListener(updateHistory);
+    };
+  }, [historyManager]);
+
+  // 🎯 ゲームリセット時に棋譜をクリア
+  useEffect(() => {
+    if (state.gamePhase === 'preparation') {
+      historyManager.reset();
+    }
+  }, [state.gamePhase, historyManager]);
 
   const getActionIcon = (action: string) => {
     switch (action) {
@@ -122,6 +144,9 @@ const GameHistory: React.FC<GameHistoryProps> = ({ className = '' }) => {
     return null;
   }
 
+  // 🎯 最新の棋譜が上に来るように逆順で表示
+  const displayHistory = [...gameHistory].reverse();
+
   return (
     <div className={`bg-white rounded-xl shadow-lg border border-blue-100 ${className}`}>
       {/* ヘッダー */}
@@ -158,11 +183,11 @@ const GameHistory: React.FC<GameHistoryProps> = ({ className = '' }) => {
             </div>
           ) : (
             <div className="max-h-64 overflow-y-auto">
-              {gameHistory.map((move, index) => (
+              {displayHistory.map((move, index) => (
                 <div 
                   key={move.id}
                   className={`p-3 border-b border-gray-50 hover:bg-gray-50 transition-colors ${
-                    index === gameHistory.length - 1 ? 'border-b-0' : ''
+                    index === displayHistory.length - 1 ? 'border-b-0' : ''
                   }`}
                 >
                   <div className="flex items-start gap-3">
@@ -210,6 +235,30 @@ const GameHistory: React.FC<GameHistoryProps> = ({ className = '' }) => {
       )}
     </div>
   );
+};
+
+// 🎯 棋譜追加用のエクスポート関数
+export const addGameHistoryMove = (
+  turn: number,
+  team: 'player' | 'enemy',
+  action: string,
+  description: string,
+  timestamp: number = Date.now()
+) => {
+  const historyManager = GameHistoryManager.getInstance();
+  
+  const move: HistoryMove = {
+    id: `${timestamp}_${Math.random().toString(36).substr(2, 9)}`,
+    turn,
+    team,
+    action,
+    description,
+    timestamp,
+    icon: <History size={14} className="text-gray-500" />,
+    color: team === 'player' ? 'text-blue-600' : 'text-red-600'
+  };
+
+  historyManager.addMove(move);
 };
 
 export default GameHistory;

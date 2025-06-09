@@ -1,8 +1,9 @@
 // 2️⃣ 棋譜を元に計算を行い盤面状態を更新するモジュール
 
-import { GameBoardState, Character, Position, Team, AnimationSequence } from '../types/GameBoardState';
+import { GameState, Character, Position, Team, AnimationSequence } from '../types/gameTypes';
 import { monsterData } from '../data/cardData';
 import { skillData } from '../data/skillData';
+import { addGameHistoryMove } from '../components/GameHistory';
 
 export interface MoveCommand {
   type: 'move' | 'attack' | 'skill' | 'end_turn' | 'forced_end_turn' | 'surrender';
@@ -20,7 +21,7 @@ export class GameBoardCalculator {
   /**
    * 棋譜コマンドを受け取り、新しい盤面状態を計算して返す
    */
-  static calculateNewBoardState(currentState: GameBoardState, command: MoveCommand): GameBoardState {
+  static calculateNewBoardState(currentState: GameState, command: MoveCommand): GameState {
     console.log('🧮 [GameBoardCalculator] 盤面計算開始:', {
       type: command.type,
       team: command.team,
@@ -118,6 +119,15 @@ export class GameBoardCalculator {
       console.log('📍 移動計算:', character.name, command.from, '->', command.to);
       animations.push({ id: character.id, type: 'move' });
       
+      // 🎯 棋譜に追加
+      addGameHistoryMove(
+        command.turn,
+        command.team,
+        'move',
+        `${character.name}が (${command.from.x},${command.from.y}) → (${command.to.x},${command.to.y}) に移動`,
+        command.timestamp
+      );
+      
       const newCharacters = characters.map(char => 
         char.id === character.id
           ? {
@@ -158,6 +168,15 @@ export class GameBoardCalculator {
     console.log('⚔️ 攻撃計算:', attacker.name, '->', target.name);
     const damage = Math.max(0, attacker.attack - target.defense);
     const newHp = Math.max(0, target.hp - damage);
+    
+    // 🎯 棋譜に追加
+    addGameHistoryMove(
+      command.turn,
+      command.team,
+      'attack',
+      `${attacker.name}が${target.name}を攻撃 (ダメージ: ${damage})`,
+      command.timestamp
+    );
     
     const animations: AnimationSequence[] = [
       { id: attacker.id, type: 'attack' },
@@ -221,6 +240,15 @@ export class GameBoardCalculator {
     }
 
     console.log('✨ スキル計算:', caster.name, '->', target.name, skill.name);
+
+    // 🎯 棋譜に追加
+    addGameHistoryMove(
+      command.turn,
+      command.team,
+      'skill',
+      `${caster.name}が「${skill.name}」を${target.name}に使用`,
+      command.timestamp
+    );
 
     let newPlayerCrystals = playerCrystals;
     let newEnemyCrystals = enemyCrystals;
@@ -313,6 +341,16 @@ export class GameBoardCalculator {
   ) {
     console.log('🔄 ターン終了計算:', command.type);
     
+    // 🎯 棋譜に追加
+    const description = command.type === 'forced_end_turn' ? 'ターン終了（時間切れ）' : 'ターン終了';
+    addGameHistoryMove(
+      command.turn,
+      command.team,
+      command.type,
+      description,
+      command.timestamp
+    );
+    
     const newCurrentTeam: Team = command.team === 'player' ? 'enemy' : 'player';
     
     const refreshedCharacters = characters.map(character => {
@@ -355,6 +393,15 @@ export class GameBoardCalculator {
 
   private static calculateSurrenderAction(characters: Character[], command: MoveCommand) {
     console.log('🏳️ 降参計算:', command.team);
+    
+    // 🎯 棋譜に追加
+    addGameHistoryMove(
+      command.turn,
+      command.team,
+      'surrender',
+      '降参',
+      command.timestamp
+    );
     
     const newCharacters = characters.filter(char => 
       !(char.team === command.team && char.type === 'master')
