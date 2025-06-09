@@ -129,27 +129,11 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
       console.log('📤 [GameContext] 操作アップロード');
       
-      // 🔧 ネットワークゲームの場合のみアップロード
-      if (state.roomId) {
-        // OperationUploader を使用して送信
-        if (state.pendingAction.type === 'move') {
-          operationUploader.uploadMoveOperation(state, state.pendingAction.position!);
-        } else if (state.pendingAction.type === 'attack') {
-          operationUploader.uploadAttackOperation(state, state.pendingAction.targetId!);
-        }
-      } else {
-        // 🔧 ローカルゲームの場合は直接盤面更新
-        console.log('🎮 [GameContext] ローカルゲーム - 直接盤面更新');
-        const command: MoveCommand = {
-          type: state.pendingAction.type as any,
-          team: state.currentTeam,
-          turn: state.currentTurn,
-          from: state.selectedCharacter.position,
-          to: state.pendingAction.position,
-          timestamp: Date.now()
-        };
-        
-        return GameBoardCalculator.calculateNewBoardState(state, command);
+      // OperationUploader を使用して送信
+      if (state.pendingAction.type === 'move') {
+        operationUploader.uploadMoveOperation(state, state.pendingAction.position!);
+      } else if (state.pendingAction.type === 'attack') {
+        operationUploader.uploadAttackOperation(state, state.pendingAction.targetId!);
       }
       
       return {
@@ -220,25 +204,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
       console.log('📤 [GameContext] スキルアップロード');
       
-      // 🔧 ネットワークゲームの場合のみアップロード
-      if (state.roomId) {
-        // OperationUploader を使用してスキル送信
-        operationUploader.uploadSkillOperation(state, action.targetId, state.selectedSkill.id);
-      } else {
-        // 🔧 ローカルゲームの場合は直接盤面更新
-        console.log('🎮 [GameContext] ローカルゲーム - スキル直接適用');
-        const command: MoveCommand = {
-          type: 'skill',
-          team: state.currentTeam,
-          turn: state.currentTurn,
-          from: state.selectedCharacter.position,
-          to: target.position,
-          skillId: state.selectedSkill.id,
-          timestamp: Date.now()
-        };
-        
-        return GameBoardCalculator.calculateNewBoardState(state, command);
-      }
+      // OperationUploader を使用してスキル送信
+      operationUploader.uploadSkillOperation(state, action.targetId, state.selectedSkill.id);
       
       return {
         ...state,
@@ -295,23 +262,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     case 'SURRENDER': {
       console.log('📤 [GameContext] 降参アップロード');
       
-      // 🔧 ネットワークゲームの場合のみアップロード
-      if (state.roomId) {
-        // OperationUploader を使用して降参送信
-        operationUploader.uploadSurrenderOperation(state);
-      } else {
-        // 🔧 ローカルゲームの場合は直接盤面更新
-        console.log('🎮 [GameContext] ローカルゲーム - 降参直接適用');
-        const command: MoveCommand = {
-          type: 'surrender',
-          team: action.team,
-          turn: state.currentTurn,
-          from: { x: 0, y: 0 },
-          timestamp: Date.now()
-        };
-        
-        return GameBoardCalculator.calculateNewBoardState(state, command);
-      }
+      // OperationUploader を使用して降参送信
+      operationUploader.uploadSurrenderOperation(state);
       
       return {
         ...state,
@@ -327,23 +279,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
       console.log('📤 [GameContext] ターン終了アップロード');
       
-      // 🔧 ネットワークゲームの場合のみアップロード
-      if (state.roomId) {
-        // OperationUploader を使用してターン終了送信
-        operationUploader.uploadEndTurnOperation(state);
-      } else {
-        // 🔧 ローカルゲームの場合は直接盤面更新
-        console.log('🎮 [GameContext] ローカルゲーム - ターン終了直接適用');
-        const command: MoveCommand = {
-          type: 'end_turn',
-          team: state.currentTeam,
-          turn: state.currentTurn,
-          from: { x: 0, y: 0 },
-          timestamp: Date.now()
-        };
-        
-        return GameBoardCalculator.calculateNewBoardState(state, command);
-      }
+      // OperationUploader を使用してターン終了送信
+      operationUploader.uploadEndTurnOperation(state);
       
       return {
         ...state,
@@ -617,7 +554,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 export const useGame = (): GameContextType => {
   const context = useContext(GameContext);
   if (context === undefined) {
-    throw new error('useGame must be used within a GameProvider');
+    throw new Error('useGame must be used within a GameProvider');
   }
   return context;
 };
