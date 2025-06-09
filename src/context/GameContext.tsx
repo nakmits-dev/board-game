@@ -424,11 +424,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       
       console.log('📤 [GameContext] 送信データ:', moveData);
       
-      state.sendMoveFunction(state.roomId, moveData).then(() => {
-        console.log('✅ [GameContext] Firebase送信成功');
-      }).catch((error) => {
-        console.error('❌ [GameContext] Firebase送信エラー:', error);
-      });
+      // 🔧 **修正: 非同期処理を同期的に実行し、重複を防ぐ**
+      state.sendMoveFunction(state.roomId, moveData);
       
       return {
         ...state,
@@ -518,11 +515,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       
       console.log('📤 [GameContext] スキル送信データ:', moveData);
       
-      state.sendMoveFunction(state.roomId, moveData).then(() => {
-        console.log('✅ [GameContext] スキルFirebase送信成功');
-      }).catch((error) => {
-        console.error('❌ [GameContext] スキルFirebase送信エラー:', error);
-      });
+      // 🔧 **修正: 非同期処理を同期的に実行し、重複を防ぐ**
+      state.sendMoveFunction(state.roomId, moveData);
       
       return {
         ...state,
@@ -614,11 +608,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       
       console.log('📤 [GameContext] ターン終了送信データ:', moveData);
       
-      state.sendMoveFunction(state.roomId, moveData).then(() => {
-        console.log('✅ [GameContext] ターン終了Firebase送信成功');
-      }).catch((error) => {
-        console.error('❌ [GameContext] ターン終了Firebase送信エラー:', error);
-      });
+      // 🔧 **修正: 非同期処理を同期的に実行し、重複を防ぐ**
+      state.sendMoveFunction(state.roomId, moveData);
       
       return {
         ...state,
