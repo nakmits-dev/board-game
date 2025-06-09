@@ -23,7 +23,8 @@ type GameAction =
   | { type: 'REMOVE_DEFEATED_CHARACTERS'; targetId: string; killerTeam?: Team }
   | { type: 'EVOLVE_CHARACTER'; characterId: string }
   | { type: 'SURRENDER'; team: Team }
-  | { type: 'APPLY_MOVE'; move: any };
+  | { type: 'APPLY_MOVE'; move: any }
+  | { type: 'SET_SEND_MOVE_FUNCTION'; sendMoveFunction: ((roomId: string, move: any) => Promise<void>) | null };
 
 interface GameContextType {
   state: GameState;
@@ -53,7 +54,7 @@ const checkMasterStatus = (characters: Character[]): { hostMasterAlive: boolean;
   };
 };
 
-// 🎯 棋譜適用関数（受信時のみ使用）
+// 🎯 統一された棋譜適用関数（ネットワークゲーム専用）
 const applyMoveToState = (state: GameState, move: any): GameState => {
   console.log('🎯 棋譜適用:', {
     type: move.type,
@@ -401,7 +402,39 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         return state;
       }
 
-      // 🔧 **シンプル化: 選択状態のみクリア（送信は外部で行う）**
+      // 🔧 **修正: roomIdとsendMoveFunctionの存在チェックを追加**
+      if (!state.sendMoveFunction || !state.roomId) {
+        console.warn('⚠️ [GameContext] sendMoveFunction または roomId が設定されていません:', {
+          sendMoveFunction: !!state.sendMoveFunction,
+          roomId: state.roomId
+        });
+        return state;
+      }
+
+      // 🔧 **シンプル化: 直接Firebase送信**
+      console.log('📤 [GameContext] 直接Firebase送信');
+      
+      const moveData = {
+        turn: state.currentTurn,
+        team: state.currentTeam,
+        action: state.pendingAction.type,
+        from: state.selectedCharacter.position,
+        to: state.pendingAction.position || (state.pendingAction.targetId ? 
+          state.characters.find(c => c.id === state.pendingAction.targetId)?.position : undefined
+        ),
+        timestamp: Date.now()
+      };
+      
+      console.log('📤 [GameContext] 送信データ:', moveData);
+      
+      // 非同期でFirebase送信
+      state.sendMoveFunction(state.roomId, moveData).then(() => {
+        console.log('✅ [GameContext] Firebase送信成功');
+      }).catch((error) => {
+        console.error('❌ [GameContext] Firebase送信エラー:', error);
+      });
+      
+      // 選択状態のみクリア
       return {
         ...state,
         selectedCharacter: null,
@@ -468,7 +501,37 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       const target = state.characters.find(char => char.id === action.targetId);
       if (!target) return state;
 
-      // 🔧 **シンプル化: 選択状態のみクリア（送信は外部で行う）**
+      // 🔧 **修正: roomIdとsendMoveFunctionの存在チェックを追加**
+      if (!state.sendMoveFunction || !state.roomId) {
+        console.warn('⚠️ [GameContext] sendMoveFunction または roomId が設定されていません:', {
+          sendMoveFunction: !!state.sendMoveFunction,
+          roomId: state.roomId
+        });
+        return state;
+      }
+
+      // 🔧 **シンプル化: 直接Firebase送信**
+      console.log('📤 [GameContext] スキル - 直接Firebase送信');
+      
+      const moveData = {
+        turn: state.currentTurn,
+        team: state.currentTeam,
+        action: 'skill',
+        from: state.selectedCharacter.position,
+        to: target.position,
+        skillId: state.selectedSkill.id,
+        timestamp: Date.now()
+      };
+      
+      console.log('📤 [GameContext] スキル送信データ:', moveData);
+      
+      // 非同期でFirebase送信
+      state.sendMoveFunction(state.roomId, moveData).then(() => {
+        console.log('✅ [GameContext] スキルFirebase送信成功');
+      }).catch((error) => {
+        console.error('❌ [GameContext] スキルFirebase送信エラー:', error);
+      });
+      
       return {
         ...state,
         selectedCharacter: null,
@@ -539,7 +602,35 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     case 'END_TURN': {
       if (state.gamePhase === 'preparation') return state;
 
-      // 🔧 **シンプル化: 選択状態のみクリア（送信は外部で行う）**
+      // 🔧 **修正: roomIdとsendMoveFunctionの存在チェックを追加**
+      if (!state.sendMoveFunction || !state.roomId) {
+        console.warn('⚠️ [GameContext] sendMoveFunction または roomId が設定されていません:', {
+          sendMoveFunction: !!state.sendMoveFunction,
+          roomId: state.roomId
+        });
+        return state;
+      }
+
+      // 🔧 **シンプル化: 直接Firebase送信**
+      console.log('📤 [GameContext] ターン終了 - 直接Firebase送信');
+      
+      const moveData = {
+        turn: state.currentTurn,
+        team: state.currentTeam,
+        action: 'end_turn',
+        from: { x: 0, y: 0 },
+        timestamp: Date.now()
+      };
+      
+      console.log('📤 [GameContext] ターン終了送信データ:', moveData);
+      
+      // 非同期でFirebase送信
+      state.sendMoveFunction(state.roomId, moveData).then(() => {
+        console.log('✅ [GameContext] ターン終了Firebase送信成功');
+      }).catch((error) => {
+        console.error('❌ [GameContext] ターン終了Firebase送信エラー:', error);
+      });
+      
       return {
         ...state,
         selectedCharacter: null,
@@ -578,6 +669,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         roomId: action.roomId,
         hasTimeLimit: action.hasTimeLimit,
         timeLimitSeconds: action.timeLimitSeconds,
+        sendMoveFunction: state.sendMoveFunction, // 🔧 **既存の関数を保持**
         selectedCharacter: null,
         selectedAction: null,
         selectedSkill: null,
@@ -620,11 +712,20 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       return {
         ...newState,
         savedDecks: state.savedDecks,
-        isNetworkGame: true,
+        isNetworkGame: true, // 🔧 **常にネットワークゲーム**
         isHost: false,
         roomId: null,
         hasTimeLimit: true,
         timeLimitSeconds: 30,
+        sendMoveFunction: null,
+      };
+    }
+
+    case 'SET_SEND_MOVE_FUNCTION': {
+      console.log('🔧 [GameContext] sendMoveFunction設定:', !!action.sendMoveFunction);
+      return {
+        ...state,
+        sendMoveFunction: action.sendMoveFunction,
       };
     }
 
@@ -642,11 +743,12 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(gameReducer, {
     ...createInitialGameState(),
-    isNetworkGame: true,
+    isNetworkGame: true, // 🔧 **常にネットワークゲーム**
     isHost: false,
     roomId: null,
     hasTimeLimit: true,
     timeLimitSeconds: 30,
+    sendMoveFunction: null,
   });
   const [savedDecks, setSavedDecks] = React.useState<{
     host?: { master: keyof typeof masterData; monsters: MonsterType[] };

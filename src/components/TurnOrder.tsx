@@ -5,7 +5,7 @@ import { Pause, Play, Flag } from 'lucide-react';
 
 const TurnOrder: React.FC = () => {
   const { state, dispatch } = useGame();
-  const { currentTimeLeft, setCurrentTimeLeft, sendMove } = useSimpleNetwork();
+  const { currentTimeLeft, setCurrentTimeLeft } = useSimpleNetwork();
   const { currentTeam, gamePhase, animationTarget, isHost, hasTimeLimit, timeLimitSeconds } = state;
   const [isPaused, setIsPaused] = useState(false);
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
@@ -37,28 +37,6 @@ const TurnOrder: React.FC = () => {
     }
   };
 
-  // 🔧 **シンプル化: 直接Firebase送信**
-  const handleAction = async (actionType: 'end_turn' | 'forced_end_turn' | 'surrender') => {
-    if (!state.roomId || !sendMove) return;
-
-    const moveData = {
-      turn: state.currentTurn,
-      team: state.currentTeam,
-      action: actionType,
-      from: { x: 0, y: 0 },
-      timestamp: Date.now()
-    };
-
-    console.log('📤 [TurnOrder] Firebase送信:', moveData);
-
-    try {
-      await sendMove(state.roomId, moveData);
-      console.log('✅ [TurnOrder] Firebase送信成功');
-    } catch (error) {
-      console.error('❌ [TurnOrder] Firebase送信エラー:', error);
-    }
-  };
-
   // 🎯 **ターンプレイヤー: ローカルタイマーのみ（送信なし）**
   useEffect(() => {
     if (!hasTimeLimit || gamePhase !== 'action' || isPaused) {
@@ -79,7 +57,19 @@ const TurnOrder: React.FC = () => {
             isEndingTurn.current = true;
             
             // 強制ターン終了を送信
-            handleAction('forced_end_turn');
+            if (state.networkSyncCallback) {
+              const networkAction = {
+                turn: state.currentTurn,
+                team: state.currentTeam,
+                type: 'forced_end_turn',
+                characterId: '',
+                timestamp: Date.now()
+              };
+              console.log('📤 強制ターン終了送信:', networkAction);
+              state.networkSyncCallback(networkAction);
+            }
+            
+            dispatch({ type: 'END_TURN' });
             
             setTimeout(() => {
               isEndingTurn.current = false;
@@ -105,7 +95,7 @@ const TurnOrder: React.FC = () => {
         timerInterval.current = null;
       }
     }
-  }, [gamePhase, currentTeam, hasTimeLimit, isPaused, isMyTurn(), setCurrentTimeLeft]);
+  }, [gamePhase, currentTeam, hasTimeLimit, isPaused, isMyTurn(), setCurrentTimeLeft, dispatch, state.networkSyncCallback, state.currentTurn]);
 
   // ターン変更時にタイマーをリセット
   useEffect(() => {
@@ -137,7 +127,23 @@ const TurnOrder: React.FC = () => {
     }
 
     if (showSurrenderConfirm) {
-      handleAction('surrender');
+      if (state.networkSyncCallback) {
+        const networkAction = {
+          turn: state.currentTurn,
+          team: state.currentTeam,
+          type: 'surrender',
+          characterId: '',
+          timestamp: Date.now()
+        };
+        console.log('📤 降参棋譜送信:', networkAction);
+        state.networkSyncCallback(networkAction);
+        
+        setShowSurrenderConfirm(false);
+        return;
+      }
+
+      const surrenderTeam = isHost ? 'player' : 'enemy';
+      dispatch({ type: 'SURRENDER', team: surrenderTeam });
       setShowSurrenderConfirm(false);
     } else {
       setShowSurrenderConfirm(true);
@@ -148,7 +154,7 @@ const TurnOrder: React.FC = () => {
     if (!isMyTurn()) return;
     
     setShowSurrenderConfirm(false);
-    handleAction('end_turn');
+    dispatch({ type: 'END_TURN' });
   };
 
   const canSurrender = () => {

@@ -1,6 +1,5 @@
 import React from 'react';
 import { useGame } from '../context/GameContext';
-import { useSimpleNetwork } from '../context/SimpleNetworkContext';
 import { Position } from '../types/gameTypes';
 import { Sword, Shield, Sparkle, Heart } from 'lucide-react';
 import CharacterModal from './CharacterModal';
@@ -11,7 +10,6 @@ interface BoardCellProps {
 
 const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
   const { state, dispatch, isValidMove, isValidAttack, isValidSkillTarget, getCharacterAt } = useGame();
-  const { sendMove } = useSimpleNetwork();
   const { selectedCharacter, currentTeam, gamePhase, animationTarget, selectedAction, selectedSkill, playerCrystals, enemyCrystals } = state;
   const [showModal, setShowModal] = React.useState(false);
   const [isDragOver, setIsDragOver] = React.useState(false);
@@ -26,30 +24,6 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
 
   // スマホかどうかを判定
   const isMobile = window.innerWidth < 1024;
-
-  // 🔧 **シンプル化: 直接Firebase送信**
-  const handleAction = async (actionType: 'move' | 'attack' | 'skill', targetPosition?: Position, targetId?: string) => {
-    if (!selectedCharacter || !state.roomId || !sendMove) return;
-
-    const moveData = {
-      turn: state.currentTurn,
-      team: state.currentTeam,
-      action: actionType,
-      from: selectedCharacter.position,
-      to: targetPosition || (targetId ? state.characters.find(c => c.id === targetId)?.position : undefined),
-      skillId: actionType === 'skill' && selectedSkill ? selectedSkill.id : undefined,
-      timestamp: Date.now()
-    };
-
-    console.log('📤 [BoardCell] Firebase送信:', moveData);
-
-    try {
-      await sendMove(state.roomId, moveData);
-      console.log('✅ [BoardCell] Firebase送信成功');
-    } catch (error) {
-      console.error('❌ [BoardCell] Firebase送信エラー:', error);
-    }
-  };
 
   // PCドラッグイベントハンドラー（PC専用）
   const handleDragStart = (e: React.DragEvent) => {
@@ -93,9 +67,17 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
     if (!draggedCharacterId || !selectedCharacter) return;
 
     if (!character && isValidMove(position)) {
-      handleAction('move', position);
+      dispatch({
+        type: 'SET_PENDING_ACTION',
+        action: { type: 'move', position }
+      });
+      dispatch({ type: 'CONFIRM_ACTION' });
     } else if (character && isValidAttack(character.id)) {
-      handleAction('attack', undefined, character.id);
+      dispatch({
+        type: 'SET_PENDING_ACTION',
+        action: { type: 'attack', targetId: character.id }
+      });
+      dispatch({ type: 'CONFIRM_ACTION' });
     }
   };
 
@@ -122,14 +104,22 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
   const handleClick = () => {
     if (character) {
       if (selectedCharacter && selectedAction === 'attack' && isValidAttack(character.id)) {
-        handleAction('attack', undefined, character.id);
+        dispatch({
+          type: 'SET_PENDING_ACTION',
+          action: { type: 'attack', targetId: character.id }
+        });
+        dispatch({ type: 'CONFIRM_ACTION' });
       } else if (selectedCharacter && selectedAction === 'skill' && isValidSkillTarget(character.id)) {
-        handleAction('skill', undefined, character.id);
+        dispatch({ type: 'USE_SKILL', targetId: character.id });
       } else {
         dispatch({ type: 'SELECT_CHARACTER', character });
       }
     } else if (selectedCharacter && canMoveTo) {
-      handleAction('move', position);
+      dispatch({
+        type: 'SET_PENDING_ACTION',
+        action: { type: 'move', position }
+      });
+      dispatch({ type: 'CONFIRM_ACTION' });
     } else if (!character && !canMoveTo && !canAttack && !canUseSkill) {
       dispatch({ type: 'SELECT_CHARACTER', character: null });
     }
