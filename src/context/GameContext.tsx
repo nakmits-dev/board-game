@@ -14,7 +14,7 @@ type GameAction =
   | { type: 'USE_SKILL'; targetId: string }
   | { type: 'END_TURN' }
   | { type: 'START_GAME'; playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }; enemyDeck?: { master: keyof typeof masterData; monsters: MonsterType[] } }
-  | { type: 'START_NETWORK_GAME'; roomId: string; isHost: boolean; hasTimeLimit: boolean; playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }; enemyDeck?: { master: keyof typeof masterData; monsters: MonsterType[] } }
+  | { type: 'START_NETWORK_GAME'; roomId: string; isHost: boolean; hasTimeLimit: boolean; timeLimitSeconds: number; playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }; enemyDeck?: { master: keyof typeof masterData; monsters: MonsterType[] } }
   | { type: 'RESET_GAME' }
   | { type: 'UPDATE_PREVIEW'; playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }; enemyDeck?: { master: keyof typeof masterData; monsters: MonsterType[] } }
   | { type: 'SET_SAVED_DECKS'; playerDeck: { master: keyof typeof masterData; monsters: MonsterType[] }; enemyDeck: { master: keyof typeof masterData; monsters: MonsterType[] } }
@@ -71,12 +71,12 @@ const deepCloneState = (state: GameState): GameState => {
   }));
 };
 
-// ネットワークゲームでの自分のチームを判定する関数
+// 🆕 ネットワークゲームでの自分のチームを判定する関数（青チーム=host、赤チーム=guest）
 const getMyTeam = (isHost: boolean): Team => {
-  return isHost ? 'player' : 'enemy';
+  return isHost ? 'player' : 'enemy'; // host=青チーム(player)、guest=赤チーム(enemy)
 };
 
-// ネットワークゲームでの自分のターンかどうかを判定する関数
+// 🆕 ネットワークゲームでの自分のターンかどうかを判定する関数
 const isMyTurn = (currentTeam: Team, isHost: boolean): boolean => {
   const myTeam = getMyTeam(isHost);
   return currentTeam === myTeam;
@@ -720,7 +720,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         isNetworkGame: false,
         isHost: false,
         roomId: null,
-        hasTimeLimit: true, // デフォルトで時間制限あり
+        hasTimeLimit: true,
+        timeLimitSeconds: 30,
         networkSyncCallback: null,
       };
     }
@@ -730,6 +731,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         roomId: action.roomId,
         isHost: action.isHost,
         hasTimeLimit: action.hasTimeLimit,
+        timeLimitSeconds: action.timeLimitSeconds,
         currentCharacters: state.characters.length,
         currentCrystals: { player: state.playerCrystals, enemy: state.enemyCrystals }
       });
@@ -753,6 +755,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         isHost: action.isHost,
         roomId: action.roomId,
         hasTimeLimit: action.hasTimeLimit,
+        timeLimitSeconds: action.timeLimitSeconds,
         networkSyncCallback: null,
         // 選択状態をクリア
         selectedCharacter: null,
@@ -800,6 +803,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         isHost: false,
         roomId: null,
         hasTimeLimit: true,
+        timeLimitSeconds: 30,
         networkSyncCallback: null,
       };
     }
@@ -816,6 +820,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         isHost: state.isHost,
         roomId: state.roomId,
         hasTimeLimit: state.hasTimeLimit,
+        timeLimitSeconds: state.timeLimitSeconds,
         networkSyncCallback: state.networkSyncCallback,
       };
     }
@@ -996,6 +1001,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     isHost: false,
     roomId: null,
     hasTimeLimit: true,
+    timeLimitSeconds: 30,
     networkSyncCallback: null,
   });
   const [savedDecks, setSavedDecks] = React.useState<{

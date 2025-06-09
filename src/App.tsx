@@ -18,7 +18,7 @@ import { HelpCircle, Play, Wifi } from 'lucide-react';
 
 const GameContent = () => {
   const { state, dispatch, savedDecks } = useGame();
-  const { gamePhase, isNetworkGame, roomId, isHost } = state;
+  const { gamePhase, isNetworkGame, roomId, isHost, hasTimeLimit, timeLimitSeconds } = state;
   const [showDeckBuilder, setShowDeckBuilder] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [showNetworkLobby, setShowNetworkLobby] = useState(false);
@@ -39,7 +39,7 @@ const GameContent = () => {
     setShowDeckBuilder(false);
   };
 
-  const handleStartNetworkGame = (roomId: string, isHost: boolean, hasTimeLimit: boolean) => {
+  const handleStartNetworkGame = (roomId: string, isHost: boolean, hasTimeLimit: boolean, timeLimitSeconds: number) => {
     setShowNetworkLobby(false);
     
     if (gamePhase === 'result') {
@@ -51,7 +51,8 @@ const GameContent = () => {
       type: 'START_NETWORK_GAME', 
       roomId, 
       isHost, 
-      hasTimeLimit, // 🆕 時間制限情報を追加
+      hasTimeLimit,
+      timeLimitSeconds,
       playerDeck: savedDecks.player, 
       enemyDeck: savedDecks.enemy 
     });
@@ -103,7 +104,7 @@ const GameContent = () => {
                 <div className="flex items-center gap-2 px-3 py-1 bg-purple-100 text-purple-800 rounded-lg text-sm">
                   <Wifi size={16} />
                   <span>オンライン対戦</span>
-                  <span className="text-xs">({isHost ? 'ホスト' : 'ゲスト'})</span>
+                  <span className="text-xs">({isHost ? '青チーム(ホスト)' : '赤チーム(ゲスト)'})</span>
                   {roomId && (
                     <span className="text-xs font-mono bg-purple-200 px-1 rounded">
                       {roomId.slice(-6)}
@@ -111,7 +112,7 @@ const GameContent = () => {
                   )}
                   {/* 🆕 時間制限表示 */}
                   <span className="text-xs">
-                    {state.hasTimeLimit ? '⏱️' : '∞'}
+                    {hasTimeLimit ? `⏱️${timeLimitSeconds}s` : '∞'}
                   </span>
                 </div>
               )}

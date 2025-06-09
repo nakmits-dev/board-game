@@ -2,12 +2,10 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useGame } from '../context/GameContext';
 import { Pause, Play, Flag, RotateCcw } from 'lucide-react';
 
-const TURN_DURATION = 30; // 30 seconds per turn
-
 const TurnOrder: React.FC = () => {
   const { state, dispatch } = useGame();
-  const { currentTeam, gamePhase, animationTarget, canUndo, isNetworkGame, isHost, hasTimeLimit } = state;
-  const [timeLeft, setTimeLeft] = useState(TURN_DURATION);
+  const { currentTeam, gamePhase, animationTarget, canUndo, isNetworkGame, isHost, hasTimeLimit, timeLimitSeconds } = state;
+  const [timeLeft, setTimeLeft] = useState(timeLimitSeconds);
   const [isPaused, setIsPaused] = useState(true); // デフォルトでストップ状態
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
   const endTurnButtonRef = useRef<HTMLButtonElement>(null);
@@ -75,15 +73,15 @@ const TurnOrder: React.FC = () => {
   useEffect(() => {
     // ターンが変わった時のみタイマーをリセット
     if (gamePhase === 'action') {
-      setTimeLeft(TURN_DURATION);
+      setTimeLeft(timeLimitSeconds);
       setShowSurrenderConfirm(false);
       // ターンが変わってもポーズ状態は維持
     }
-  }, [currentTeam, gamePhase]);
+  }, [currentTeam, gamePhase, timeLimitSeconds]);
   
   if (gamePhase === 'preparation' || gamePhase === 'result') return null;
 
-  const progressPercentage = (timeLeft / TURN_DURATION) * 100;
+  const progressPercentage = (timeLeft / timeLimitSeconds) * 100;
   const isLowTime = timeLeft <= 5 && !isPaused && (!isNetworkGame || isMyTurn()) && hasTimeLimit;
   
   const handlePauseToggle = () => {

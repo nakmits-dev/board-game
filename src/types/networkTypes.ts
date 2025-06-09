@@ -9,33 +9,22 @@ export interface GameMove {
   timestamp: number;
 }
 
-// 初期盤面データ（1回だけアップロード）
+// 🆕 最適化された初期盤面データ（必要最小限の情報のみ）
 export interface InitialGameState {
-  characters: Array<{
-    id: string;
-    name: string;
-    type: 'master' | 'monster';
-    team: 'player' | 'enemy';
-    position: { x: number; y: number };
-    hp: number;
-    maxHp: number;
-    attack: number;
-    defense: number;
-    actions: number;
-    cost: number;
-    image: string;
-    skillId?: string;
-    monsterType?: string;
-    masterType?: string;
-    canEvolve?: boolean;
-    isEvolved?: boolean;
-  }>;
-  playerCrystals: number;
-  enemyCrystals: number;
-  currentTeam: 'player' | 'enemy';
-  currentTurn: number;
-  gamePhase: 'preparation' | 'action' | 'result';
+  // キャラクター情報（カードIDとチームのみ）
+  playerDeck: {
+    master: string;
+    monsters: string[];
+  };
+  enemyDeck: {
+    master: string;
+    monsters: string[];
+  };
+  // ゲーム設定
   startingTeam: 'player' | 'enemy';
+  hasTimeLimit: boolean;
+  timeLimitSeconds: number;
+  // メタデータ
   uploadedAt: number;
   uploadedBy: string;
 }

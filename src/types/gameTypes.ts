@@ -114,5 +114,6 @@ export interface GameState {
   isHost: boolean;
   roomId: string | null;
   hasTimeLimit: boolean; // 🆕 時間制限の有無
+  timeLimitSeconds: number; // 🆕 時間制限の秒数
   networkSyncCallback: ((action: any) => void) | null;
 }

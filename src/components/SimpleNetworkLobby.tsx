@@ -6,7 +6,7 @@ import { SimpleRoom } from '../types/networkTypes';
 
 interface SimpleNetworkLobbyProps {
   onClose: () => void;
-  onStartNetworkGame: (roomId: string, isHost: boolean, hasTimeLimit: boolean) => void;
+  onStartNetworkGame: (roomId: string, isHost: boolean, hasTimeLimit: boolean, timeLimitSeconds: number) => void;
 }
 
 const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStartNetworkGame }) => {
@@ -18,7 +18,7 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
   const [roomId, setRoomId] = useState('');
   const [customRoomId, setCustomRoomId] = useState('');
   const [useCustomRoomId, setUseCustomRoomId] = useState(false);
-  const [hasTimeLimit, setHasTimeLimit] = useState(true); // 🆕 時間制限の設定
+  const [timeLimitOption, setTimeLimitOption] = useState<'none' | '30' | '60'>('30'); // 🆕 時間制限選択
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -31,7 +31,7 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
     playerName: string;
     opponent: { name: string; connected: boolean; ready: boolean } | null;
     status: 'waiting' | 'playing';
-    hasTimeLimit: boolean; // 🆕 時間制限情報
+    timeLimitOption: 'none' | '30' | '60'; // 🆕 時間制限情報
   } | null>(null);
 
   // デッキが設定されているかチェック
@@ -53,10 +53,12 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
     setOnGameStart((roomId: string, isHost: boolean) => {
       console.log('ゲーム開始コールバック実行:', { roomId, isHost });
       // 🆕 時間制限情報も含めて渡す
-      const timeLimit = localRoomData?.hasTimeLimit ?? true;
-      onStartNetworkGame(roomId, isHost, timeLimit);
+      const timeLimit = localRoomData?.timeLimitOption ?? '30';
+      const hasTimeLimit = timeLimit !== 'none';
+      const timeLimitSeconds = timeLimit === 'none' ? 0 : parseInt(timeLimit);
+      onStartNetworkGame(roomId, isHost, hasTimeLimit, timeLimitSeconds);
     });
-  }, [setOnGameStart, onStartNetworkGame, localRoomData?.hasTimeLimit]);
+  }, [setOnGameStart, onStartNetworkGame, localRoomData?.timeLimitOption]);
 
   // ルーム更新コールバックを設定
   useEffect(() => {
@@ -146,7 +148,7 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
         playerName,
         opponent: null,
         status: 'waiting',
-        hasTimeLimit // 🆕 時間制限設定を保存
+        timeLimitOption // 🆕 時間制限設定を保存
       });
       setMode('waiting');
       
@@ -185,7 +187,7 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
         playerName,
         opponent: null,
         status: 'waiting',
-        hasTimeLimit: true // 🆕 ゲストは常にホストの設定に従う
+        timeLimitOption: '30' // 🆕 ゲストは常にホストの設定に従う
       });
       setMode('waiting');
       
@@ -350,32 +352,47 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
               {/* 🆕 時間制限設定 */}
               <div className="mb-3">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  ゲーム設定
+                  時間制限設定
                 </label>
-                <div className="flex items-center gap-4">
+                <div className="space-y-2">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="radio"
                       name="timeLimit"
-                      checked={hasTimeLimit}
-                      onChange={() => setHasTimeLimit(true)}
-                      className="text-blue-600 focus:ring-blue-500"
-                      disabled={loading || !isConnected}
-                    />
-                    <Timer size={16} className="text-blue-600" />
-                    <span className="text-sm text-gray-700">時間制限あり (30秒)</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="timeLimit"
-                      checked={!hasTimeLimit}
-                      onChange={() => setHasTimeLimit(false)}
+                      value="none"
+                      checked={timeLimitOption === 'none'}
+                      onChange={(e) => setTimeLimitOption(e.target.value as 'none' | '30' | '60')}
                       className="text-blue-600 focus:ring-blue-500"
                       disabled={loading || !isConnected}
                     />
                     <TimerOff size={16} className="text-gray-600" />
                     <span className="text-sm text-gray-700">時間制限なし</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="timeLimit"
+                      value="30"
+                      checked={timeLimitOption === '30'}
+                      onChange={(e) => setTimeLimitOption(e.target.value as 'none' | '30' | '60')}
+                      className="text-blue-600 focus:ring-blue-500"
+                      disabled={loading || !isConnected}
+                    />
+                    <Timer size={16} className="text-blue-600" />
+                    <span className="text-sm text-gray-700">30秒/ターン</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="timeLimit"
+                      value="60"
+                      checked={timeLimitOption === '60'}
+                      onChange={(e) => setTimeLimitOption(e.target.value as 'none' | '30' | '60')}
+                      className="text-blue-600 focus:ring-blue-500"
+                      disabled={loading || !isConnected}
+                    />
+                    <Timer size={16} className="text-green-600" />
+                    <span className="text-sm text-gray-700">60秒/ターン</span>
                   </label>
                 </div>
               </div>
@@ -515,15 +532,17 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
             {/* 🆕 ゲーム設定表示 */}
             <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
               <div className="flex items-center gap-2">
-                {localRoomData.hasTimeLimit ? (
-                  <>
-                    <Timer size={16} className="text-blue-600" />
-                    <span className="text-sm text-blue-800 font-medium">時間制限あり (30秒/ターン)</span>
-                  </>
-                ) : (
+                {localRoomData.timeLimitOption === 'none' ? (
                   <>
                     <TimerOff size={16} className="text-gray-600" />
                     <span className="text-sm text-gray-800 font-medium">時間制限なし</span>
+                  </>
+                ) : (
+                  <>
+                    <Timer size={16} className="text-blue-600" />
+                    <span className="text-sm text-blue-800 font-medium">
+                      時間制限あり ({localRoomData.timeLimitOption}秒/ターン)
+                    </span>
                   </>
                 )}
               </div>
@@ -532,37 +551,37 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
             {/* プレイヤー情報表示 */}
             <div className="space-y-2">
               {/* 自分の情報 */}
-              <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <div className="flex items-center gap-2">
-                  <UserCheck size={20} className="text-green-600" />
-                  <span className="font-medium text-green-800">
-                    {localRoomData.playerName} {localRoomData.isHost ? '(ホスト)' : '(ゲスト)'}
+                  <UserCheck size={20} className="text-blue-600" />
+                  <span className="font-medium text-blue-800">
+                    {localRoomData.playerName} (青チーム・{localRoomData.isHost ? 'ホスト' : 'ゲスト'})
                   </span>
                 </div>
-                <span className="text-sm text-green-600">準備完了</span>
+                <span className="text-sm text-blue-600">準備完了</span>
               </div>
               
               {/* 相手の情報 */}
               {localRoomData.opponent ? (
                 <div className={`flex items-center justify-between p-3 border rounded-lg ${
                   localRoomData.opponent.connected 
-                    ? 'bg-green-50 border-green-200' 
-                    : 'bg-red-50 border-red-200'
+                    ? 'bg-red-50 border-red-200' 
+                    : 'bg-gray-50 border-gray-200'
                 }`}>
                   <div className="flex items-center gap-2">
                     {localRoomData.opponent.connected ? (
-                      <UserCheck size={20} className="text-green-600" />
+                      <UserCheck size={20} className="text-red-600" />
                     ) : (
-                      <UserX size={20} className="text-red-600" />
+                      <UserX size={20} className="text-gray-600" />
                     )}
                     <span className={`font-medium ${
-                      localRoomData.opponent.connected ? 'text-green-800' : 'text-red-800'
+                      localRoomData.opponent.connected ? 'text-red-800' : 'text-gray-800'
                     }`}>
-                      {localRoomData.opponent.name} {localRoomData.isHost ? '(ゲスト)' : '(ホスト)'}
+                      {localRoomData.opponent.name} (赤チーム・{localRoomData.isHost ? 'ゲスト' : 'ホスト'})
                     </span>
                   </div>
                   <span className={`text-sm ${
-                    localRoomData.opponent.connected ? 'text-green-600' : 'text-red-600'
+                    localRoomData.opponent.connected ? 'text-red-600' : 'text-gray-600'
                   }`}>
                     {localRoomData.opponent.connected ? '準備完了' : '切断中'}
                   </span>
