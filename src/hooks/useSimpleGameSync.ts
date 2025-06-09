@@ -2,23 +2,22 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { ref, push, onValue, set, update, remove, get, off } from 'firebase/database';
 import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { database, auth } from '../firebase/config';
-import { GameMove, InitialGameState, SimpleRoom, TimerSync } from '../types/networkTypes';
+import { GameMove, InitialGameState, SimpleRoom } from '../types/networkTypes';
 
 export const useSimpleGameSync = () => {
   const [user, setUser] = useState<any>(null);
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   
   const roomUnsubscribe = useRef<(() => void) | null>(null);
-  const onMoveCallback = useRef<((moves: GameMove[]) => void) | null>(null); // 🔧 全棋譜を渡すように変更
+  const onMoveCallback = useRef<((moves: GameMove[]) => void) | null>(null);
   const onGameStartCallback = useRef<((roomId: string, isHost: boolean) => void) | null>(null);
   const onInitialStateCallback = useRef<((initialState: InitialGameState) => void) | null>(null);
   const onRoomUpdateCallback = useRef<((roomData: SimpleRoom) => void) | null>(null);
-  const onTimerSyncCallback = useRef<((timerSync: TimerSync) => void) | null>(null);
   const heartbeatInterval = useRef<NodeJS.Timeout | null>(null);
   const currentRoomId = useRef<string | null>(null);
   const fixedUserId = useRef<string | null>(null);
 
-  // Firebase認証（変更なし）
+  // Firebase認証
   useEffect(() => {
     setConnectionStatus('connecting');
 
@@ -43,7 +42,7 @@ export const useSimpleGameSync = () => {
     return unsubscribe;
   }, []);
 
-  // 固定ユニークIDを生成・取得する関数（変更なし）
+  // 固定ユニークIDを生成・取得する関数
   const getFixedUserId = () => {
     if (!fixedUserId.current) {
       const timestamp = Date.now();
@@ -54,7 +53,7 @@ export const useSimpleGameSync = () => {
     return fixedUserId.current;
   };
 
-  // ハートビート機能（変更なし）
+  // ハートビート機能
   const startHeartbeat = useCallback((roomId: string, isHost: boolean) => {
     if (heartbeatInterval.current) {
       clearInterval(heartbeatInterval.current);
@@ -88,7 +87,7 @@ export const useSimpleGameSync = () => {
     }
   }, []);
 
-  // ルームIDの有効性をチェックする関数（変更なし）
+  // ルームIDの有効性をチェックする関数
   const validateRoomId = (roomId: string): { isValid: boolean; error?: string } => {
     if (!roomId || roomId.trim().length === 0) {
       return { isValid: false, error: 'ルームIDが空です' };
@@ -116,7 +115,7 @@ export const useSimpleGameSync = () => {
     return { isValid: true };
   };
 
-  // ルーム作成（変更なし）
+  // ルーム作成
   const createRoom = useCallback(async (playerName: string, customRoomId?: string): Promise<string> => {
     if (!user) {
       throw new Error('認証が必要です');
@@ -177,7 +176,7 @@ export const useSimpleGameSync = () => {
     }
   }, [user, startHeartbeat]);
 
-  // ルーム参加（変更なし）
+  // ルーム参加
   const joinRoom = useCallback(async (roomId: string, playerName: string): Promise<void> => {
     if (!user) {
       throw new Error('認証が必要です');
@@ -228,7 +227,7 @@ export const useSimpleGameSync = () => {
     }
   }, [user, startHeartbeat]);
 
-  // 初期盤面アップロード（変更なし）
+  // 初期盤面アップロード
   const uploadInitialState = useCallback(async (roomId: string, initialState: InitialGameState) => {
     if (!roomId) {
       console.error('❌ 初期盤面アップロード: ルームIDがありません');
@@ -253,7 +252,7 @@ export const useSimpleGameSync = () => {
     }
   }, [user]);
 
-  // ゲーム開始（変更なし）
+  // ゲーム開始
   const startGame = useCallback(async (roomId: string) => {
     if (!roomId) {
       return;
@@ -271,7 +270,7 @@ export const useSimpleGameSync = () => {
     }
   }, []);
 
-  // 手の送信（変更なし）
+  // 手の送信
   const sendMove = useCallback(async (roomId: string, move: Omit<GameMove, 'id' | 'timestamp'>) => {
     if (!roomId) {
       console.error('❌ ルームに接続されていません');
@@ -306,25 +305,6 @@ export const useSimpleGameSync = () => {
     }
   }, [user]);
 
-  // タイマー同期送信（変更なし）
-  const sendTimerSync = useCallback(async (roomId: string, timerSync: Omit<TimerSync, 'id' | 'timestamp'>) => {
-    if (!roomId || !user) return;
-
-    const timerData: TimerSync = {
-      ...timerSync,
-      id: `timer_${Date.now()}`,
-      timestamp: Date.now()
-    };
-
-    try {
-      const timerRef = ref(database, `simple_rooms/${roomId}/timer`);
-      await set(timerRef, timerData);
-      console.log('⏰ タイマー同期送信成功:', { timeLeft: timerData.timeLeft });
-    } catch (error: any) {
-      console.error('❌ タイマー同期送信エラー:', error);
-    }
-  }, [user]);
-
   // 🔧 ルーム監視（棋譜リプレイ対応）
   const startRoomMonitoring = useCallback((roomId: string, isHost: boolean) => {
     console.log('👀 ルーム監視開始:', roomId);
@@ -353,8 +333,7 @@ export const useSimpleGameSync = () => {
         guestName: roomData.guest?.name,
         guestConnected: roomData.guest?.connected,
         movesCount: roomData.moves ? Object.keys(roomData.moves).length : 0,
-        hasInitialState: !!roomData.initialState,
-        hasTimer: !!roomData.timer
+        hasInitialState: !!roomData.initialState
       });
 
       // ルーム更新コールバックを呼び出し
@@ -366,12 +345,6 @@ export const useSimpleGameSync = () => {
       if (roomData.initialState && onInitialStateCallback.current) {
         console.log('📥 初期盤面データを受信');
         onInitialStateCallback.current(roomData.initialState);
-      }
-
-      // タイマー同期データの検出
-      if (roomData.timer && onTimerSyncCallback.current) {
-        console.log('⏰ タイマー同期データを受信:', { timeLeft: roomData.timer.timeLeft });
-        onTimerSyncCallback.current(roomData.timer);
       }
 
       // ゲーム開始検出
@@ -406,7 +379,7 @@ export const useSimpleGameSync = () => {
     return unsubscribe;
   }, []);
 
-  // ルーム退出（変更なし）
+  // ルーム退出
   const leaveRoom = useCallback(async (roomId: string, isHost: boolean) => {
     if (!roomId) return;
 
@@ -442,7 +415,7 @@ export const useSimpleGameSync = () => {
     console.log('✅ ルーム退出完了');
   }, [stopHeartbeat]);
 
-  // コンポーネントアンマウント時のクリーンアップ（変更なし）
+  // コンポーネントアンマウント時のクリーンアップ
   useEffect(() => {
     return () => {
       stopHeartbeat();
@@ -452,7 +425,7 @@ export const useSimpleGameSync = () => {
     };
   }, [stopHeartbeat]);
 
-  // デバッグ用: 強制的に新しいユーザーIDを生成（変更なし）
+  // デバッグ用: 強制的に新しいユーザーIDを生成
   const forceNewUser = useCallback(async () => {
     try {
       await auth.signOut();
@@ -466,7 +439,7 @@ export const useSimpleGameSync = () => {
   }, []);
 
   // コールバック設定
-  const setOnMove = useCallback((callback: (moves: GameMove[]) => void) => { // 🔧 全棋譜を受け取るように変更
+  const setOnMove = useCallback((callback: (moves: GameMove[]) => void) => {
     onMoveCallback.current = callback;
   }, []);
 
@@ -482,17 +455,12 @@ export const useSimpleGameSync = () => {
     onRoomUpdateCallback.current = callback;
   }, []);
 
-  const setOnTimerSync = useCallback((callback: (timerSync: TimerSync) => void) => {
-    onTimerSyncCallback.current = callback;
-  }, []);
-
   return {
     // Firebase操作
     createRoom,
     joinRoom,
     startGame,
     sendMove,
-    sendTimerSync,
     uploadInitialState,
     leaveRoom,
     startRoomMonitoring,
@@ -502,7 +470,6 @@ export const useSimpleGameSync = () => {
     setOnGameStart,
     setOnInitialState,
     setOnRoomUpdate,
-    setOnTimerSync,
     
     // ユーティリティ
     forceNewUser,
