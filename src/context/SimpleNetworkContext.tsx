@@ -32,6 +32,46 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
   // 🔧 **修正: 最後に処理した棋譜のタイムスタンプを記録**
   const lastProcessedTimestamp = useRef<number>(0);
 
+  // 🔧 **重要: networkSyncCallbackを設定**
+  useEffect(() => {
+    if (state.isNetworkGame && state.roomId && isConnected) {
+      console.log('🔗 [SimpleNetworkContext] networkSyncCallback設定開始');
+      
+      const syncCallback = async (action: any) => {
+        console.log('📤 [SimpleNetworkContext] 棋譜送信受信:', action);
+        
+        try {
+          const moveData = {
+            turn: action.turn,
+            team: action.team,
+            action: action.type,
+            from: state.selectedCharacter?.position || { x: 0, y: 0 },
+            to: action.position || (action.targetId ? 
+              state.characters.find(c => c.id === action.targetId)?.position : undefined
+            ),
+            timestamp: action.timestamp
+          };
+          
+          console.log('📤 [SimpleNetworkContext] Firebase送信データ:', moveData);
+          await sendMove(state.roomId!, moveData);
+          console.log('✅ [SimpleNetworkContext] Firebase送信成功');
+        } catch (error) {
+          console.error('❌ [SimpleNetworkContext] Firebase送信エラー:', error);
+        }
+      };
+      
+      dispatch({ type: 'SET_NETWORK_SYNC_CALLBACK', callback: syncCallback });
+      console.log('✅ [SimpleNetworkContext] networkSyncCallback設定完了');
+    } else {
+      console.log('🔗 [SimpleNetworkContext] networkSyncCallback未設定:', {
+        isNetworkGame: state.isNetworkGame,
+        roomId: state.roomId,
+        isConnected
+      });
+      dispatch({ type: 'SET_NETWORK_SYNC_CALLBACK', callback: null });
+    }
+  }, [state.isNetworkGame, state.roomId, isConnected, sendMove, dispatch, state.selectedCharacter, state.characters]);
+
   // ネットワークゲーム開始時の監視開始
   useEffect(() => {
     if (state.isNetworkGame && state.roomId && isConnected) {
@@ -44,9 +84,6 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
       isInitialized.current = true;
     }
   }, [state.isNetworkGame, state.roomId, state.isHost, isConnected, startRoomMonitoring]);
-
-  // 🔧 **削除: SimpleNetworkContextでの棋譜送信処理を完全に削除**
-  // GameContextでのみ棋譜送信を行うため、ここでの送信処理は不要
 
   // 🎯 初期状態受信処理
   useEffect(() => {

@@ -405,6 +405,9 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       // 🔧 **ネットワークゲーム専用: 棋譜送信のみ（画面反映なし）**
       if (state.networkSyncCallback) {
         console.log('📤 [GameContext] 棋譜送信のみ実行');
+        console.log('📤 [GameContext] networkSyncCallback:', !!state.networkSyncCallback);
+        console.log('📤 [GameContext] selectedCharacter:', state.selectedCharacter.name);
+        console.log('📤 [GameContext] pendingAction:', state.pendingAction);
         
         const networkAction = {
           turn: state.currentTurn,
@@ -417,7 +420,13 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         };
         
         console.log('📤 [GameContext] 棋譜送信:', networkAction);
-        state.networkSyncCallback(networkAction);
+        
+        try {
+          state.networkSyncCallback(networkAction);
+          console.log('✅ [GameContext] 棋譜送信成功');
+        } catch (error) {
+          console.error('❌ [GameContext] 棋譜送信エラー:', error);
+        }
         
         // 🔧 **重要: 選択状態のみクリア（画面反映は受信時に行う）**
         return {
@@ -427,11 +436,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           selectedSkill: null,
           pendingAction: { type: null },
         };
+      } else {
+        console.warn('⚠️ [GameContext] networkSyncCallback が設定されていません');
+        return state;
       }
-
-      // 🚫 **ローカルゲーム処理を削除**
-      console.warn('⚠️ ネットワークゲーム専用です');
-      return state;
     }
 
     case 'EVOLVE_CHARACTER': {
@@ -494,6 +502,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       // 🔧 **ネットワークゲーム専用: 棋譜送信のみ**
       if (state.networkSyncCallback) {
         console.log('📤 [GameContext] スキル - 棋譜送信のみ実行');
+        console.log('📤 [GameContext] networkSyncCallback:', !!state.networkSyncCallback);
+        console.log('📤 [GameContext] selectedCharacter:', state.selectedCharacter.name);
+        console.log('📤 [GameContext] selectedSkill:', state.selectedSkill.name);
+        console.log('📤 [GameContext] target:', target.name);
         
         const networkAction = {
           turn: state.currentTurn,
@@ -506,7 +518,13 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         };
         
         console.log('📤 [GameContext] スキル棋譜送信:', networkAction);
-        state.networkSyncCallback(networkAction);
+        
+        try {
+          state.networkSyncCallback(networkAction);
+          console.log('✅ [GameContext] スキル棋譜送信成功');
+        } catch (error) {
+          console.error('❌ [GameContext] スキル棋譜送信エラー:', error);
+        }
         
         return {
           ...state,
@@ -515,11 +533,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           selectedSkill: null,
           pendingAction: { type: null },
         };
+      } else {
+        console.warn('⚠️ [GameContext] networkSyncCallback が設定されていません');
+        return state;
       }
-
-      // 🚫 **ローカルゲーム処理を削除**
-      console.warn('⚠️ ネットワークゲーム専用です');
-      return state;
     }
 
     case 'REMOVE_DEFEATED_CHARACTERS': {
@@ -586,6 +603,9 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       // 🔧 **ネットワークゲーム専用: 棋譜送信のみ**
       if (state.networkSyncCallback) {
         console.log('📤 [GameContext] ターン終了 - 棋譜送信のみ実行');
+        console.log('📤 [GameContext] networkSyncCallback:', !!state.networkSyncCallback);
+        console.log('📤 [GameContext] currentTeam:', state.currentTeam);
+        console.log('📤 [GameContext] currentTurn:', state.currentTurn);
         
         try {
           const networkAction = {
@@ -598,6 +618,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           
           console.log('📤 [GameContext] ターン終了棋譜送信:', networkAction);
           state.networkSyncCallback(networkAction);
+          console.log('✅ [GameContext] ターン終了棋譜送信成功');
           
           return {
             ...state,
@@ -610,11 +631,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           console.error('❌ [GameContext] ターン終了アクション送信エラー:', error);
           return state;
         }
+      } else {
+        console.warn('⚠️ [GameContext] networkSyncCallback が設定されていません');
+        return state;
       }
-      
-      // 🚫 **ローカルゲーム処理を削除**
-      console.warn('⚠️ ネットワークゲーム専用です');
-      return state;
     }
 
     case 'START_NETWORK_GAME': {
@@ -699,6 +719,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'SET_NETWORK_SYNC_CALLBACK': {
+      console.log('🔧 [GameContext] networkSyncCallback設定:', !!action.callback);
       return {
         ...state,
         networkSyncCallback: action.callback,
