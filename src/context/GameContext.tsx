@@ -127,13 +127,14 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         return state;
       }
 
-      // OperationUploader を使用して送信
+      // 🔧 **修正: ターンプレイヤーは送信のみ（即座反映なし）**
       if (state.pendingAction.type === 'move') {
         operationUploader.uploadMoveOperation(state, state.pendingAction.position!);
       } else if (state.pendingAction.type === 'attack') {
         operationUploader.uploadAttackOperation(state, state.pendingAction.targetId!);
       }
       
+      // 🔧 **重要: 選択状態のみクリア（画面反映は受信時に行う）**
       return {
         ...state,
         selectedCharacter: null,
@@ -200,9 +201,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       const target = state.characters.find(char => char.id === action.targetId);
       if (!target) return state;
 
-      // OperationUploader を使用してスキル送信
+      // 🔧 **修正: スキルも送信のみ（即座反映なし）**
       operationUploader.uploadSkillOperation(state, action.targetId, state.selectedSkill.id);
       
+      // 🔧 **重要: 選択状態のみクリア（画面反映は受信時に行う）**
       return {
         ...state,
         selectedCharacter: null,
@@ -256,9 +258,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'SURRENDER': {
-      // OperationUploader を使用して降参送信
+      // 🔧 **修正: 降参も送信のみ（即座反映なし）**
       operationUploader.uploadSurrenderOperation(state);
       
+      // 🔧 **重要: 選択状態のみクリア（画面反映は受信時に行う）**
       return {
         ...state,
         selectedCharacter: null,
@@ -271,9 +274,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     case 'END_TURN': {
       if (state.gamePhase === 'preparation') return state;
 
-      // OperationUploader を使用してターン終了送信
+      // 🔧 **修正: ターン終了も送信のみ（即座反映なし）**
       operationUploader.uploadEndTurnOperation(state);
       
+      // 🔧 **重要: 選択状態のみクリア（画面反映は受信時に行う）**
       return {
         ...state,
         selectedCharacter: null,
@@ -373,7 +377,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'APPLY_BOARD_UPDATE': {
-      // GameBoardCalculator を使用して盤面更新
+      // 🔧 **重要: 受信時の画面反映（ターンプレイヤー・非ターンプレイヤー共通）**
       return GameBoardCalculator.calculateNewBoardState(state, action.command);
     }
 
