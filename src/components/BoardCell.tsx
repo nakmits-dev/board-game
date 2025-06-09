@@ -14,7 +14,7 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
   const [showModal, setShowModal] = React.useState(false);
   const [isDragOver, setIsDragOver] = React.useState(false);
   const [lastTap, setLastTap] = React.useState(0);
-  const [actionInProgress, setActionInProgress] = React.useState(false); // 🔧 アクション実行中フラグ
+  const [actionInProgress, setActionInProgress] = React.useState(false);
   
   const character = getCharacterAt(position);
   const isSelected = selectedCharacter?.id === character?.id;
@@ -26,14 +26,11 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
   // スマホかどうかを判定
   const isMobile = window.innerWidth < 1024;
 
-  // 🔧 アクション実行の統一関数（重複防止機能付き）
   const executeAction = React.useCallback(async (actionType: 'move' | 'attack' | 'skill', targetId?: string, targetPosition?: Position) => {
     if (actionInProgress) {
-      console.log('🚫 [BoardCell] アクション実行中 - 重複防止');
       return;
     }
 
-    console.log('🎯 [BoardCell] アクション実行:', { actionType, targetId, targetPosition });
     setActionInProgress(true);
 
     try {
@@ -53,21 +50,19 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
         dispatch({ type: 'USE_SKILL', targetId });
       }
     } finally {
-      // 🔧 少し遅延してフラグをリセット
       setTimeout(() => {
         setActionInProgress(false);
       }, 200);
     }
   }, [actionInProgress, dispatch]);
 
-  // 🔧 選択状態変更時にフラグをリセット
   React.useEffect(() => {
     setActionInProgress(false);
   }, [selectedCharacter?.id, selectedAction]);
 
   // PCドラッグイベントハンドラー（PC専用）
   const handleDragStart = (e: React.DragEvent) => {
-    if (isMobile) return; // スマホでは無効
+    if (isMobile) return;
     
     if (character && character.team === currentTeam && character.remainingActions > 0) {
       e.dataTransfer.setData('text/plain', character.id);
@@ -77,7 +72,7 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
   };
 
   const handleDragOver = (e: React.DragEvent) => {
-    if (isMobile) return; // スマホでは無効
+    if (isMobile) return;
     
     e.preventDefault();
     if (!selectedCharacter || selectedAction === 'skill') return;
@@ -90,13 +85,13 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
-    if (isMobile) return; // スマホでは無効
+    if (isMobile) return;
     e.preventDefault();
     setIsDragOver(false);
   };
 
   const handleDrop = (e: React.DragEvent) => {
-    if (isMobile) return; // スマホでは無効
+    if (isMobile) return;
     
     e.preventDefault();
     setIsDragOver(false);
@@ -106,7 +101,6 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
     const draggedCharacterId = e.dataTransfer.getData('text/plain');
     if (!draggedCharacterId || !selectedCharacter) return;
 
-    // 🔧 ドラッグ&ドロップでのアクション実行
     if (!character && isValidMove(position)) {
       executeAction('move', undefined, position);
     } else if (character && isValidAttack(character.id)) {
@@ -122,10 +116,8 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
     const tapLength = currentTime - lastTap;
     
     if (tapLength < 500 && tapLength > 0) {
-      // ダブルタップ検出
       e.preventDefault();
       setShowModal(true);
-      // 触覚フィードバック
       if (navigator.vibrate) {
         navigator.vibrate(50);
       }
@@ -136,13 +128,11 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
 
   const handleClick = () => {
     if (actionInProgress) {
-      console.log('🚫 [BoardCell] クリック無効 - アクション実行中');
       return;
     }
 
     if (character) {
       if (selectedCharacter && selectedAction === 'attack' && isValidAttack(character.id)) {
-        // 🔧 クリックでのアクション実行
         executeAction('attack', character.id);
       } else if (selectedCharacter && selectedAction === 'skill' && isValidSkillTarget(character.id)) {
         executeAction('skill', character.id);
@@ -150,7 +140,6 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
         dispatch({ type: 'SELECT_CHARACTER', character });
       }
     } else if (selectedCharacter && canMoveTo) {
-      // 🔧 クリックでのアクション実行
       executeAction('move', undefined, position);
     } else if (!character && !canMoveTo && !canAttack && !canUseSkill) {
       dispatch({ type: 'SELECT_CHARACTER', character: null });
@@ -197,14 +186,12 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
     }
   }
 
-  // ドラッグ可能な条件（PC専用）
   const isDraggablePC = !isMobile && isActionable && selectedAction !== 'skill';
   
   if (isDraggablePC) {
     cellClassName += " cursor-grab active:cursor-grabbing";
   }
 
-  // 🔧 アクション実行中は操作を無効化
   if (actionInProgress) {
     cellClassName += " pointer-events-none opacity-75";
   }

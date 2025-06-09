@@ -106,11 +106,4 @@ export interface GameState {
     host?: { master: keyof typeof import('../data/cardData').masterData; monsters: MonsterType[] };
     guest?: { master: keyof typeof import('../data/cardData').masterData; monsters: MonsterType[] };
   };
-  // ネットワークゲーム用
-  isHost: boolean;
-  roomId: string | null;
-  hasTimeLimit: boolean;
-  timeLimitSeconds: number;
-  sendMoveFunction: ((roomId: string, move: any) => Promise<void>) | null;
-  startingPlayer: 'host' | 'guest'; // 🔧 先攻プレイヤー情報を追加
 }
