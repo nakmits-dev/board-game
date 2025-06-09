@@ -1,7 +1,8 @@
-// 🎯 シンプルな棋譜データ構造（プレイヤー情報削除）
+// 🎯 シンプルな棋譜データ構造（チーム情報を追加）
 export interface GameMove {
   id: string;
   turn: number;
+  team: 'player' | 'enemy'; // 🔧 チーム情報を追加
   action: 'move' | 'attack' | 'skill' | 'end_turn' | 'surrender' | 'forced_end_turn';
   from: { x: number; y: number };  // 移動前の座標
   to?: { x: number; y: number };   // 移動先（移動の場合）

@@ -13,7 +13,7 @@ export const useSimpleGameSync = () => {
   const onGameStartCallback = useRef<((roomId: string, isHost: boolean) => void) | null>(null);
   const onInitialStateCallback = useRef<((initialState: InitialGameState) => void) | null>(null);
   const onRoomUpdateCallback = useRef<((roomData: SimpleRoom) => void) | null>(null);
-  const onTimerSyncCallback = useRef<((timerSync: TimerSync) => void) | null>(null); // 🆕 タイマー同期専用
+  const onTimerSyncCallback = useRef<((timerSync: TimerSync) => void) | null>(null);
   const processedMoves = useRef<Set<string>>(new Set());
   const heartbeatInterval = useRef<NodeJS.Timeout | null>(null);
   const currentRoomId = useRef<string | null>(null);
@@ -272,7 +272,7 @@ export const useSimpleGameSync = () => {
     }
   }, []);
 
-  // 手の送信（シンプル化）
+  // 🔧 手の送信（チーム情報を含める）
   const sendMove = useCallback(async (roomId: string, move: Omit<GameMove, 'id' | 'timestamp'>) => {
     if (!roomId) {
       console.error('❌ ルームに接続されていません');
@@ -291,6 +291,7 @@ export const useSimpleGameSync = () => {
 
     console.log('📤 棋譜送信:', {
       action: moveData.action,
+      team: moveData.team,
       from: moveData.from,
       to: moveData.to
     });
@@ -380,7 +381,7 @@ export const useSimpleGameSync = () => {
         onGameStartCallback.current(roomId, isHost);
       }
 
-      // 新しい手の検出と処理
+      // 🔧 新しい手の検出と処理（全プレイヤーが受信）
       if (roomData.moves) {
         const allMoves = Object.values(roomData.moves) as GameMove[];
         const newMoves = allMoves.filter(move => !processedMoves.current.has(move.id));
@@ -389,6 +390,7 @@ export const useSimpleGameSync = () => {
           if (onMoveCallback.current) {
             console.log('📥 新しい手を検出:', {
               action: move.action,
+              team: move.team,
               from: move.from,
               to: move.to
             });
