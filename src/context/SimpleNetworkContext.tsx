@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useRef } from 'react';
 import { useSimpleGameSync } from '../hooks/useSimpleGameSync';
 import { useGame } from './GameContext';
-import { GameMove } from '../types/networkTypes';
+import { networkReceiver } from '../modules/NetworkReceiver';
 
 interface SimpleNetworkContextType {
   isConnected: boolean;
@@ -28,8 +28,14 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
   const [currentTimeLeft, setCurrentTimeLeft] = React.useState(30);
   const isInitialized = useRef(false);
   const initialGameState = useRef<any>(null);
-  
-  const lastProcessedTimestamp = useRef<number>(0);
+
+  // NetworkReceiver の受信コールバック設定
+  useEffect(() => {
+    networkReceiver.setOnMoveCallback((move) => {
+      console.log('📥 [SimpleNetworkContext] 棋譜適用:', move);
+      dispatch({ type: 'APPLY_MOVE', move });
+    });
+  }, [dispatch]);
 
   // sendMove関数を設定
   useEffect(() => {
@@ -87,64 +93,17 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
   // 棋譜受信処理
   useEffect(() => {
     if (state.roomId) {
-      const moveCallback = (allMoves: GameMove[]) => {
-        console.log('📋 [SimpleNetworkContext] 棋譜受信チェック:', {
-          totalMoves: allMoves.length,
-          lastProcessedTimestamp: lastProcessedTimestamp.current
-        });
-
-        const newMoves = allMoves.filter(move => move.timestamp > lastProcessedTimestamp.current);
-        
-        if (newMoves.length === 0) {
-          console.log('📋 [SimpleNetworkContext] 新しい棋譜なし - スキップ');
-          return;
-        }
-
-        console.log('📋 [SimpleNetworkContext] 新しい棋譜を検出:', {
-          newMovesCount: newMoves.length,
-          moves: newMoves.map(m => ({ 
-            action: m.action, 
-            team: m.team, 
-            turn: m.turn,
-            timestamp: m.timestamp
-          }))
-        });
-
-        newMoves.sort((a, b) => a.timestamp - b.timestamp);
-
-        newMoves.forEach((move, index) => {
-          console.log(`📋 [SimpleNetworkContext] 棋譜適用 ${index + 1}/${newMoves.length}:`, {
-            action: move.action,
-            team: move.team,
-            turn: move.turn,
-            timestamp: move.timestamp
-          });
-
-          const moveData = {
-            turn: move.turn,
-            team: move.team,
-            type: move.action,
-            from: move.from,
-            to: move.to,
-            skillId: move.action === 'skill' ? 'rage-strike' : undefined
-          };
-
-          dispatch({ type: 'APPLY_MOVE', move: moveData });
-          
-          lastProcessedTimestamp.current = Math.max(lastProcessedTimestamp.current, move.timestamp);
-        });
-
-        console.log('✅ [SimpleNetworkContext] 新しい棋譜処理完了:', {
-          processedCount: newMoves.length,
-          latestTimestamp: lastProcessedTimestamp.current
-        });
+      const moveCallback = (allMoves: any[]) => {
+        console.log('📥 [SimpleNetworkContext] 棋譜受信:', allMoves.length);
+        // NetworkReceiver に処理を委譲
+        networkReceiver.processReceivedMoves(allMoves);
       };
 
       setOnMove(moveCallback);
     } else {
       setOnMove(() => {});
     }
-  }, [state.roomId, setOnMove, dispatch]);
+  }, [state.roomId, setOnMove]);
 
   // ターン変更時にタイマーをリセット
   useEffect(() => {
@@ -159,7 +118,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
       console.log('🧹 [SimpleNetworkContext] ネットワークゲーム終了 - クリーンアップ');
       isInitialized.current = false;
       initialGameState.current = null;
-      lastProcessedTimestamp.current = 0;
+      networkReceiver.resetTimestamp();
     }
   }, [state.roomId]);
 

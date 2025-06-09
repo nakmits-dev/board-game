@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useGame } from '../context/GameContext';
 import { useSimpleNetwork } from '../context/SimpleNetworkContext';
+import { networkSender } from '../modules/NetworkSender';
 import { Pause, Play, Flag } from 'lucide-react';
 
 const TurnOrder: React.FC = () => {
@@ -54,17 +55,8 @@ const TurnOrder: React.FC = () => {
             console.log('⏰ 時間切れ - 強制ターン終了');
             isEndingTurn.current = true;
             
-            if (state.sendMoveFunction && state.roomId) {
-              const moveData = {
-                turn: state.currentTurn,
-                team: state.currentTeam,
-                action: 'forced_end_turn',
-                from: { x: 0, y: 0 },
-                timestamp: Date.now()
-              };
-              console.log('📤 強制ターン終了送信:', moveData);
-              state.sendMoveFunction(state.roomId, moveData);
-            }
+            // NetworkSender を使用して強制ターン終了送信
+            networkSender.sendEndTurn(state, true);
             
             dispatch({ type: 'END_TURN' });
             
@@ -92,7 +84,7 @@ const TurnOrder: React.FC = () => {
         timerInterval.current = null;
       }
     }
-  }, [gamePhase, currentTeam, hasTimeLimit, isPaused, isMyTurn(), setCurrentTimeLeft, dispatch, state.sendMoveFunction, state.currentTurn, state.roomId]);
+  }, [gamePhase, currentTeam, hasTimeLimit, isPaused, isMyTurn(), setCurrentTimeLeft, dispatch, state]);
 
   // ターン変更時にタイマーをリセット
   useEffect(() => {
@@ -124,23 +116,8 @@ const TurnOrder: React.FC = () => {
     }
 
     if (showSurrenderConfirm) {
-      if (state.sendMoveFunction && state.roomId) {
-        const moveData = {
-          turn: state.currentTurn,
-          team: state.currentTeam,
-          action: 'surrender',
-          from: { x: 0, y: 0 },
-          timestamp: Date.now()
-        };
-        console.log('📤 降参棋譜送信:', moveData);
-        state.sendMoveFunction(state.roomId, moveData);
-        
-        setShowSurrenderConfirm(false);
-        return;
-      }
-
-      const surrenderTeam = isHost ? 'player' : 'enemy';
-      dispatch({ type: 'SURRENDER', team: surrenderTeam });
+      console.log('📤 降参実行');
+      dispatch({ type: 'SURRENDER', team: isHost ? 'player' : 'enemy' });
       setShowSurrenderConfirm(false);
     } else {
       setShowSurrenderConfirm(true);
