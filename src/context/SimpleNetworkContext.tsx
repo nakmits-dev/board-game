@@ -29,7 +29,6 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
   const { state, dispatch } = useGame();
   const [currentTimeLeft, setCurrentTimeLeft] = React.useState(30);
   const syncCallbackRef = useRef<((action: any) => void) | null>(null);
-  const timerSyncInterval = useRef<NodeJS.Timeout | null>(null);
   const isInitialized = useRef(false);
   const initialGameState = useRef<any>(null);
   
@@ -60,7 +59,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.isNetworkGame, state.roomId, state.isHost, isConnected, startRoomMonitoring]);
 
-  // 🎯 **ターンプレイヤー: 棋譜送信**
+  // 🎯 **棋譜送信（アクション時のみ）**
   useEffect(() => {
     if (state.isNetworkGame && state.roomId) {
       const syncCallback = async (action: any) => {
@@ -142,7 +141,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
             return;
           }
 
-          console.log('📤 棋譜送信（ターンプレイヤー）:', move);
+          console.log('📤 棋譜送信（アクション時）:', move);
           await sendMove(state.roomId, move);
         } catch (error) {
           console.error('❌ 棋譜送信失敗:', error);
@@ -156,44 +155,6 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
       dispatch({ type: 'SET_NETWORK_SYNC_CALLBACK', callback: null });
     }
   }, [state.isNetworkGame, state.roomId, sendMove, dispatch, state.characters, isConnected, state.currentTeam, state.isHost]);
-
-  // 🎯 **ターンプレイヤー: 毎秒タイマー送信**
-  useEffect(() => {
-    if (state.isNetworkGame && state.roomId && state.hasTimeLimit && state.gamePhase === 'action') {
-      // 自分のターンの場合のみタイマー送信
-      if (isMyTurn()) {
-        console.log('⏰ タイマー送信開始（ターンプレイヤー）');
-        
-        timerSyncInterval.current = setInterval(async () => {
-          try {
-            const timerSync: Omit<TimerSync, 'id' | 'timestamp'> = {
-              turn: state.currentTurn,
-              team: state.currentTeam,
-              timeLeft: currentTimeLeft
-            };
-            
-            console.log('⏰ タイマー同期送信:', { timeLeft: currentTimeLeft, team: state.currentTeam });
-            await sendTimerSync(state.roomId!, timerSync);
-          } catch (error) {
-            console.error('❌ タイマー同期送信エラー:', error);
-          }
-        }, 1000); // 毎秒送信
-
-        return () => {
-          if (timerSyncInterval.current) {
-            clearInterval(timerSyncInterval.current);
-            timerSyncInterval.current = null;
-          }
-        };
-      } else {
-        console.log('⏰ タイマー送信停止（非ターンプレイヤー）');
-        if (timerSyncInterval.current) {
-          clearInterval(timerSyncInterval.current);
-          timerSyncInterval.current = null;
-        }
-      }
-    }
-  }, [state.isNetworkGame, state.roomId, state.hasTimeLimit, state.gamePhase, state.currentTeam, state.isHost, state.currentTurn, currentTimeLeft, sendTimerSync]);
 
   // 🎯 初期状態受信処理
   useEffect(() => {
@@ -288,29 +249,27 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.isNetworkGame, setOnMove, dispatch, state.roomId]);
 
-  // 🎯 **非ターンプレイヤー: タイマー受信で画面反映**
+  // 🎯 **タイマー監視による反映（毎秒処理なし）**
   useEffect(() => {
     if (state.isNetworkGame && state.roomId) {
       const timerCallback = (timerSync: TimerSync) => {
-        console.log('⏰ タイマー同期受信（非ターンプレイヤー）:', {
+        console.log('⏰ タイマー同期受信（監視ベース）:', {
           team: timerSync.team,
           timeLeft: timerSync.timeLeft,
           turn: timerSync.turn,
           isMyTurn: isMyTurn()
         });
 
-        // 🎯 非ターンプレイヤーの場合のみタイマーを更新
-        if (!isMyTurn()) {
-          setCurrentTimeLeft(timerSync.timeLeft);
-          console.log('⏰ タイマー画面反映:', timerSync.timeLeft);
-        }
+        // 🎯 **監視による反映: 全プレイヤーがタイマーを更新**
+        setCurrentTimeLeft(timerSync.timeLeft);
+        console.log('⏰ タイマー画面反映（監視ベース）:', timerSync.timeLeft);
       };
 
       setOnTimerSync(timerCallback);
     } else {
       setOnTimerSync(() => {});
     }
-  }, [state.isNetworkGame, setOnTimerSync, state.roomId, state.currentTeam, state.isHost]);
+  }, [state.isNetworkGame, setOnTimerSync, state.roomId]);
 
   // ターン変更時にタイマーをリセット
   useEffect(() => {
@@ -329,11 +288,6 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
       
       // 🔧 **重要: 処理済みIDもクリア**
       processedMoveIds.current.clear();
-      
-      if (timerSyncInterval.current) {
-        clearInterval(timerSyncInterval.current);
-        timerSyncInterval.current = null;
-      }
     }
   }, [state.isNetworkGame]);
 
@@ -353,7 +307,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
 export const useSimpleNetwork = (): SimpleNetworkContextType => {
   const context = useContext(SimpleNetworkContext);
   if (context === undefined) {
-    throw new Error('useSimpleNetwork must be used within a SimpleNetworkProvider');
+    throw new error('useSimpleNetwork must be used within a SimpleNetworkProvider');
   }
   return context;
 };
