@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useGame } from '../context/GameContext';
 import { BoardAction } from '../types/gameTypes';
-import { skillData } from '../data/skillData';
 import { Play, RotateCcw } from 'lucide-react';
 
 const BoardActionInput: React.FC = () => {
@@ -11,14 +10,12 @@ const BoardActionInput: React.FC = () => {
   const [fromY, setFromY] = useState<number>(0);
   const [toX, setToX] = useState<number>(0);
   const [toY, setToY] = useState<number>(0);
-  const [skillId, setSkillId] = useState<string>('');
 
   const handleApplyAction = () => {
     const boardAction: BoardAction = {
       action,
       from: action !== 'end_turn' ? { x: fromX, y: fromY } : undefined,
       to: action !== 'end_turn' ? { x: toX, y: toY } : undefined,
-      skillId: action === 'skill' ? skillId : undefined,
     };
 
     const success = applyBoardAction(boardAction);
@@ -114,27 +111,6 @@ const BoardActionInput: React.FC = () => {
               </div>
             </div>
           </>
-        )}
-
-        {/* スキル選択 */}
-        {action === 'skill' && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              スキル
-            </label>
-            <select
-              value={skillId}
-              onChange={(e) => setSkillId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">スキルを選択</option>
-              {Object.entries(skillData).map(([id, skill]) => (
-                <option key={id} value={id}>
-                  {skill.name}
-                </option>
-              ))}
-            </select>
-          </div>
         )}
       </div>
 

@@ -167,8 +167,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             `${attacker.name}が${target.name}を攻撃（ダメージ: ${damage}）`
           );
         }
-      } else if (boardAction.action === 'skill' && boardAction.from && boardAction.to && boardAction.skillId) {
-        // スキル使用処理
+      } else if (boardAction.action === 'skill' && boardAction.from && boardAction.to) {
+        // スキル使用処理（キャラクターのskillIdを使用）
         const caster = newCharacters.find(char => 
           char.position.x === boardAction.from!.x && 
           char.position.y === boardAction.from!.y &&
@@ -181,95 +181,97 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           char.position.y === boardAction.to!.y
         );
 
-        const skill = skillData[boardAction.skillId];
-
-        if (caster && target && skill) {
-          const crystals = state.currentTeam === 'player' ? state.playerCrystals : state.enemyCrystals;
+        if (caster && target && caster.skillId) {
+          const skill = skillData[caster.skillId];
           
-          if (crystals >= skill.crystalCost) {
-            animations.push({ id: caster.id, type: 'attack' });
+          if (skill) {
+            const crystals = state.currentTeam === 'player' ? state.playerCrystals : state.enemyCrystals;
+            
+            if (crystals >= skill.crystalCost) {
+              animations.push({ id: caster.id, type: 'attack' });
 
-            // クリスタル消費
-            if (state.currentTeam === 'player') {
-              newPlayerCrystals = Math.max(0, newPlayerCrystals - skill.crystalCost);
-            } else {
-              newEnemyCrystals = Math.max(0, newEnemyCrystals - skill.crystalCost);
-            }
-
-            // スキル効果適用
-            if (skill.healing) {
-              animations.push({ id: target.id, type: 'heal' });
-              newCharacters = newCharacters.map(char => {
-                if (char.id === target.id) {
-                  return {
-                    ...char,
-                    hp: Math.min(char.maxHp, char.hp + skill.healing!),
-                  };
-                }
-                return char;
-              });
-            }
-
-            if (skill.damage) {
-              animations.push({ id: target.id, type: 'damage' });
-              
-              let newHp: number;
-              if (skill.ignoreDefense) {
-                newHp = Math.max(0, target.hp - 1);
+              // クリスタル消費
+              if (state.currentTeam === 'player') {
+                newPlayerCrystals = Math.max(0, newPlayerCrystals - skill.crystalCost);
               } else {
-                const totalDamage = caster.attack + skill.damage;
-                const damage = Math.max(0, totalDamage - target.defense);
-                newHp = Math.max(0, target.hp - damage);
+                newEnemyCrystals = Math.max(0, newEnemyCrystals - skill.crystalCost);
               }
 
-              if (newHp === 0) {
-                animations.push(
-                  { id: target.id, type: 'ko' },
-                  { id: target.team, type: 'crystal-gain' }
-                );
+              // スキル効果適用
+              if (skill.healing) {
+                animations.push({ id: target.id, type: 'heal' });
+                newCharacters = newCharacters.map(char => {
+                  if (char.id === target.id) {
+                    return {
+                      ...char,
+                      hp: Math.min(char.maxHp, char.hp + skill.healing!),
+                    };
+                  }
+                  return char;
+                });
+              }
 
-                if (target.team === 'player') {
-                  newEnemyCrystals = Math.min(8, newEnemyCrystals + target.cost);
+              if (skill.damage) {
+                animations.push({ id: target.id, type: 'damage' });
+                
+                let newHp: number;
+                if (skill.ignoreDefense) {
+                  newHp = Math.max(0, target.hp - 1);
                 } else {
-                  newPlayerCrystals = Math.min(8, newPlayerCrystals + target.cost);
+                  const totalDamage = caster.attack + skill.damage;
+                  const damage = Math.max(0, totalDamage - target.defense);
+                  newHp = Math.max(0, target.hp - damage);
                 }
 
-                if (target.type === 'master') {
-                  newGamePhase = 'result';
+                if (newHp === 0) {
+                  animations.push(
+                    { id: target.id, type: 'ko' },
+                    { id: target.team, type: 'crystal-gain' }
+                  );
+
+                  if (target.team === 'player') {
+                    newEnemyCrystals = Math.min(8, newEnemyCrystals + target.cost);
+                  } else {
+                    newPlayerCrystals = Math.min(8, newPlayerCrystals + target.cost);
+                  }
+
+                  if (target.type === 'master') {
+                    newGamePhase = 'result';
+                  }
+                }
+
+                newCharacters = newCharacters.map(char => {
+                  if (char.id === target.id) {
+                    return { ...char, hp: newHp };
+                  }
+                  return char;
+                });
+              }
+
+              if (skill.effects?.some(effect => effect.type === 'evolve')) {
+                if (target.type === 'monster' && !target.isEvolved && target.monsterType) {
+                  const evolvedType = getEvolvedMonsterType(target.monsterType);
+                  if (evolvedType) {
+                    animations.push({ id: target.id, type: 'evolve' });
+                  }
                 }
               }
 
               newCharacters = newCharacters.map(char => {
-                if (char.id === target.id) {
-                  return { ...char, hp: newHp };
+                if (char.id === caster.id) {
+                  return { ...char, remainingActions: Math.max(0, char.remainingActions - 1) };
                 }
                 return char;
               });
+
+              // 棋譜に記録
+              addGameHistoryMove(
+                state.currentTurn,
+                state.currentTeam,
+                'skill',
+                `${caster.name}が${target.name}に${skill.name}を使用`
+              );
             }
-
-            if (skill.effects?.some(effect => effect.type === 'evolve')) {
-              if (target.type === 'monster' && !target.isEvolved && target.monsterType) {
-                const evolvedType = getEvolvedMonsterType(target.monsterType);
-                if (evolvedType) {
-                  animations.push({ id: target.id, type: 'evolve' });
-                }
-              }
-            }
-
-            newCharacters = newCharacters.map(char => {
-              if (char.id === caster.id) {
-                return { ...char, remainingActions: Math.max(0, char.remainingActions - 1) };
-              }
-              return char;
-            });
-
-            // 棋譜に記録
-            addGameHistoryMove(
-              state.currentTurn,
-              state.currentTeam,
-              'skill',
-              `${caster.name}が${target.name}に${skill.name}を使用`
-            );
           }
         }
       } else if (boardAction.action === 'end_turn') {

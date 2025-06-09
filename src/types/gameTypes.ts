@@ -86,12 +86,11 @@ export interface AnimationSequence {
   type: 'move' | 'attack' | 'damage' | 'heal' | 'ko' | 'crystal-gain' | 'turn-start' | 'evolve';
 }
 
-// 🆕 棋譜アクション用の型定義
+// 🆕 棋譜アクション用の型定義（skillId削除）
 export interface BoardAction {
   action: 'move' | 'attack' | 'skill' | 'end_turn';
   from?: Position;
   to?: Position;
-  skillId?: string;
 }
 
 export interface GameState {
