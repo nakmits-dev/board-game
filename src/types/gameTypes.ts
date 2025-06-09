@@ -106,14 +106,11 @@ export interface GameState {
     player?: { master: keyof typeof import('../data/cardData').masterData; monsters: MonsterType[] };
     enemy?: { master: keyof typeof import('../data/cardData').masterData; monsters: MonsterType[] };
   };
-  // 待った機能用
-  previousState?: GameState;
-  canUndo: boolean;
-  // ネットワークゲーム用
+  // ネットワークゲーム用（常に有効）
   isNetworkGame: boolean;
   isHost: boolean;
   roomId: string | null;
-  hasTimeLimit: boolean; // 🆕 時間制限の有無
-  timeLimitSeconds: number; // 🆕 時間制限の秒数
+  hasTimeLimit: boolean;
+  timeLimitSeconds: number;
   networkSyncCallback: ((action: any) => void) | null;
 }

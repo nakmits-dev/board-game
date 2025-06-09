@@ -13,7 +13,6 @@ type GameAction =
   | { type: 'SELECT_SKILL'; skill: Skill }
   | { type: 'USE_SKILL'; targetId: string }
   | { type: 'END_TURN' }
-  | { type: 'START_GAME'; playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }; enemyDeck?: { master: keyof typeof masterData; monsters: MonsterType[] } }
   | { type: 'START_NETWORK_GAME'; roomId: string; isHost: boolean; hasTimeLimit: boolean; timeLimitSeconds: number; playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }; enemyDeck?: { master: keyof typeof masterData; monsters: MonsterType[] } }
   | { type: 'RESET_GAME' }
   | { type: 'UPDATE_PREVIEW'; playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }; enemyDeck?: { master: keyof typeof masterData; monsters: MonsterType[] } }
@@ -23,7 +22,6 @@ type GameAction =
   | { type: 'SET_PENDING_ANIMATIONS'; animations: AnimationSequence[] }
   | { type: 'REMOVE_DEFEATED_CHARACTERS'; targetId: string; killerTeam?: Team }
   | { type: 'EVOLVE_CHARACTER'; characterId: string }
-  | { type: 'UNDO_MOVE' }
   | { type: 'SURRENDER'; team: Team }
   | { type: 'APPLY_MOVE'; move: any } // 🆕 棋譜を適用するアクション
   | { type: 'SET_NETWORK_SYNC_CALLBACK'; callback: ((action: any) => void) | null };
@@ -56,21 +54,6 @@ const checkMasterStatus = (characters: Character[]): { playerMasterAlive: boolea
   };
 };
 
-// 状態の深いコピーを作成する関数
-const deepCloneState = (state: GameState): GameState => {
-  return JSON.parse(JSON.stringify({
-    ...state,
-    // アニメーション関連は除外
-    selectedCharacter: null,
-    selectedAction: null,
-    selectedSkill: null,
-    pendingAction: { type: null },
-    animationTarget: null,
-    pendingAnimations: [],
-    previousState: undefined // 無限ループを防ぐ
-  }));
-};
-
 // 🎯 統一されたチーム判定関数
 const getMyTeam = (isHost: boolean): Team => {
   return isHost ? 'player' : 'enemy'; // host=青チーム(player)、guest=赤チーム(enemy)
@@ -81,7 +64,7 @@ const isMyTurn = (currentTeam: Team, isHost: boolean): boolean => {
   return currentTeam === myTeam;
 };
 
-// 🎯 統一された棋譜適用関数（ホスト・ゲスト共通）
+// 🎯 統一された棋譜適用関数（全プレイヤー共通）
 const applyMoveToState = (state: GameState, move: any): GameState => {
   console.log('🎯 棋譜適用開始:', {
     type: move.type,
@@ -102,7 +85,6 @@ const applyMoveToState = (state: GameState, move: any): GameState => {
 
   switch (move.type) {
     case 'move': {
-      // 🔧 座標から移動するキャラクターを特定
       const character = updatedCharacters.find(char => 
         char.position.x === move.from.x && 
         char.position.y === move.from.y &&
@@ -122,45 +104,18 @@ const applyMoveToState = (state: GameState, move: any): GameState => {
               }
             : char
         );
-      } else {
-        console.warn('⚠️ 移動対象キャラクターが見つかりません:', {
-          from: move.from,
-          team: move.team,
-          availableCharacters: updatedCharacters.map(c => ({
-            name: c.name,
-            team: c.team,
-            position: c.position
-          }))
-        });
       }
       break;
     }
 
     case 'attack': {
-      // 🔧 攻撃者と対象を座標から特定
       const attacker = updatedCharacters.find(char => 
         char.position.x === move.from.x && 
         char.position.y === move.from.y &&
         char.team === move.team
       );
       
-      if (!attacker) {
-        console.error('❌ 攻撃者が見つかりません:', {
-          from: move.from,
-          team: move.team,
-          availableCharacters: updatedCharacters.map(c => ({
-            name: c.name,
-            team: c.team,
-            position: c.position
-          }))
-        });
-        break;
-      }
-
-      if (!move.to) {
-        console.error('❌ 攻撃対象の座標がありません:', move);
-        break;
-      }
+      if (!attacker || !move.to) break;
       
       const target = updatedCharacters.find(char => 
         char.position.x === move.to.x && 
@@ -168,18 +123,7 @@ const applyMoveToState = (state: GameState, move: any): GameState => {
         char.team !== move.team
       );
       
-      if (!target) {
-        console.error('❌ 攻撃対象が見つかりません:', {
-          to: move.to,
-          attackerTeam: move.team,
-          availableTargets: updatedCharacters.filter(c => c.team !== move.team).map(c => ({
-            name: c.name,
-            team: c.team,
-            position: c.position
-          }))
-        });
-        break;
-      }
+      if (!target) break;
       
       console.log('⚔️ 攻撃適用:', attacker.name, '->', target.name);
       const damage = Math.max(0, attacker.attack - target.defense);
@@ -196,7 +140,6 @@ const applyMoveToState = (state: GameState, move: any): GameState => {
           { id: target.team, type: 'crystal-gain' }
         );
 
-        // 進化条件を満たしているか確認
         if (attacker.type === 'monster' && !attacker.isEvolved && attacker.monsterType) {
           const evolvedType = getEvolvedMonsterType(attacker.monsterType);
           if (evolvedType) {
@@ -215,7 +158,6 @@ const applyMoveToState = (state: GameState, move: any): GameState => {
         return char;
       });
 
-      // マスターが倒された場合は即座にゲーム終了
       if (newHp === 0 && target.type === 'master') {
         newGamePhase = 'result';
       }
@@ -223,7 +165,6 @@ const applyMoveToState = (state: GameState, move: any): GameState => {
     }
 
     case 'skill': {
-      // スキル処理（既存のロジックを使用）
       const caster = updatedCharacters.find(char => 
         char.position.x === move.from.x && 
         char.position.y === move.from.y &&
@@ -235,20 +176,13 @@ const applyMoveToState = (state: GameState, move: any): GameState => {
         char.position.y === move.to.y
       );
       
-      if (!caster || !target) {
-        console.error('❌ スキル: 使用者または対象が見つかりません');
-        break;
-      }
+      if (!caster || !target) break;
 
       const skill = skillData[move.skillId];
-      if (!skill) {
-        console.error('❌ スキルが見つかりません:', move.skillId);
-        break;
-      }
+      if (!skill) break;
 
       console.log('✨ スキル適用:', caster.name, '->', target.name, skill.name);
 
-      // クリスタル消費
       if (move.team === 'player') {
         playerCrystals -= skill.crystalCost;
       } else {
@@ -360,7 +294,6 @@ const applyMoveToState = (state: GameState, move: any): GameState => {
     case 'surrender': {
       console.log('🏳️ 降参適用:', move.team);
       newGamePhase = 'result';
-      // 🆕 降参したチームのマスターを削除してゲーム終了を示す
       updatedCharacters = updatedCharacters.filter(char => 
         !(char.team === move.team && char.type === 'master')
       );
@@ -424,21 +357,19 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         };
       }
 
-      // ネットワークゲームの場合、自分のターンかつ自分のチームのキャラクターのみ選択可能
-      if (state.isNetworkGame) {
-        const myTeam = getMyTeam(state.isHost);
-        const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
-        
-        if (!isMyTurnNow || action.character.team !== myTeam) {
-          console.log('🚫 キャラクター選択無効:', {
-            isMyTurn: isMyTurnNow,
-            characterTeam: action.character.team,
-            myTeam,
-            currentTeam: state.currentTeam,
-            isHost: state.isHost
-          });
-          return state; // 選択を無効化
-        }
+      // 自分のターンかつ自分のチームのキャラクターのみ選択可能
+      const myTeam = getMyTeam(state.isHost);
+      const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
+      
+      if (!isMyTurnNow || action.character.team !== myTeam) {
+        console.log('🚫 キャラクター選択無効:', {
+          isMyTurn: isMyTurnNow,
+          characterTeam: action.character.team,
+          myTeam,
+          currentTeam: state.currentTeam,
+          isHost: state.isHost
+        });
+        return state;
       }
 
       if (action.character.team === state.currentTeam && action.character.remainingActions > 0) {
@@ -465,12 +396,9 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         return state;
       }
 
-      // ネットワークゲームの場合、自分のターンでない場合は操作を無効化
-      if (state.isNetworkGame) {
-        const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
-        if (!isMyTurnNow) {
-          return state;
-        }
+      const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
+      if (!isMyTurnNow) {
+        return state;
       }
       
       return {
@@ -487,12 +415,9 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         return state;
       }
 
-      // ネットワークゲームの場合、自分のターンでない場合は操作を無効化
-      if (state.isNetworkGame) {
-        const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
-        if (!isMyTurnNow) {
-          return state;
-        }
+      const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
+      if (!isMyTurnNow) {
+        return state;
       }
 
       return {
@@ -522,19 +447,25 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         return state;
       }
 
-      // ネットワークゲームの場合、自分のターンでない場合は操作を無効化
-      if (state.isNetworkGame) {
-        const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
-        if (!isMyTurnNow) {
-          return state;
-        }
+      const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
+      if (!isMyTurnNow) {
+        return state;
       }
 
-      // 現在の状態を保存（待った用）
-      const previousState = deepCloneState(state);
+      // 🎯 統一された棋譜作成
+      const move = {
+        turn: state.currentTurn,
+        team: state.currentTeam,
+        type: state.pendingAction.type,
+        from: state.selectedCharacter.position,
+        to: state.pendingAction.position || (state.pendingAction.targetId ? 
+          state.characters.find(c => c.id === state.pendingAction.targetId)?.position : undefined
+        ),
+        targetId: state.pendingAction.targetId,
+      };
 
-      // 🎯 ネットワークゲームの場合、棋譜を送信してローカル適用も実行
-      if (state.isNetworkGame && state.networkSyncCallback) {
+      // 🎯 棋譜を送信（ネットワークゲームのみ）
+      if (state.networkSyncCallback) {
         const networkAction = {
           turn: state.currentTurn,
           team: state.currentTeam,
@@ -547,25 +478,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         state.networkSyncCallback(networkAction);
       }
 
-      // 🎯 ローカル適用（ネットワークゲーム・ローカルゲーム共通）
-      const move = {
-        turn: state.currentTurn,
-        team: state.currentTeam,
-        type: state.pendingAction.type,
-        from: state.selectedCharacter.position,
-        to: state.pendingAction.position || (state.pendingAction.targetId ? 
-          state.characters.find(c => c.id === state.pendingAction.targetId)?.position : undefined
-        ),
-        targetId: state.pendingAction.targetId,
-      };
-
-      const newState = applyMoveToState(state, move);
-
-      return {
-        ...newState,
-        previousState,
-        canUndo: !state.isNetworkGame, // ネットワークゲームでは待ったを無効化
-      };
+      // 🎯 統一された棋譜適用（全プレイヤー共通）
+      return applyMoveToState(state, move);
     }
 
     case 'EVOLVE_CHARACTER': {
@@ -606,12 +520,9 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         return state;
       }
 
-      // ネットワークゲームの場合、自分のターンでない場合は操作を無効化
-      if (state.isNetworkGame) {
-        const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
-        if (!isMyTurnNow) {
-          return state;
-        }
+      const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
+      if (!isMyTurnNow) {
+        return state;
       }
 
       const crystals = state.currentTeam === 'player' ? state.playerCrystals : state.enemyCrystals;
@@ -630,32 +541,12 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     case 'USE_SKILL': {
       if (!state.selectedCharacter || !state.selectedSkill) return state;
       
-      // ネットワークゲームの場合、自分のターンでない場合は操作を無効化
-      if (state.isNetworkGame) {
-        const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
-        if (!isMyTurnNow) {
-          return state;
-        }
+      const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
+      if (!isMyTurnNow) {
+        return state;
       }
 
-      // 現在の状態を保存（待った用）
-      const previousState = deepCloneState(state);
-
-      // ネットワークゲームの場合、棋譜を送信してローカル適用も実行
-      if (state.isNetworkGame && state.networkSyncCallback) {
-        const networkAction = {
-          turn: state.currentTurn,
-          team: state.currentTeam,
-          type: 'skill',
-          characterId: state.selectedCharacter.id,
-          targetId: action.targetId,
-          skillId: state.selectedSkill.id,
-        };
-        console.log('📤 スキル棋譜送信:', networkAction);
-        state.networkSyncCallback(networkAction);
-      }
-      
-      // 🎯 ローカル適用（ネットワークゲーム・ローカルゲーム共通）
+      // 🎯 統一された棋譜作成
       const target = state.characters.find(char => char.id === action.targetId);
       if (!target) return state;
 
@@ -668,13 +559,22 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         skillId: state.selectedSkill.id,
       };
 
-      const newState = applyMoveToState(state, move);
-
-      return {
-        ...newState,
-        previousState,
-        canUndo: !state.isNetworkGame, // ネットワークゲームでは待ったを無効化
-      };
+      // 🎯 棋譜を送信（ネットワークゲームのみ）
+      if (state.networkSyncCallback) {
+        const networkAction = {
+          turn: state.currentTurn,
+          team: state.currentTeam,
+          type: 'skill',
+          characterId: state.selectedCharacter.id,
+          targetId: action.targetId,
+          skillId: state.selectedSkill.id,
+        };
+        console.log('📤 スキル棋譜送信:', networkAction);
+        state.networkSyncCallback(networkAction);
+      }
+      
+      // 🎯 統一された棋譜適用（全プレイヤー共通）
+      return applyMoveToState(state, move);
     }
 
     case 'REMOVE_DEFEATED_CHARACTERS': {
@@ -684,7 +584,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       let playerCrystals = state.playerCrystals;
       let enemyCrystals = state.enemyCrystals;
 
-      // ゲームが既に終了している場合はクリスタル獲得をスキップ
       if (state.gamePhase === 'result') {
         return {
           ...state,
@@ -693,14 +592,11 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       }
 
       if (defeatedCharacter) {
-        // 倒されたキャラクターのコスト分のクリスタルを倒された側が獲得
         const crystalGain = defeatedCharacter.cost;
         
         if (defeatedCharacter.team === 'player') {
-          // プレイヤーのキャラクターが倒された場合、プレイヤーがクリスタル獲得
           playerCrystals = Math.min(MAX_CRYSTALS, playerCrystals + crystalGain);
         } else {
-          // 敵のキャラクターが倒された場合、敵がクリスタル獲得
           enemyCrystals = Math.min(MAX_CRYSTALS, enemyCrystals + crystalGain);
         }
       }
@@ -724,7 +620,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'SURRENDER': {
-      // 降参時は即座にゲーム終了（クリスタル獲得や進化は発生させない）
       return {
         ...state,
         gamePhase: 'result',
@@ -734,35 +629,35 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         pendingAction: { type: null },
         animationTarget: null,
         pendingAnimations: [],
-        // 降参したチームのマスターを削除してゲーム終了を示す
         characters: state.characters.filter(char => 
           !(char.team === action.team && char.type === 'master')
         ),
-        canUndo: false, // 降参後は待ったできない
       };
     }
 
     case 'END_TURN': {
       if (state.gamePhase === 'preparation') return state;
       
-      // ネットワークゲームの場合、自分のターンでない場合は操作を無効化
-      if (state.isNetworkGame) {
-        const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
-        if (!isMyTurnNow) {
-          console.log('🚫 ターン終了無効 - 自分のターンではありません:', {
-            currentTeam: state.currentTeam,
-            isHost: state.isHost,
-            isMyTurn: isMyTurnNow
-          });
-          return state;
-        }
+      const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
+      if (!isMyTurnNow) {
+        console.log('🚫 ターン終了無効 - 自分のターンではありません:', {
+          currentTeam: state.currentTeam,
+          isHost: state.isHost,
+          isMyTurn: isMyTurnNow
+        });
+        return state;
       }
 
-      // 現在の状態を保存（待った用）
-      const previousState = deepCloneState(state);
+      // 🎯 統一された棋譜作成
+      const move = {
+        turn: state.currentTurn,
+        team: state.currentTeam,
+        type: 'end_turn',
+        from: { x: 0, y: 0 },
+      };
 
-      // ネットワークゲームの場合、棋譜を送信してローカル適用も実行
-      if (state.isNetworkGame && state.networkSyncCallback) {
+      // 🎯 棋譜を送信（ネットワークゲームのみ）
+      if (state.networkSyncCallback) {
         try {
           const networkAction = {
             turn: state.currentTurn,
@@ -778,50 +673,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         }
       }
       
-      // 🎯 ローカル適用（ネットワークゲーム・ローカルゲーム共通）
-      const move = {
-        turn: state.currentTurn,
-        team: state.currentTeam,
-        type: 'end_turn',
-        from: { x: 0, y: 0 }, // ダミー座標
-      };
-
-      const newState = applyMoveToState(state, move);
-
-      return {
-        ...newState,
-        previousState,
-        canUndo: !state.isNetworkGame, // ネットワークゲームでは待ったを無効化
-      };
-    }
-
-    case 'START_GAME': {
-      const startingTeam: Team = Math.random() < 0.5 ? 'player' : 'enemy';
-      
-      // 新しいゲーム状態を作成（編成内容を反映）
-      const newState = createInitialGameState(action.playerDeck, action.enemyDeck);
-      
-      return {
-        ...newState,
-        gamePhase: 'action',
-        currentTeam: startingTeam,
-        characters: newState.characters.map(char => ({
-          ...char,
-          remainingActions: char.team === startingTeam ? char.actions : 0,
-        })),
-        pendingAnimations: [{ id: startingTeam, type: 'turn-start' }],
-        savedDecks: {
-          player: action.playerDeck,
-          enemy: action.enemyDeck
-        },
-        canUndo: false,
-        isNetworkGame: false,
-        isHost: false,
-        roomId: null,
-        hasTimeLimit: true,
-        timeLimitSeconds: 30,
-        networkSyncCallback: null,
-      };
+      // 🎯 統一された棋譜適用（全プレイヤー共通）
+      return applyMoveToState(state, move);
     }
 
     case 'START_NETWORK_GAME': {
@@ -830,52 +683,36 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         isHost: action.isHost,
         hasTimeLimit: action.hasTimeLimit,
         timeLimitSeconds: action.timeLimitSeconds,
-        currentCharacters: state.characters.length,
-        currentCrystals: { player: state.playerCrystals, enemy: state.enemyCrystals }
       });
       
-      // ネットワークゲームでは常にホストが先攻（player）
       const startingTeam: Team = 'player';
       
-      // 🔧 デッキが指定されている場合は新しい状態を作成、そうでなければ既存状態を保持
       let newState = state;
       if (action.playerDeck && action.enemyDeck) {
         newState = createInitialGameState(action.playerDeck, action.enemyDeck);
-        console.log('🔧 新しい初期状態を作成:', {
-          playerDeck: action.playerDeck,
-          enemyDeck: action.enemyDeck,
-          charactersCount: newState.characters.length
-        });
-      } else {
-        console.log('🔧 既存状態を保持:', {
-          charactersCount: state.characters.length
-        });
+        console.log('🔧 新しい初期状態を作成');
       }
       
       return {
         ...newState,
         gamePhase: 'action',
         currentTeam: startingTeam,
-        // キャラクターの行動回数のみリセット
         characters: newState.characters.map(char => ({
           ...char,
           remainingActions: char.team === startingTeam ? char.actions : 0,
         })),
         pendingAnimations: [{ id: startingTeam, type: 'turn-start' }],
-        canUndo: false,
         isNetworkGame: true,
         isHost: action.isHost,
         roomId: action.roomId,
         hasTimeLimit: action.hasTimeLimit,
         timeLimitSeconds: action.timeLimitSeconds,
         networkSyncCallback: null,
-        // 選択状態をクリア
         selectedCharacter: null,
         selectedAction: null,
         selectedSkill: null,
         pendingAction: { type: null },
         animationTarget: null,
-        // 🔧 デッキ情報を保存
         savedDecks: action.playerDeck && action.enemyDeck ? {
           player: action.playerDeck,
           enemy: action.enemyDeck
@@ -884,7 +721,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'UPDATE_PREVIEW': {
-      // 準備画面または結果画面でのプレビュー更新
       if (state.gamePhase !== 'preparation' && state.gamePhase !== 'result') return state;
       
       const newState = createInitialGameState(action.playerDeck, action.enemyDeck);
@@ -910,35 +746,16 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'RESET_GAME': {
-      // 保存されたデッキがある場合はそれを使用してリセット
       const newState = createInitialGameState(state.savedDecks?.player, state.savedDecks?.enemy);
       return {
         ...newState,
         savedDecks: state.savedDecks,
-        canUndo: false,
         isNetworkGame: false,
         isHost: false,
         roomId: null,
         hasTimeLimit: true,
         timeLimitSeconds: 30,
         networkSyncCallback: null,
-      };
-    }
-
-    case 'UNDO_MOVE': {
-      // 前の状態に戻る（ネットワークゲームでは無効）
-      if (!state.canUndo || !state.previousState || state.isNetworkGame) return state;
-      
-      return {
-        ...state.previousState,
-        savedDecks: state.savedDecks, // 保存されたデッキは維持
-        canUndo: false, // 連続での待ったを防ぐ
-        isNetworkGame: state.isNetworkGame,
-        isHost: state.isHost,
-        roomId: state.roomId,
-        hasTimeLimit: state.hasTimeLimit,
-        timeLimitSeconds: state.timeLimitSeconds,
-        networkSyncCallback: state.networkSyncCallback,
       };
     }
 
@@ -964,8 +781,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(gameReducer, {
     ...createInitialGameState(),
-    canUndo: false,
-    isNetworkGame: false,
+    isNetworkGame: true, // 🆕 常にネットワークゲーム
     isHost: false,
     roomId: null,
     hasTimeLimit: true,
@@ -976,12 +792,10 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     player?: { master: keyof typeof masterData; monsters: MonsterType[] };
     enemy?: { master: keyof typeof masterData; monsters: MonsterType[] };
   }>({
-    // デフォルト編成を設定（ベアーとウルフを逆に）
     player: { master: 'blue', monsters: ['bear', 'wolf', 'golem'] },
     enemy: { master: 'red', monsters: ['bear', 'wolf', 'golem'] }
   });
 
-  // 初期化時にデフォルト編成を設定
   React.useEffect(() => {
     dispatch({ 
       type: 'SET_SAVED_DECKS', 
@@ -1002,7 +816,6 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           dispatch({ type: 'SET_ANIMATION_TARGET', target: animation });
           await new Promise(resolve => setTimeout(resolve, ANIMATION_DURATION));
           
-          // ゲームが既に終了している場合は追加処理をスキップ
           if (state.gamePhase === 'result') {
             if (animation.type === 'ko') {
               await new Promise(resolve => setTimeout(resolve, 100));
@@ -1013,7 +826,6 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           
           if (animation.type === 'ko') {
             await new Promise(resolve => setTimeout(resolve, 100));
-            // 倒された側のチーム情報を渡す（倒された側がクリスタル獲得）
             dispatch({ type: 'REMOVE_DEFEATED_CHARACTERS', targetId: animation.id });
           } else if (animation.type === 'evolve') {
             await new Promise(resolve => setTimeout(resolve, 100));
@@ -1033,11 +845,8 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (state.gamePhase === 'preparation') return false;
     if (state.selectedCharacter.team !== state.currentTeam) return false;
 
-    // ネットワークゲームの場合、自分のターンでない場合は無効
-    if (state.isNetworkGame) {
-      const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
-      if (!isMyTurnNow) return false;
-    }
+    const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
+    if (!isMyTurnNow) return false;
 
     const { x: srcX, y: srcY } = state.selectedCharacter.position;
     const { x: destX, y: destY } = position;
@@ -1060,11 +869,8 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (state.gamePhase === 'preparation') return false;
     if (state.selectedCharacter.team !== state.currentTeam) return false;
 
-    // ネットワークゲームの場合、自分のターンでない場合は無効
-    if (state.isNetworkGame) {
-      const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
-      if (!isMyTurnNow) return false;
-    }
+    const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
+    if (!isMyTurnNow) return false;
 
     const target = state.characters.find(char => char.id === targetId);
     if (!target || target.team === state.selectedCharacter.team) return false;
@@ -1083,11 +889,8 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (state.gamePhase === 'preparation') return false;
     if (state.selectedCharacter.team !== state.currentTeam) return false;
 
-    // ネットワークゲームの場合、自分のターンでない場合は無効
-    if (state.isNetworkGame) {
-      const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
-      if (!isMyTurnNow) return false;
-    }
+    const isMyTurnNow = isMyTurn(state.currentTeam, state.isHost);
+    if (!isMyTurnNow) return false;
 
     const target = state.characters.find(char => char.id === targetId);
     if (!target) return false;
@@ -1104,7 +907,6 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (state.selectedSkill.effects?.some(effect => effect.type === 'evolve')) {
       if (target.team !== state.selectedCharacter.team) return false;
       if (target.type !== 'monster' || target.isEvolved) return false;
-      // 進化先があるかチェック
       if (target.type === 'monster' && target.monsterType) {
         const evolvedType = getEvolvedMonsterType(target.monsterType);
         if (!evolvedType) return false;

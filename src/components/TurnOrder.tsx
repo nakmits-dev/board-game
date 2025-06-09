@@ -1,30 +1,25 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useGame } from '../context/GameContext';
-import { Pause, Play, Flag, RotateCcw } from 'lucide-react';
+import { Pause, Play, Flag } from 'lucide-react';
 
 const TurnOrder: React.FC = () => {
   const { state, dispatch } = useGame();
-  const { currentTeam, gamePhase, animationTarget, canUndo, isNetworkGame, isHost, hasTimeLimit, timeLimitSeconds } = state;
+  const { currentTeam, gamePhase, animationTarget, isHost, hasTimeLimit, timeLimitSeconds } = state;
   const [timeLeft, setTimeLeft] = useState(timeLimitSeconds);
-  const [isPaused, setIsPaused] = useState(!isNetworkGame); // 🆕 オンライン対戦ではデフォルトで開始
+  const [isPaused, setIsPaused] = useState(false);
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
   const endTurnButtonRef = useRef<HTMLButtonElement>(null);
   const isEndingTurn = useRef(false);
-  const lastSyncTime = useRef<number>(Date.now()); // 🆕 最後の同期時刻
-  const syncInterval = useRef<NodeJS.Timeout | null>(null); // 🆕 同期用インターバル
+  const lastSyncTime = useRef<number>(Date.now());
+  const syncInterval = useRef<NodeJS.Timeout | null>(null);
 
-  // ネットワークゲームでの自分のターンかどうかを判定
+  // 自分のターンかどうかを判定
   const isMyTurn = () => {
-    if (!isNetworkGame) return true;
     return isHost ? currentTeam === 'player' : currentTeam === 'enemy';
   };
 
   // ターン表示のテキストを決定
   const getTurnText = () => {
-    if (!isNetworkGame) {
-      return currentTeam === 'player' ? 'あなたのターン' : '相手のターン';
-    }
-    
     if (isMyTurn()) {
       return 'あなたのターン';
     } else {
@@ -34,10 +29,6 @@ const TurnOrder: React.FC = () => {
 
   // ターンの色を決定
   const getTurnColor = () => {
-    if (!isNetworkGame) {
-      return currentTeam === 'player' ? 'text-blue-600' : 'text-red-600';
-    }
-    
     if (isMyTurn()) {
       return 'text-blue-600';
     } else {
@@ -47,7 +38,7 @@ const TurnOrder: React.FC = () => {
 
   // 🆕 ネットワークゲームでの時間同期機能（残り時間も送信）
   const syncTimeWithNetwork = () => {
-    if (!isNetworkGame || !state.networkSyncCallback || !isMyTurn()) return;
+    if (!state.networkSyncCallback || !isMyTurn()) return;
 
     try {
       const networkAction = {
@@ -72,7 +63,6 @@ const TurnOrder: React.FC = () => {
     isEndingTurn.current = true;
     console.log('⏰ 強制ターン終了:', { team: state.currentTeam, isMyTurn: isMyTurn() });
     
-    // 🔧 自分のターンの場合のみ強制終了を送信
     if (isMyTurn()) {
       if (state.networkSyncCallback) {
         const networkAction = {
@@ -80,14 +70,13 @@ const TurnOrder: React.FC = () => {
           team: state.currentTeam,
           type: 'forced_end_turn',
           characterId: '',
-          timeLeft: 0, // 🆕 時間切れを明示
+          timeLeft: 0,
           timestamp: Date.now()
         };
         console.log('📤 強制ターン終了送信:', networkAction);
         state.networkSyncCallback(networkAction);
       }
       
-      // 自分のターンなので通常のターン終了処理も実行
       dispatch({ type: 'END_TURN' });
     }
     
@@ -97,28 +86,19 @@ const TurnOrder: React.FC = () => {
   };
   
   useEffect(() => {
-    // 時間制限がない場合はタイマーを動作させない
     if (!hasTimeLimit) return;
-    
-    // ゲームフェーズが'action'でない場合は動作させない
     if (gamePhase !== 'action') return;
-
-    // ポーズ中は動作させない
     if (isPaused) return;
-
-    // 🔧 ネットワークゲームでは自分のターンの場合のみタイマーを動作
-    if (isNetworkGame && !isMyTurn()) return;
+    if (!isMyTurn()) return;
 
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         const newTime = prev - 1;
         
-        // 🆕 5秒ごとに時間を同期（自分のターンの場合のみ）
-        if (isNetworkGame && isMyTurn() && newTime % 5 === 0 && newTime > 0) {
+        if (newTime % 5 === 0 && newTime > 0) {
           syncTimeWithNetwork();
         }
         
-        // 時間切れの処理
         if (newTime <= 0 && !isEndingTurn.current) {
           clearInterval(timer);
           handleForcedTurnEnd();
@@ -130,12 +110,11 @@ const TurnOrder: React.FC = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [gamePhase, currentTeam, dispatch, isNetworkGame, isHost, hasTimeLimit, timeLeft, isPaused]);
+  }, [gamePhase, currentTeam, dispatch, hasTimeLimit, timeLeft, isPaused]);
 
   // 🆕 ネットワークゲームでの同期インターバル設定
   useEffect(() => {
-    if (isNetworkGame && hasTimeLimit && gamePhase === 'action' && isMyTurn()) {
-      // 3秒ごとに同期チェック
+    if (hasTimeLimit && gamePhase === 'action' && isMyTurn()) {
       syncInterval.current = setInterval(() => {
         if (Date.now() - lastSyncTime.current > 3000) {
           syncTimeWithNetwork();
@@ -149,15 +128,13 @@ const TurnOrder: React.FC = () => {
         }
       };
     }
-  }, [isNetworkGame, hasTimeLimit, gamePhase, isMyTurn()]);
+  }, [hasTimeLimit, gamePhase, isMyTurn()]);
 
   useEffect(() => {
-    // ターンが変わった時のみタイマーをリセット
     if (gamePhase === 'action') {
       setTimeLeft(timeLimitSeconds);
       setShowSurrenderConfirm(false);
-      lastSyncTime.current = Date.now(); // 🆕 同期時刻もリセット
-      // ターンが変わってもポーズ状態は維持
+      lastSyncTime.current = Date.now();
     }
   }, [currentTeam, gamePhase, timeLimitSeconds]);
   
@@ -167,11 +144,8 @@ const TurnOrder: React.FC = () => {
   const isLowTime = timeLeft <= 5 && !isPaused && hasTimeLimit;
   
   const handlePauseToggle = () => {
-    // 時間制限がない場合はポーズボタンを無効化
     if (!hasTimeLimit) return;
-    
-    // ネットワークゲームでは相手のターン中はポーズできない
-    if (isNetworkGame && !isMyTurn()) return;
+    if (!isMyTurn()) return;
     
     setIsPaused(!isPaused);
     setShowSurrenderConfirm(false);
@@ -179,15 +153,14 @@ const TurnOrder: React.FC = () => {
 
   // 🆕 降参処理（ネットワークゲームでは自分のターンのみ可能）
   const handleSurrender = () => {
-    // 🔧 ネットワークゲームでは自分のターンでない場合は無効
-    if (isNetworkGame && !isMyTurn()) {
+    if (!isMyTurn()) {
       console.log('🚫 降参無効 - 自分のターンではありません');
       return;
     }
 
     if (showSurrenderConfirm) {
-      // 🆕 ネットワークゲームの場合、降参棋譜を送信
-      if (isNetworkGame && state.networkSyncCallback) {
+      // 🆕 降参棋譜を送信
+      if (state.networkSyncCallback) {
         const networkAction = {
           turn: state.currentTurn,
           team: state.currentTeam,
@@ -198,13 +171,11 @@ const TurnOrder: React.FC = () => {
         console.log('📤 降参棋譜送信:', networkAction);
         state.networkSyncCallback(networkAction);
         
-        // ネットワークゲームでは棋譜送信のみ（ローカル適用は受信時）
         setShowSurrenderConfirm(false);
         return;
       }
 
-      // ローカルゲームの場合は直接処理
-      const surrenderTeam = isNetworkGame ? (isHost ? 'player' : 'enemy') : currentTeam;
+      const surrenderTeam = isHost ? 'player' : 'enemy';
       dispatch({ type: 'SURRENDER', team: surrenderTeam });
       setShowSurrenderConfirm(false);
     } else {
@@ -212,16 +183,8 @@ const TurnOrder: React.FC = () => {
     }
   };
 
-  const handleUndo = () => {
-    if (canUndo && !isNetworkGame) {
-      dispatch({ type: 'UNDO_MOVE' });
-      setShowSurrenderConfirm(false);
-    }
-  };
-
   const handleEndTurn = () => {
-    // ネットワークゲームでは自分のターンでない場合は無効
-    if (isNetworkGame && !isMyTurn()) return;
+    if (!isMyTurn()) return;
     
     setShowSurrenderConfirm(false);
     dispatch({ type: 'END_TURN' });
@@ -229,10 +192,7 @@ const TurnOrder: React.FC = () => {
 
   // 🆕 降参ボタンの活性化条件
   const canSurrender = () => {
-    if (isNetworkGame) {
-      return isMyTurn(); // ネットワークゲームでは自分のターンのみ
-    }
-    return true; // ローカルゲームでは常に可能
+    return isMyTurn();
   };
   
   return (
@@ -252,12 +212,11 @@ const TurnOrder: React.FC = () => {
               }`}>
                 {String(timeLeft).padStart(2, '0')}
               </div>
-              {/* ネットワークゲームでは相手のターン中はポーズボタンを無効化 */}
               <button
                 onClick={handlePauseToggle}
-                disabled={(isNetworkGame && !isMyTurn()) || !hasTimeLimit}
+                disabled={!isMyTurn() || !hasTimeLimit}
                 className={`p-2 rounded-lg transition-colors ${
-                  (isNetworkGame && !isMyTurn()) || !hasTimeLimit
+                  (!isMyTurn()) || !hasTimeLimit
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                     : isPaused 
                       ? 'bg-green-100 text-green-600 hover:bg-green-200' 
@@ -279,26 +238,7 @@ const TurnOrder: React.FC = () => {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
-          {/* 待ったボタン（ローカルゲームのみ） */}
-          {!isNetworkGame && (
-            <button
-              onClick={handleUndo}
-              disabled={!canUndo}
-              className={`px-3 py-2 font-bold rounded transform transition text-sm sm:text-base ${
-                canUndo
-                  ? 'bg-orange-600 hover:bg-orange-700 text-white hover:scale-105'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
-              title="1手戻る"
-            >
-              <div className="flex items-center gap-1.5">
-                <RotateCcw size={16} />
-                <span>待った</span>
-              </div>
-            </button>
-          )}
-
-          {/* 🆕 降参ボタン（ネットワークゲームでは自分のターンのみ有効） */}
+          {/* 🆕 降参ボタン（自分のターンのみ有効） */}
           <button
             onClick={handleSurrender}
             disabled={!canSurrender()}
@@ -309,7 +249,7 @@ const TurnOrder: React.FC = () => {
                 ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse'
                 : 'bg-gray-600 hover:bg-gray-700 text-white'
             }`}
-            title={isNetworkGame && !isMyTurn() ? '自分のターンでのみ降参可能' : ''}
+            title={!isMyTurn() ? '自分のターンでのみ降参可能' : ''}
           >
             <div className="flex items-center gap-1.5">
               <Flag size={16} />
@@ -320,11 +260,11 @@ const TurnOrder: React.FC = () => {
           <button
             ref={endTurnButtonRef}
             onClick={handleEndTurn}
-            disabled={isNetworkGame && !isMyTurn()}
+            disabled={!isMyTurn()}
             className={`px-3 py-2 font-bold rounded transform transition text-sm sm:text-base ${
-              isNetworkGame && !isMyTurn()
+              !isMyTurn()
                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : currentTeam === 'player' || (isNetworkGame && isMyTurn())
+                : isMyTurn()
                 ? 'bg-blue-600 hover:bg-blue-700 text-white hover:scale-105'
                 : 'bg-red-600 hover:bg-red-700 text-white hover:scale-105'
             }`}
@@ -343,11 +283,7 @@ const TurnOrder: React.FC = () => {
                 ? 'bg-yellow-500'
                 : isLowTime
                 ? 'bg-red-500 animate-pulse'
-                : isNetworkGame && isMyTurn()
-                ? 'bg-blue-500'
-                : isNetworkGame && !isMyTurn()
-                ? 'bg-red-500'
-                : currentTeam === 'player'
+                : isMyTurn()
                 ? 'bg-blue-500'
                 : 'bg-red-500'
             }`}
@@ -357,17 +293,15 @@ const TurnOrder: React.FC = () => {
       )}
 
       {/* ネットワークゲーム用の追加情報 */}
-      {isNetworkGame && (
-        <div className="mt-2 text-center">
-          <p className="text-xs text-gray-600">
-            {isHost ? 'あなた: 青チーム' : 'あなた: 赤チーム'}
-            {!isMyTurn() && ' | 相手の行動を待機中...'}
-            {!hasTimeLimit && ' | 時間制限なし'}
-            {/* 🆕 降参制限の説明 */}
-            {!isMyTurn() && ' | 降参は自分のターンでのみ可能'}
-          </p>
-        </div>
-      )}
+      <div className="mt-2 text-center">
+        <p className="text-xs text-gray-600">
+          {isHost ? 'あなた: 青チーム' : 'あなた: 赤チーム'}
+          {!isMyTurn() && ' | 相手の行動を待機中...'}
+          {!hasTimeLimit && ' | 時間制限なし'}
+          {/* 🆕 降参制限の説明 */}
+          {!isMyTurn() && ' | 降参は自分のターンでのみ可能'}
+        </p>
+      </div>
     </div>
   );
 };

@@ -38,7 +38,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.isNetworkGame, state.roomId, state.isHost, isConnected, startRoomMonitoring]);
 
-  // 🎯 統一された棋譜送信処理（ターンプレイヤーのみ）
+  // 🎯 統一された棋譜送信処理（自分のターンのみ）
   useEffect(() => {
     if (state.isNetworkGame && state.roomId) {
       const syncCallback = async (action: any) => {
@@ -59,14 +59,12 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
         }
         
         try {
-          // 🔧 基本的な棋譜データを作成
           const move: Omit<GameMove, 'id' | 'timestamp' | 'player'> = {
             turn: action.turn,
             action: action.type,
-            from: { x: 0, y: 0 } // デフォルト値
+            from: { x: 0, y: 0 }
           };
 
-          // 🔧 アクションタイプに応じて座標情報を設定
           if (action.type === 'move') {
             const character = state.characters.find(c => c.id === action.characterId);
             if (character && action.position) {
@@ -89,9 +87,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
               move.to = target.position;
               console.log('⚔️ 攻撃棋譜作成:', {
                 attacker: attacker.name,
-                attackerPos: attacker.position,
-                target: target.name,
-                targetPos: target.position
+                target: target.name
               });
             } else {
               console.error('❌ 攻撃: 攻撃者または対象が見つかりません');
@@ -105,9 +101,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
               move.to = target.position;
               console.log('✨ スキル棋譜作成:', {
                 caster: caster.name,
-                casterPos: caster.position,
                 target: target.name,
-                targetPos: target.position,
                 skill: action.skillId
               });
             } else {
@@ -122,7 +116,6 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
             move.timeLeft = action.timeLeft;
             console.log('⏰ タイマー同期棋譜作成:', { timeLeft: action.timeLeft });
           } else if (action.type === 'surrender') {
-            // 🆕 降参棋譜作成
             move.from = { x: 0, y: 0 };
             console.log('🏳️ 降参棋譜作成:', action.team);
           } else {
@@ -130,7 +123,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
             return;
           }
 
-          console.log('📤 棋譜送信（ターンプレイヤー）:', move);
+          console.log('📤 棋譜送信（自分のターンのみ）:', move);
           await sendMove(state.roomId, move, state.isHost);
         } catch (error) {
           console.error('❌ 棋譜送信失敗:', error);
@@ -159,7 +152,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
           to: move.to,
           player: move.player,
           isHost: state.isHost,
-          timeLeft: move.timeLeft // 🆕 残り時間情報
+          timeLeft: move.timeLeft
         });
 
         // 🎯 統一されたチーム変換: host→player、guest→enemy
@@ -169,8 +162,8 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
           type: move.action,
           from: move.from,
           to: move.to,
-          timeLeft: move.timeLeft, // 🆕 残り時間を含める
-          skillId: move.action === 'skill' ? 'rage-strike' : undefined // 🔧 スキルIDは別途実装が必要
+          timeLeft: move.timeLeft,
+          skillId: move.action === 'skill' ? 'rage-strike' : undefined
         };
 
         console.log('🔄 棋譜適用（全プレイヤー共通）:', {

@@ -14,7 +14,7 @@ import DebugPanel from './components/DebugPanel';
 import { useGame } from './context/GameContext';
 import { MonsterType } from './types/gameTypes';
 import { masterData } from './data/cardData';
-import { HelpCircle, Play, Wifi } from 'lucide-react';
+import { HelpCircle, Wifi } from 'lucide-react';
 
 const GameContent = () => {
   const { state, dispatch, savedDecks } = useGame();
@@ -22,22 +22,6 @@ const GameContent = () => {
   const [showDeckBuilder, setShowDeckBuilder] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [showNetworkLobby, setShowNetworkLobby] = useState(false);
-
-  const handleStartGame = (
-    playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] },
-    enemyDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }
-  ) => {
-    if (gamePhase === 'result') {
-      dispatch({ type: 'RESET_GAME' });
-    }
-    
-    // デッキが指定されている場合は保存、そうでなければ現在保存されているデッキを使用
-    const finalPlayerDeck = playerDeck || savedDecks.player;
-    const finalEnemyDeck = enemyDeck || savedDecks.enemy;
-    
-    dispatch({ type: 'START_GAME', playerDeck: finalPlayerDeck, enemyDeck: finalEnemyDeck });
-    setShowDeckBuilder(false);
-  };
 
   const handleStartNetworkGame = (roomId: string, isHost: boolean, hasTimeLimit: boolean, timeLimitSeconds: number) => {
     setShowNetworkLobby(false);
@@ -84,7 +68,11 @@ const GameContent = () => {
   if (showDeckBuilder) {
     return (
       <DeckBuilder 
-        onStartGame={handleStartGame} 
+        onStartGame={(playerDeck, enemyDeck) => {
+          // デッキビルダーからは直接ネットワークゲームを開始
+          handleCloseDeckBuilder(playerDeck, enemyDeck);
+          setShowNetworkLobby(true);
+        }} 
         onClose={handleCloseDeckBuilder}
         initialPlayerDeck={savedDecks.player}
         initialEnemyDeck={savedDecks.enemy}
@@ -110,7 +98,6 @@ const GameContent = () => {
                       {roomId.slice(-6)}
                     </span>
                   )}
-                  {/* 🆕 時間制限表示 */}
                   <span className="text-xs">
                     {hasTimeLimit ? `⏱️${timeLimitSeconds}s` : '∞'}
                   </span>
@@ -146,20 +133,6 @@ const GameContent = () => {
                 <button
                   className={`px-6 py-3 font-bold rounded-lg shadow-lg transform transition ${
                     canStartGame()
-                      ? 'bg-blue-600 hover:bg-blue-700 text-white hover:scale-105'
-                      : 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                  }`}
-                  onClick={() => canStartGame() && handleStartGame()}
-                  disabled={!canStartGame()}
-                >
-                  <div className="flex items-center gap-2">
-                    <Play size={16} />
-                    {gamePhase === 'preparation' ? 'ローカル対戦' : 'もう一度プレイ'}
-                  </div>
-                </button>
-                <button
-                  className={`px-6 py-3 font-bold rounded-lg shadow-lg transform transition ${
-                    canStartGame()
                       ? 'bg-purple-600 hover:bg-purple-700 text-white hover:scale-105'
                       : 'bg-gray-400 text-gray-200 cursor-not-allowed'
                   }`}
@@ -168,7 +141,7 @@ const GameContent = () => {
                 >
                   <div className="flex items-center gap-2">
                     <Wifi size={16} />
-                    オンライン対戦
+                    {gamePhase === 'preparation' ? 'オンライン対戦' : 'もう一度プレイ'}
                   </div>
                 </button>
               </div>
