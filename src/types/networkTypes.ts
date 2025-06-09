@@ -7,6 +7,7 @@ export interface GameMove {
   from: { x: number; y: number };  // 移動前の座標
   to?: { x: number; y: number };   // 移動先（移動の場合）
   timestamp: number;
+  senderId?: string; // 🔧 **新機能: 送信者ID**
 }
 
 // 🆕 タイマー同期専用データ（movesとは別管理）
@@ -35,7 +36,7 @@ export interface InitialGameState {
   timeLimitSeconds: number;
   // メタデータ
   uploadedAt: number;
-  uploadedBy: string;
+  uploadedBy: string; // 🔧 **修正: アップロード者ID**
 }
 
 // ルーム情報
