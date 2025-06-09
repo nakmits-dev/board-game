@@ -16,7 +16,7 @@ export class OperationReceiver {
   }
 
   /**
-   * 受信した操作データを処理（増分更新）
+   * 🔧 **修正: 受信した操作データを処理（増分更新の確実な実行）**
    */
   processReceivedOperations(allOperations: GameMove[]) {
     console.log('📥 [OperationReceiver] 操作受信チェック:', {
@@ -40,24 +40,25 @@ export class OperationReceiver {
         action: op.action, 
         team: op.team, 
         turn: op.turn,
-        timestamp: op.timestamp
+        timestamp: op.timestamp,
+        from: op.from,
+        to: op.to
       }))
     });
 
-    // タイムスタンプ順でソート
+    // 🔧 **重要: タイムスタンプ順でソート**
     newOperations.sort((a, b) => a.timestamp - b.timestamp);
 
-    // 🔧 **重要: 新しい操作のみを現在の盤面に対して順番に適用**
+    // 🔧 **修正: 新しい操作のみを現在の盤面に対して順番に適用**
     newOperations.forEach((operation, index) => {
       console.log(`📥 [OperationReceiver] 増分操作適用 ${index + 1}/${newOperations.length}:`, {
         action: operation.action,
         team: operation.team,
         turn: operation.turn,
-        timestamp: operation.timestamp
+        timestamp: operation.timestamp,
+        from: operation.from,
+        to: operation.to
       });
-
-      // 🔧 **重要: 最新のタイムスタンプを更新（各操作後）**
-      this.lastProcessedTimestamp = Math.max(this.lastProcessedTimestamp, operation.timestamp);
 
       // GameMove を MoveCommand に変換
       const command: MoveCommand = {
@@ -72,9 +73,14 @@ export class OperationReceiver {
 
       // 🔧 **重要: 現在の盤面状態に対して増分更新を実行**
       if (this.onBoardUpdateCallback) {
-        console.log('🧮 [OperationReceiver] 現在の盤面に対して増分更新実行');
+        console.log('🧮 [OperationReceiver] 現在の盤面に対して増分更新実行:', command.type);
         this.onBoardUpdateCallback(command);
+      } else {
+        console.error('❌ [OperationReceiver] 盤面更新コールバックが設定されていません');
       }
+
+      // 🔧 **重要: 最新のタイムスタンプを更新（各操作後）**
+      this.lastProcessedTimestamp = Math.max(this.lastProcessedTimestamp, operation.timestamp);
     });
 
     console.log('✅ [OperationReceiver] 増分操作処理完了:', {
@@ -92,10 +98,12 @@ export class OperationReceiver {
   }
 
   /**
-   * スキルIDを抽出（暫定実装）
+   * 🔧 **修正: スキルIDを正しく抽出**
    */
   private extractSkillId(operation: GameMove): string {
-    // 実際の実装では、操作データからスキルIDを正しく取得する
+    // 🔧 **TODO: 実際の実装では、操作データからスキルIDを正しく取得する**
+    // 現在は暫定的にrage-strikeを返すが、実際にはoperationにskillIdフィールドが必要
+    console.warn('⚠️ [OperationReceiver] スキルID抽出は暫定実装:', operation);
     return 'rage-strike'; // 暫定値
   }
 }

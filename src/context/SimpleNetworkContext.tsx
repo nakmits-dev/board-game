@@ -29,22 +29,28 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
   const isInitialized = useRef(false);
   const initialGameState = useRef<any>(null);
 
-  // OperationReceiver の盤面更新コールバック設定
+  // 🔧 **修正: OperationReceiver の盤面更新コールバック設定**
   useEffect(() => {
+    console.log('🔗 [SimpleNetworkContext] OperationReceiver コールバック設定');
     operationReceiver.setOnBoardUpdateCallback((command) => {
-      console.log('🧮 [SimpleNetworkContext] 盤面更新実行:', command);
+      console.log('🧮 [SimpleNetworkContext] 盤面更新実行:', {
+        type: command.type,
+        team: command.team,
+        turn: command.turn,
+        timestamp: command.timestamp
+      });
       dispatch({ type: 'APPLY_BOARD_UPDATE', command });
     });
   }, [dispatch]);
 
-  // アップロード関数を設定
+  // 🔧 **修正: アップロード関数を設定**
   useEffect(() => {
     console.log('🔗 [SimpleNetworkContext] アップロード関数設定:', {
       roomId: state.roomId,
       sendMoveExists: !!sendMove
     });
     
-    if (state.roomId) {
+    if (state.roomId && sendMove) {
       dispatch({ type: 'SET_UPLOAD_FUNCTION', uploadFunction: sendMove });
     } else {
       dispatch({ type: 'SET_UPLOAD_FUNCTION', uploadFunction: null });
@@ -90,12 +96,21 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.roomId, setOnInitialState, dispatch, state.isHost]);
 
-  // 操作受信処理
+  // 🔧 **修正: 操作受信処理**
   useEffect(() => {
     if (state.roomId) {
       const moveCallback = (allMoves: any[]) => {
-        console.log('📥 [SimpleNetworkContext] 操作受信:', allMoves.length);
-        // OperationReceiver に処理を委譲
+        console.log('📥 [SimpleNetworkContext] 操作受信:', {
+          totalMoves: allMoves.length,
+          moves: allMoves.map(m => ({
+            action: m.action,
+            team: m.team,
+            turn: m.turn,
+            timestamp: m.timestamp
+          }))
+        });
+        
+        // 🔧 **重要: OperationReceiver に処理を委譲**
         operationReceiver.processReceivedOperations(allMoves);
       };
 

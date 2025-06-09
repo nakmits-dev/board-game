@@ -19,26 +19,23 @@ export class GameBoardCalculator {
   private static readonly MAX_CRYSTALS = 8;
 
   /**
-   * 🔧 **重要: 現在の盤面状態に対して棋譜コマンドを適用し、新しい盤面状態を返す（増分更新）**
+   * 🔧 **修正: 現在の盤面状態に対して棋譜コマンドを適用し、新しい盤面状態を返す**
    */
   static calculateNewBoardState(currentState: GameState, command: MoveCommand): GameState {
-    console.log('🧮 [GameBoardCalculator] 現在の盤面に対して増分更新開始:', {
+    console.log('🧮 [GameBoardCalculator] 盤面更新開始:', {
       type: command.type,
       team: command.team,
       from: command.from,
       to: command.to,
       currentTurn: currentState.currentTurn,
-      currentTeam: currentState.currentTeam
+      currentTeam: currentState.currentTeam,
+      charactersCount: currentState.characters.length
     });
 
-    // 🔧 **重要: 現在の状態をベースにして更新**
+    // 🔧 **重要: 現在の状態を完全にコピーしてベースにする**
+    let newState = { ...currentState };
     let newCharacters = [...currentState.characters];
     let animations: AnimationSequence[] = [];
-    let newPlayerCrystals = currentState.playerCrystals;
-    let newEnemyCrystals = currentState.enemyCrystals;
-    let newGamePhase = currentState.gamePhase;
-    let newCurrentTeam = currentState.currentTeam;
-    let newCurrentTurn = currentState.currentTurn;
 
     switch (command.type) {
       case 'move':
@@ -52,18 +49,18 @@ export class GameBoardCalculator {
         ({ 
           characters: newCharacters, 
           animations,
-          gamePhase: newGamePhase 
-        } = this.calculateAttackAction(newCharacters, command, newGamePhase));
+          gamePhase: newState.gamePhase 
+        } = this.calculateAttackAction(newCharacters, command, newState.gamePhase));
         break;
 
       case 'skill':
         ({ 
           characters: newCharacters, 
           animations,
-          playerCrystals: newPlayerCrystals,
-          enemyCrystals: newEnemyCrystals,
-          gamePhase: newGamePhase 
-        } = this.calculateSkillAction(newCharacters, command, newPlayerCrystals, newEnemyCrystals, newGamePhase));
+          playerCrystals: newState.playerCrystals,
+          enemyCrystals: newState.enemyCrystals,
+          gamePhase: newState.gamePhase 
+        } = this.calculateSkillAction(newCharacters, command, newState.playerCrystals, newState.enemyCrystals, newState.gamePhase));
         break;
 
       case 'end_turn':
@@ -71,48 +68,45 @@ export class GameBoardCalculator {
         ({ 
           characters: newCharacters, 
           animations,
-          currentTeam: newCurrentTeam,
-          currentTurn: newCurrentTurn,
-          playerCrystals: newPlayerCrystals,
-          enemyCrystals: newEnemyCrystals 
-        } = this.calculateEndTurnAction(newCharacters, command, newCurrentTeam, newCurrentTurn, newPlayerCrystals, newEnemyCrystals));
+          currentTeam: newState.currentTeam,
+          currentTurn: newState.currentTurn,
+          playerCrystals: newState.playerCrystals,
+          enemyCrystals: newState.enemyCrystals 
+        } = this.calculateEndTurnAction(newCharacters, command, newState.currentTeam, newState.currentTurn, newState.playerCrystals, newState.enemyCrystals));
         break;
 
       case 'surrender':
         ({ 
           characters: newCharacters, 
-          gamePhase: newGamePhase 
+          gamePhase: newState.gamePhase 
         } = this.calculateSurrenderAction(newCharacters, command));
         break;
     }
 
     // ゲーム終了チェック
-    if (newGamePhase !== 'result') {
+    if (newState.gamePhase !== 'result') {
       const { hostMasterAlive, guestMasterAlive } = this.checkMasterStatus(newCharacters);
       if (!hostMasterAlive || !guestMasterAlive) {
-        newGamePhase = 'result';
+        newState.gamePhase = 'result';
       }
     }
 
-    console.log('✅ [GameBoardCalculator] 増分更新完了:', {
+    console.log('✅ [GameBoardCalculator] 盤面更新完了:', {
       charactersCount: newCharacters.length,
-      newTurn: newCurrentTurn,
-      newTeam: newCurrentTeam,
-      newPhase: newGamePhase
+      newTurn: newState.currentTurn,
+      newTeam: newState.currentTeam,
+      newPhase: newState.gamePhase,
+      playerCrystals: newState.playerCrystals,
+      enemyCrystals: newState.enemyCrystals
     });
 
-    // 🔧 **重要: 現在の状態をベースに更新された新しい状態を返す**
+    // 🔧 **修正: 現在の状態をベースに、変更された部分のみを更新**
     return {
-      ...currentState, // 現在の状態をベースにする
+      ...newState,
       characters: newCharacters,
-      playerCrystals: newPlayerCrystals,
-      enemyCrystals: newEnemyCrystals,
-      gamePhase: newGamePhase,
-      currentTeam: newCurrentTeam,
-      currentTurn: newCurrentTurn,
       pendingAnimations: animations,
       animationTarget: null,
-      // 🔧 **重要: 選択状態はクリア（他プレイヤーの操作による更新のため）**
+      // 🔧 **重要: 他プレイヤーの操作による更新なので選択状態はクリア**
       selectedCharacter: null,
       selectedAction: null,
       selectedSkill: null,
@@ -130,7 +124,7 @@ export class GameBoardCalculator {
     const animations: AnimationSequence[] = [];
     
     if (character && command.to) {
-      console.log('📍 移動計算:', character.name, command.from, '->', command.to);
+      console.log('📍 [GameBoardCalculator] 移動計算:', character.name, command.from, '->', command.to);
       animations.push({ id: character.id, type: 'move' });
       
       // 🎯 棋譜に追加
@@ -147,7 +141,7 @@ export class GameBoardCalculator {
           ? {
               ...char,
               position: command.to!,
-              remainingActions: Math.max(0, char.remainingActions - 1), // 🔧 負の値を防ぐ
+              remainingActions: Math.max(0, char.remainingActions - 1),
             }
           : char
       );
@@ -155,6 +149,7 @@ export class GameBoardCalculator {
       return { characters: newCharacters, animations };
     }
     
+    console.warn('⚠️ [GameBoardCalculator] 移動対象キャラクターが見つかりません:', command);
     return { characters, animations };
   }
 
@@ -166,6 +161,7 @@ export class GameBoardCalculator {
     );
     
     if (!attacker || !command.to) {
+      console.warn('⚠️ [GameBoardCalculator] 攻撃者が見つかりません:', command);
       return { characters, animations: [], gamePhase };
     }
     
@@ -176,10 +172,11 @@ export class GameBoardCalculator {
     );
     
     if (!target) {
+      console.warn('⚠️ [GameBoardCalculator] 攻撃対象が見つかりません:', command);
       return { characters, animations: [], gamePhase };
     }
     
-    console.log('⚔️ 攻撃計算:', attacker.name, '->', target.name);
+    console.log('⚔️ [GameBoardCalculator] 攻撃計算:', attacker.name, '->', target.name);
     const damage = Math.max(0, attacker.attack - target.defense);
     const newHp = Math.max(0, target.hp - damage);
     
@@ -213,7 +210,7 @@ export class GameBoardCalculator {
 
     const newCharacters = characters.map(char => {
       if (char.id === attacker.id) {
-        return { ...char, remainingActions: Math.max(0, char.remainingActions - 1) }; // 🔧 負の値を防ぐ
+        return { ...char, remainingActions: Math.max(0, char.remainingActions - 1) };
       }
       if (char.id === target.id) {
         return { ...char, hp: newHp };
@@ -245,15 +242,17 @@ export class GameBoardCalculator {
     );
     
     if (!caster || !target || !command.skillId) {
+      console.warn('⚠️ [GameBoardCalculator] スキル実行に必要な要素が不足:', command);
       return { characters, animations: [], playerCrystals, enemyCrystals, gamePhase };
     }
 
     const skill = skillData[command.skillId];
     if (!skill) {
+      console.warn('⚠️ [GameBoardCalculator] スキルが見つかりません:', command.skillId);
       return { characters, animations: [], playerCrystals, enemyCrystals, gamePhase };
     }
 
-    console.log('✨ スキル計算:', caster.name, '->', target.name, skill.name);
+    console.log('✨ [GameBoardCalculator] スキル計算:', caster.name, '->', target.name, skill.name);
 
     // 🎯 棋譜に追加
     addGameHistoryMove(
@@ -268,9 +267,9 @@ export class GameBoardCalculator {
     let newEnemyCrystals = enemyCrystals;
 
     if (command.team === 'player') {
-      newPlayerCrystals = Math.max(0, newPlayerCrystals - skill.crystalCost); // 🔧 負の値を防ぐ
+      newPlayerCrystals = Math.max(0, newPlayerCrystals - skill.crystalCost);
     } else {
-      newEnemyCrystals = Math.max(0, newEnemyCrystals - skill.crystalCost); // 🔧 負の値を防ぐ
+      newEnemyCrystals = Math.max(0, newEnemyCrystals - skill.crystalCost);
     }
 
     const animations: AnimationSequence[] = [{ id: caster.id, type: 'attack' }];
@@ -331,7 +330,7 @@ export class GameBoardCalculator {
 
     newCharacters = newCharacters.map(char => {
       if (char.id === caster.id) {
-        return { ...char, remainingActions: Math.max(0, char.remainingActions - 1) }; // 🔧 負の値を防ぐ
+        return { ...char, remainingActions: Math.max(0, char.remainingActions - 1) };
       }
       return char;
     });
@@ -353,7 +352,7 @@ export class GameBoardCalculator {
     playerCrystals: number, 
     enemyCrystals: number
   ) {
-    console.log('🔄 ターン終了計算:', command.type);
+    console.log('🔄 [GameBoardCalculator] ターン終了計算:', command.type);
     
     // 🎯 棋譜に追加
     const description = command.type === 'forced_end_turn' ? 'ターン終了（時間切れ）' : 'ターン終了';
@@ -406,7 +405,7 @@ export class GameBoardCalculator {
   }
 
   private static calculateSurrenderAction(characters: Character[], command: MoveCommand) {
-    console.log('🏳️ 降参計算:', command.team);
+    console.log('🏳️ [GameBoardCalculator] 降参計算:', command.team);
     
     // 🎯 棋譜に追加
     addGameHistoryMove(
