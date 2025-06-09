@@ -19,23 +19,36 @@ export class GameBoardCalculator {
   private static readonly MAX_CRYSTALS = 8;
 
   /**
-   * 🔧 **修正: 現在の盤面状態に対して棋譜コマンドを適用し、新しい盤面状態を返す**
+   * 🔧 **修正: 現在の盤面状態に対して棋譜コマンドを適用し、新しい盤面状態を返す（増分更新）**
    */
   static calculateNewBoardState(currentState: GameState, command: MoveCommand): GameState {
-    console.log('🧮 [GameBoardCalculator] 盤面更新開始:', {
+    console.log('🧮 [GameBoardCalculator] 増分盤面更新開始:', {
       type: command.type,
       team: command.team,
+      turn: command.turn,
       from: command.from,
       to: command.to,
       currentTurn: currentState.currentTurn,
       currentTeam: currentState.currentTeam,
-      charactersCount: currentState.characters.length
+      charactersCount: currentState.characters.length,
+      timestamp: command.timestamp
     });
 
-    // 🔧 **重要: 現在の状態を完全にコピーしてベースにする**
-    let newState = { ...currentState };
-    let newCharacters = [...currentState.characters];
+    // 🔧 **重要: 現在の状態を完全にディープコピーしてベースにする**
+    let newState: GameState = {
+      ...currentState,
+      characters: currentState.characters.map(char => ({ ...char })), // ディープコピー
+      pendingAnimations: [...currentState.pendingAnimations],
+    };
+    
+    let newCharacters = newState.characters;
     let animations: AnimationSequence[] = [];
+
+    // 🔧 **重要: 操作の妥当性チェック（現在の盤面状態に対して）**
+    if (!this.validateCommand(newState, command)) {
+      console.warn('⚠️ [GameBoardCalculator] 無効な操作 - スキップ:', command);
+      return currentState; // 変更なしで現在の状態を返す
+    }
 
     switch (command.type) {
       case 'move':
@@ -91,13 +104,14 @@ export class GameBoardCalculator {
       }
     }
 
-    console.log('✅ [GameBoardCalculator] 盤面更新完了:', {
+    console.log('✅ [GameBoardCalculator] 増分盤面更新完了:', {
       charactersCount: newCharacters.length,
       newTurn: newState.currentTurn,
       newTeam: newState.currentTeam,
       newPhase: newState.gamePhase,
       playerCrystals: newState.playerCrystals,
-      enemyCrystals: newState.enemyCrystals
+      enemyCrystals: newState.enemyCrystals,
+      animationsCount: animations.length
     });
 
     // 🔧 **修正: 現在の状態をベースに、変更された部分のみを更新**
@@ -112,6 +126,39 @@ export class GameBoardCalculator {
       selectedSkill: null,
       pendingAction: { type: null },
     };
+  }
+
+  /**
+   * 🔧 **新機能: 操作の妥当性チェック**
+   */
+  private static validateCommand(currentState: GameState, command: MoveCommand): boolean {
+    // 基本的な妥当性チェック
+    if (command.turn < 0 || !command.team || !command.type) {
+      console.warn('⚠️ [GameBoardCalculator] 基本パラメータが無効:', command);
+      return false;
+    }
+
+    // ゲーム終了後の操作は無効
+    if (currentState.gamePhase === 'result' && command.type !== 'surrender') {
+      console.warn('⚠️ [GameBoardCalculator] ゲーム終了後の操作:', command);
+      return false;
+    }
+
+    // 移動・攻撃・スキルの場合、対象キャラクターの存在チェック
+    if (['move', 'attack', 'skill'].includes(command.type)) {
+      const character = currentState.characters.find(char => 
+        char.position.x === command.from.x && 
+        char.position.y === command.from.y &&
+        char.team === command.team
+      );
+      
+      if (!character) {
+        console.warn('⚠️ [GameBoardCalculator] 操作対象キャラクターが見つかりません:', command);
+        return false;
+      }
+    }
+
+    return true;
   }
 
   private static calculateMoveAction(characters: Character[], command: MoveCommand) {
