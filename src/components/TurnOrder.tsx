@@ -6,7 +6,7 @@ const TURN_DURATION = 30; // 30 seconds per turn
 
 const TurnOrder: React.FC = () => {
   const { state, dispatch } = useGame();
-  const { currentTeam, gamePhase, animationTarget, canUndo, isNetworkGame, isHost } = state;
+  const { currentTeam, gamePhase, animationTarget, canUndo, isNetworkGame, isHost, hasTimeLimit } = state;
   const [timeLeft, setTimeLeft] = useState(TURN_DURATION);
   const [isPaused, setIsPaused] = useState(true); // デフォルトでストップ状態
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
@@ -46,6 +46,9 @@ const TurnOrder: React.FC = () => {
   };
   
   useEffect(() => {
+    // 時間制限がない場合はタイマーを動作させない
+    if (!hasTimeLimit) return;
+    
     // ゲームフェーズが'action'かつ自分のターンの時のみタイマーを動作させる
     if (gamePhase !== 'action' || isPaused || (isNetworkGame && !isMyTurn())) {
       return;
@@ -67,7 +70,7 @@ const TurnOrder: React.FC = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [gamePhase, currentTeam, dispatch, isPaused, isNetworkGame, isHost]);
+  }, [gamePhase, currentTeam, dispatch, isPaused, isNetworkGame, isHost, hasTimeLimit]);
 
   useEffect(() => {
     // ターンが変わった時のみタイマーをリセット
@@ -81,9 +84,12 @@ const TurnOrder: React.FC = () => {
   if (gamePhase === 'preparation' || gamePhase === 'result') return null;
 
   const progressPercentage = (timeLeft / TURN_DURATION) * 100;
-  const isLowTime = timeLeft <= 5 && !isPaused && (!isNetworkGame || isMyTurn());
+  const isLowTime = timeLeft <= 5 && !isPaused && (!isNetworkGame || isMyTurn()) && hasTimeLimit;
   
   const handlePauseToggle = () => {
+    // 時間制限がない場合はポーズボタンを無効化
+    if (!hasTimeLimit) return;
+    
     // ネットワークゲームでは相手のターン中はポーズできない
     if (isNetworkGame && !isMyTurn()) return;
     
@@ -125,27 +131,38 @@ const TurnOrder: React.FC = () => {
           <h3 className={`text-xl font-bold ${getTurnColor()} ${animationTarget?.id === currentTeam && animationTarget?.type === 'turn-start' ? 'character-turn-start' : ''}`}>
             {getTurnText()}
           </h3>
-          <div className="flex items-center gap-2">
-            <div className={`font-mono font-bold text-lg ${
-              isLowTime ? 'text-red-600 animate-pulse' : 'text-gray-600'
-            }`}>
-              {String(timeLeft).padStart(2, '0')}
+          
+          {/* 時間制限がある場合のみタイマー表示 */}
+          {hasTimeLimit && (
+            <div className="flex items-center gap-2">
+              <div className={`font-mono font-bold text-lg ${
+                isLowTime ? 'text-red-600 animate-pulse' : 'text-gray-600'
+              }`}>
+                {String(timeLeft).padStart(2, '0')}
+              </div>
+              {/* ネットワークゲームでは相手のターン中はポーズボタンを無効化 */}
+              <button
+                onClick={handlePauseToggle}
+                disabled={isNetworkGame && !isMyTurn()}
+                className={`p-2 rounded-lg transition-colors ${
+                  isNetworkGame && !isMyTurn()
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : isPaused 
+                      ? 'bg-green-100 text-green-600 hover:bg-green-200' 
+                      : 'bg-yellow-100 text-yellow-600 hover:bg-yellow-200'
+                }`}
+              >
+                {isPaused ? <Play size={20} /> : <Pause size={20} />}
+              </button>
             </div>
-            {/* ネットワークゲームでは相手のターン中はポーズボタンを無効化 */}
-            <button
-              onClick={handlePauseToggle}
-              disabled={isNetworkGame && !isMyTurn()}
-              className={`p-2 rounded-lg transition-colors ${
-                isNetworkGame && !isMyTurn()
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : isPaused 
-                    ? 'bg-green-100 text-green-600 hover:bg-green-200' 
-                    : 'bg-yellow-100 text-yellow-600 hover:bg-yellow-200'
-              }`}
-            >
-              {isPaused ? <Play size={20} /> : <Pause size={20} />}
-            </button>
-          </div>
+          )}
+          
+          {/* 時間制限がない場合の表示 */}
+          {!hasTimeLimit && (
+            <div className="px-3 py-1 bg-gray-100 text-gray-600 rounded-lg text-sm">
+              時間制限なし
+            </div>
+          )}
         </div>
 
         {/* Action Buttons */}
@@ -200,25 +217,27 @@ const TurnOrder: React.FC = () => {
         </div>
       </div>
 
-      {/* Progress Bar */}
-      <div className="relative h-2 bg-gray-200 rounded-full overflow-hidden mt-3">
-        <div
-          className={`absolute left-0 top-0 h-full transition-all duration-1000 rounded-full ${
-            isPaused
-              ? 'bg-yellow-500'
-              : isLowTime
-              ? 'bg-red-500 animate-pulse'
-              : isNetworkGame && isMyTurn()
-              ? 'bg-blue-500'
-              : isNetworkGame && !isMyTurn()
-              ? 'bg-red-500'
-              : currentTeam === 'player'
-              ? 'bg-blue-500'
-              : 'bg-red-500'
-          }`}
-          style={{ width: `${progressPercentage}%` }}
-        />
-      </div>
+      {/* Progress Bar - 時間制限がある場合のみ表示 */}
+      {hasTimeLimit && (
+        <div className="relative h-2 bg-gray-200 rounded-full overflow-hidden mt-3">
+          <div
+            className={`absolute left-0 top-0 h-full transition-all duration-1000 rounded-full ${
+              isPaused
+                ? 'bg-yellow-500'
+                : isLowTime
+                ? 'bg-red-500 animate-pulse'
+                : isNetworkGame && isMyTurn()
+                ? 'bg-blue-500'
+                : isNetworkGame && !isMyTurn()
+                ? 'bg-red-500'
+                : currentTeam === 'player'
+                ? 'bg-blue-500'
+                : 'bg-red-500'
+            }`}
+            style={{ width: `${progressPercentage}%` }}
+          />
+        </div>
+      )}
 
       {/* ネットワークゲーム用の追加情報 */}
       {isNetworkGame && (
@@ -226,6 +245,7 @@ const TurnOrder: React.FC = () => {
           <p className="text-xs text-gray-600">
             {isHost ? 'あなた: 青チーム' : 'あなた: 赤チーム'}
             {!isMyTurn() && ' | 相手の行動を待機中...'}
+            {!hasTimeLimit && ' | 時間制限なし'}
           </p>
         </div>
       )}

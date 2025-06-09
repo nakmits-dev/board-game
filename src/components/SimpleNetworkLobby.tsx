@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useSimpleGameSync } from '../hooks/useSimpleGameSync';
 import { useGame } from '../context/GameContext';
-import { Wifi, Users, Copy, Check, X, Play, Clock, UserCheck, UserX, WifiOff, AlertCircle, Shuffle, Edit3, RefreshCw } from 'lucide-react';
+import { Wifi, Users, Copy, Check, X, Play, Clock, UserCheck, UserX, WifiOff, AlertCircle, Shuffle, Edit3, RefreshCw, Timer, TimerOff } from 'lucide-react';
 import { SimpleRoom } from '../types/networkTypes';
 
 interface SimpleNetworkLobbyProps {
   onClose: () => void;
-  onStartNetworkGame: (roomId: string, isHost: boolean) => void;
+  onStartNetworkGame: (roomId: string, isHost: boolean, hasTimeLimit: boolean) => void;
 }
 
 const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStartNetworkGame }) => {
@@ -18,6 +18,7 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
   const [roomId, setRoomId] = useState('');
   const [customRoomId, setCustomRoomId] = useState('');
   const [useCustomRoomId, setUseCustomRoomId] = useState(false);
+  const [hasTimeLimit, setHasTimeLimit] = useState(true); // 🆕 時間制限の設定
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -30,6 +31,7 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
     playerName: string;
     opponent: { name: string; connected: boolean; ready: boolean } | null;
     status: 'waiting' | 'playing';
+    hasTimeLimit: boolean; // 🆕 時間制限情報
   } | null>(null);
 
   // デッキが設定されているかチェック
@@ -50,11 +52,13 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
     console.log('ゲーム開始コールバック設定');
     setOnGameStart((roomId: string, isHost: boolean) => {
       console.log('ゲーム開始コールバック実行:', { roomId, isHost });
-      onStartNetworkGame(roomId, isHost);
+      // 🆕 時間制限情報も含めて渡す
+      const timeLimit = localRoomData?.hasTimeLimit ?? true;
+      onStartNetworkGame(roomId, isHost, timeLimit);
     });
-  }, [setOnGameStart, onStartNetworkGame]);
+  }, [setOnGameStart, onStartNetworkGame, localRoomData?.hasTimeLimit]);
 
-  // 🔧 ルーム更新コールバックを設定
+  // ルーム更新コールバックを設定
   useEffect(() => {
     setOnRoomUpdate((roomData: SimpleRoom) => {
       if (!localRoomData) return;
@@ -141,7 +145,8 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
         isHost: true,
         playerName,
         opponent: null,
-        status: 'waiting'
+        status: 'waiting',
+        hasTimeLimit // 🆕 時間制限設定を保存
       });
       setMode('waiting');
       
@@ -179,7 +184,8 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
         isHost: false,
         playerName,
         opponent: null,
-        status: 'waiting'
+        status: 'waiting',
+        hasTimeLimit: true // 🆕 ゲストは常にホストの設定に従う
       });
       setMode('waiting');
       
@@ -341,6 +347,39 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
             <div className="border border-gray-200 rounded-lg p-4">
               <h3 className="font-medium text-gray-800 mb-3">ルームを作成</h3>
               
+              {/* 🆕 時間制限設定 */}
+              <div className="mb-3">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  ゲーム設定
+                </label>
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="timeLimit"
+                      checked={hasTimeLimit}
+                      onChange={() => setHasTimeLimit(true)}
+                      className="text-blue-600 focus:ring-blue-500"
+                      disabled={loading || !isConnected}
+                    />
+                    <Timer size={16} className="text-blue-600" />
+                    <span className="text-sm text-gray-700">時間制限あり (30秒)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="timeLimit"
+                      checked={!hasTimeLimit}
+                      onChange={() => setHasTimeLimit(false)}
+                      className="text-blue-600 focus:ring-blue-500"
+                      disabled={loading || !isConnected}
+                    />
+                    <TimerOff size={16} className="text-gray-600" />
+                    <span className="text-sm text-gray-700">時間制限なし</span>
+                  </label>
+                </div>
+              </div>
+              
               {/* カスタムルームID切り替え */}
               <div className="mb-3">
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -470,6 +509,23 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
                   {copied ? <Check size={16} /> : <Copy size={16} />}
                   <span className="text-sm">{copied ? 'コピー済み' : 'コピー'}</span>
                 </button>
+              </div>
+            </div>
+
+            {/* 🆕 ゲーム設定表示 */}
+            <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+              <div className="flex items-center gap-2">
+                {localRoomData.hasTimeLimit ? (
+                  <>
+                    <Timer size={16} className="text-blue-600" />
+                    <span className="text-sm text-blue-800 font-medium">時間制限あり (30秒/ターン)</span>
+                  </>
+                ) : (
+                  <>
+                    <TimerOff size={16} className="text-gray-600" />
+                    <span className="text-sm text-gray-800 font-medium">時間制限なし</span>
+                  </>
+                )}
               </div>
             </div>
 

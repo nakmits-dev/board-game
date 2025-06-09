@@ -39,7 +39,7 @@ const GameContent = () => {
     setShowDeckBuilder(false);
   };
 
-  const handleStartNetworkGame = (roomId: string, isHost: boolean) => {
+  const handleStartNetworkGame = (roomId: string, isHost: boolean, hasTimeLimit: boolean) => {
     setShowNetworkLobby(false);
     
     if (gamePhase === 'result') {
@@ -51,6 +51,7 @@ const GameContent = () => {
       type: 'START_NETWORK_GAME', 
       roomId, 
       isHost, 
+      hasTimeLimit, // 🆕 時間制限情報を追加
       playerDeck: savedDecks.player, 
       enemyDeck: savedDecks.enemy 
     });
@@ -108,6 +109,10 @@ const GameContent = () => {
                       {roomId.slice(-6)}
                     </span>
                   )}
+                  {/* 🆕 時間制限表示 */}
+                  <span className="text-xs">
+                    {state.hasTimeLimit ? '⏱️' : '∞'}
+                  </span>
                 </div>
               )}
             </div>

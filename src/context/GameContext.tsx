@@ -14,7 +14,7 @@ type GameAction =
   | { type: 'USE_SKILL'; targetId: string }
   | { type: 'END_TURN' }
   | { type: 'START_GAME'; playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }; enemyDeck?: { master: keyof typeof masterData; monsters: MonsterType[] } }
-  | { type: 'START_NETWORK_GAME'; roomId: string; isHost: boolean; playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }; enemyDeck?: { master: keyof typeof masterData; monsters: MonsterType[] } }
+  | { type: 'START_NETWORK_GAME'; roomId: string; isHost: boolean; hasTimeLimit: boolean; playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }; enemyDeck?: { master: keyof typeof masterData; monsters: MonsterType[] } }
   | { type: 'RESET_GAME' }
   | { type: 'UPDATE_PREVIEW'; playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }; enemyDeck?: { master: keyof typeof masterData; monsters: MonsterType[] } }
   | { type: 'SET_SAVED_DECKS'; playerDeck: { master: keyof typeof masterData; monsters: MonsterType[] }; enemyDeck: { master: keyof typeof masterData; monsters: MonsterType[] } }
@@ -635,13 +635,18 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
       // ネットワークゲームの場合、アクションを送信
       if (state.isNetworkGame && state.networkSyncCallback) {
-        const networkAction = {
-          turn: state.currentTurn,
-          team: state.currentTeam,
-          type: 'end_turn',
-          characterId: '',
-        };
-        state.networkSyncCallback(networkAction);
+        try {
+          const networkAction = {
+            turn: state.currentTurn,
+            team: state.currentTeam,
+            type: 'end_turn',
+            characterId: '',
+          };
+          console.log('📤 ターン終了アクション送信:', networkAction);
+          state.networkSyncCallback(networkAction);
+        } catch (error) {
+          console.error('❌ ターン終了アクション送信エラー:', error);
+        }
       }
       
       const nextTeam: Team = state.currentTeam === 'player' ? 'enemy' : 'player';
@@ -715,6 +720,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         isNetworkGame: false,
         isHost: false,
         roomId: null,
+        hasTimeLimit: true, // デフォルトで時間制限あり
         networkSyncCallback: null,
       };
     }
@@ -723,6 +729,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       console.log('🎮 START_NETWORK_GAME - ネットワークゲーム開始:', {
         roomId: action.roomId,
         isHost: action.isHost,
+        hasTimeLimit: action.hasTimeLimit,
         currentCharacters: state.characters.length,
         currentCrystals: { player: state.playerCrystals, enemy: state.enemyCrystals }
       });
@@ -745,6 +752,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         isNetworkGame: true,
         isHost: action.isHost,
         roomId: action.roomId,
+        hasTimeLimit: action.hasTimeLimit,
         networkSyncCallback: null,
         // 選択状態をクリア
         selectedCharacter: null,
@@ -791,6 +799,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         isNetworkGame: false,
         isHost: false,
         roomId: null,
+        hasTimeLimit: true,
         networkSyncCallback: null,
       };
     }
@@ -806,6 +815,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         isNetworkGame: state.isNetworkGame,
         isHost: state.isHost,
         roomId: state.roomId,
+        hasTimeLimit: state.hasTimeLimit,
         networkSyncCallback: state.networkSyncCallback,
       };
     }
@@ -837,7 +847,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
       console.log('🎯 相手のアクションを処理:', networkAction.type);
 
-      // 🎯 シンプルな座標ベースの同期処理
+      // シンプルな座標ベースの同期処理
       switch (networkAction.type) {
         case 'move':
           // 座標から該当キャラクターを特定して移動
@@ -985,6 +995,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     isNetworkGame: false,
     isHost: false,
     roomId: null,
+    hasTimeLimit: true,
     networkSyncCallback: null,
   });
   const [savedDecks, setSavedDecks] = React.useState<{
