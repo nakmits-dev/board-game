@@ -13,10 +13,10 @@ type GameAction =
   | { type: 'SELECT_SKILL'; skill: Skill }
   | { type: 'USE_SKILL'; targetId: string }
   | { type: 'END_TURN' }
-  | { type: 'START_NETWORK_GAME'; roomId: string; isHost: boolean; hasTimeLimit: boolean; timeLimitSeconds: number; playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }; enemyDeck?: { master: keyof typeof masterData; monsters: MonsterType[] } }
+  | { type: 'START_NETWORK_GAME'; roomId: string; isHost: boolean; hasTimeLimit: boolean; timeLimitSeconds: number; hostDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }; guestDeck?: { master: keyof typeof masterData; monsters: MonsterType[] } }
   | { type: 'RESET_GAME' }
-  | { type: 'UPDATE_PREVIEW'; playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }; enemyDeck?: { master: keyof typeof masterData; monsters: MonsterType[] } }
-  | { type: 'SET_SAVED_DECKS'; playerDeck: { master: keyof typeof masterData; monsters: MonsterType[] }; enemyDeck: { master: keyof typeof masterData; monsters: MonsterType[] } }
+  | { type: 'UPDATE_PREVIEW'; hostDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }; guestDeck?: { master: keyof typeof masterData; monsters: MonsterType[] } }
+  | { type: 'SET_SAVED_DECKS'; hostDeck: { master: keyof typeof masterData; monsters: MonsterType[] }; guestDeck: { master: keyof typeof masterData; monsters: MonsterType[] } }
   | { type: 'ADD_CRYSTAL'; team: Team }
   | { type: 'SET_ANIMATION_TARGET'; target: { id: string; type: 'move' | 'attack' | 'damage' | 'heal' | 'ko' | 'crystal-gain' | 'turn-start' | 'evolve' } | null }
   | { type: 'SET_PENDING_ANIMATIONS'; animations: AnimationSequence[] }
@@ -34,8 +34,8 @@ interface GameContextType {
   isValidSkillTarget: (targetId: string) => boolean;
   getCharacterAt: (position: Position) => Character | undefined;
   savedDecks: {
-    player?: { master: keyof typeof masterData; monsters: MonsterType[] };
-    enemy?: { master: keyof typeof masterData; monsters: MonsterType[] };
+    host?: { master: keyof typeof masterData; monsters: MonsterType[] };
+    guest?: { master: keyof typeof masterData; monsters: MonsterType[] };
   };
 }
 
@@ -44,13 +44,13 @@ const GameContext = createContext<GameContextType | undefined>(undefined);
 const MAX_CRYSTALS = 8;
 const ANIMATION_DURATION = 300;
 
-const checkMasterStatus = (characters: Character[]): { playerMasterAlive: boolean; enemyMasterAlive: boolean } => {
-  const playerMaster = characters.find(char => char.team === 'player' && char.type === 'master');
-  const enemyMaster = characters.find(char => char.team === 'enemy' && char.type === 'master');
+const checkMasterStatus = (characters: Character[]): { hostMasterAlive: boolean; guestMasterAlive: boolean } => {
+  const hostMaster = characters.find(char => char.team === 'player' && char.type === 'master');
+  const guestMaster = characters.find(char => char.team === 'enemy' && char.type === 'master');
   
   return {
-    playerMasterAlive: !!playerMaster,
-    enemyMasterAlive: !!enemyMaster
+    hostMasterAlive: !!hostMaster,
+    guestMasterAlive: !!guestMaster
   };
 };
 
@@ -77,8 +77,8 @@ const applyMoveToState = (state: GameState, move: any): GameState => {
   
   let updatedCharacters = [...state.characters];
   let animations: AnimationSequence[] = [];
-  let playerCrystals = state.playerCrystals;
-  let enemyCrystals = state.enemyCrystals;
+  let hostCrystals = state.playerCrystals;
+  let guestCrystals = state.enemyCrystals;
   let newGamePhase = state.gamePhase;
   let newCurrentTeam = state.currentTeam;
   let newCurrentTurn = state.currentTurn;
@@ -184,9 +184,9 @@ const applyMoveToState = (state: GameState, move: any): GameState => {
       console.log('✨ スキル適用:', caster.name, '->', target.name, skill.name);
 
       if (move.team === 'player') {
-        playerCrystals -= skill.crystalCost;
+        hostCrystals -= skill.crystalCost;
       } else {
-        enemyCrystals -= skill.crystalCost;
+        guestCrystals -= skill.crystalCost;
       }
 
       animations.push({ id: caster.id, type: 'attack' });
@@ -271,21 +271,21 @@ const applyMoveToState = (state: GameState, move: any): GameState => {
 
       updatedCharacters = refreshedCharacters;
 
-      playerCrystals = newCurrentTeam === 'player' 
-        ? Math.min(MAX_CRYSTALS, playerCrystals + 1)
-        : playerCrystals;
+      hostCrystals = newCurrentTeam === 'player' 
+        ? Math.min(MAX_CRYSTALS, hostCrystals + 1)
+        : hostCrystals;
       
-      enemyCrystals = newCurrentTeam === 'enemy'
-        ? Math.min(MAX_CRYSTALS, enemyCrystals + 1)
-        : enemyCrystals;
+      guestCrystals = newCurrentTeam === 'enemy'
+        ? Math.min(MAX_CRYSTALS, guestCrystals + 1)
+        : guestCrystals;
 
       newCurrentTurn = newCurrentTeam === 'player' ? newCurrentTurn + 1 : newCurrentTurn;
 
       animations.push({ id: newCurrentTeam, type: 'turn-start' });
       
-      if (newCurrentTeam === 'player' && playerCrystals > state.playerCrystals) {
+      if (newCurrentTeam === 'player' && hostCrystals > state.playerCrystals) {
         animations.push({ id: 'player-crystal', type: 'crystal-gain' });
-      } else if (newCurrentTeam === 'enemy' && enemyCrystals > state.enemyCrystals) {
+      } else if (newCurrentTeam === 'enemy' && guestCrystals > state.enemyCrystals) {
         animations.push({ id: 'enemy-crystal', type: 'crystal-gain' });
       }
       break;
@@ -308,8 +308,8 @@ const applyMoveToState = (state: GameState, move: any): GameState => {
 
   // ゲーム終了チェック
   if (newGamePhase !== 'result') {
-    const { playerMasterAlive, enemyMasterAlive } = checkMasterStatus(updatedCharacters);
-    if (!playerMasterAlive || !enemyMasterAlive) {
+    const { hostMasterAlive, guestMasterAlive } = checkMasterStatus(updatedCharacters);
+    if (!hostMasterAlive || !guestMasterAlive) {
       newGamePhase = 'result';
     }
   }
@@ -324,8 +324,8 @@ const applyMoveToState = (state: GameState, move: any): GameState => {
   return {
     ...state,
     characters: updatedCharacters,
-    playerCrystals,
-    enemyCrystals,
+    playerCrystals: hostCrystals,
+    enemyCrystals: guestCrystals,
     gamePhase: newGamePhase,
     currentTeam: newCurrentTeam,
     currentTurn: newCurrentTurn,
@@ -574,8 +574,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       const defeatedCharacter = state.characters.find(char => char.id === action.targetId);
       const updatedCharacters = state.characters.filter(char => char.id !== action.targetId);
 
-      let playerCrystals = state.playerCrystals;
-      let enemyCrystals = state.enemyCrystals;
+      let hostCrystals = state.playerCrystals;
+      let guestCrystals = state.enemyCrystals;
 
       if (state.gamePhase === 'result') {
         return {
@@ -588,20 +588,20 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         const crystalGain = defeatedCharacter.cost;
         
         if (defeatedCharacter.team === 'player') {
-          playerCrystals = Math.min(MAX_CRYSTALS, playerCrystals + crystalGain);
+          hostCrystals = Math.min(MAX_CRYSTALS, hostCrystals + crystalGain);
         } else {
-          enemyCrystals = Math.min(MAX_CRYSTALS, enemyCrystals + crystalGain);
+          guestCrystals = Math.min(MAX_CRYSTALS, guestCrystals + crystalGain);
         }
       }
 
-      const { playerMasterAlive, enemyMasterAlive } = checkMasterStatus(updatedCharacters);
+      const { hostMasterAlive, guestMasterAlive } = checkMasterStatus(updatedCharacters);
 
       return {
         ...state,
         characters: updatedCharacters,
-        playerCrystals,
-        enemyCrystals,
-        gamePhase: (!playerMasterAlive || !enemyMasterAlive) ? 'result' : 'action',
+        playerCrystals: hostCrystals,
+        enemyCrystals: guestCrystals,
+        gamePhase: (!hostMasterAlive || !guestMasterAlive) ? 'result' : 'action',
       };
     }
 
@@ -682,8 +682,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       const startingTeam: Team = 'player';
       
       let newState = state;
-      if (action.playerDeck && action.enemyDeck) {
-        newState = createInitialGameState(action.playerDeck, action.enemyDeck);
+      if (action.hostDeck && action.guestDeck) {
+        newState = createInitialGameState(action.hostDeck, action.guestDeck);
         console.log('🔧 新しい初期状態を作成');
       }
       
@@ -707,9 +707,9 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         selectedSkill: null,
         pendingAction: { type: null },
         animationTarget: null,
-        savedDecks: action.playerDeck && action.enemyDeck ? {
-          player: action.playerDeck,
-          enemy: action.enemyDeck
+        savedDecks: action.hostDeck && action.guestDeck ? {
+          host: action.hostDeck,
+          guest: action.guestDeck
         } : state.savedDecks,
       };
     }
@@ -717,14 +717,14 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     case 'UPDATE_PREVIEW': {
       if (state.gamePhase !== 'preparation' && state.gamePhase !== 'result') return state;
       
-      const newState = createInitialGameState(action.playerDeck, action.enemyDeck);
+      const newState = createInitialGameState(action.hostDeck, action.guestDeck);
       
       return {
         ...state,
         characters: newState.characters,
         savedDecks: {
-          player: action.playerDeck,
-          enemy: action.enemyDeck
+          host: action.hostDeck,
+          guest: action.guestDeck
         }
       };
     }
@@ -733,14 +733,14 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       return {
         ...state,
         savedDecks: {
-          player: action.playerDeck,
-          enemy: action.enemyDeck
+          host: action.hostDeck,
+          guest: action.guestDeck
         }
       };
     }
 
     case 'RESET_GAME': {
-      const newState = createInitialGameState(state.savedDecks?.player, state.savedDecks?.enemy);
+      const newState = createInitialGameState(state.savedDecks?.host, state.savedDecks?.guest);
       return {
         ...newState,
         savedDecks: state.savedDecks,
@@ -783,23 +783,23 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     networkSyncCallback: null,
   });
   const [savedDecks, setSavedDecks] = React.useState<{
-    player?: { master: keyof typeof masterData; monsters: MonsterType[] };
-    enemy?: { master: keyof typeof masterData; monsters: MonsterType[] };
+    host?: { master: keyof typeof masterData; monsters: MonsterType[] };
+    guest?: { master: keyof typeof masterData; monsters: MonsterType[] };
   }>({
-    player: { master: 'blue', monsters: ['bear', 'wolf', 'golem'] },
-    enemy: { master: 'red', monsters: ['bear', 'wolf', 'golem'] }
+    host: { master: 'blue', monsters: ['bear', 'wolf', 'golem'] },
+    guest: { master: 'red', monsters: ['bear', 'wolf', 'golem'] }
   });
 
   React.useEffect(() => {
     dispatch({ 
       type: 'SET_SAVED_DECKS', 
-      playerDeck: savedDecks.player!, 
-      enemyDeck: savedDecks.enemy! 
+      hostDeck: savedDecks.host!, 
+      guestDeck: savedDecks.guest! 
     });
     dispatch({ 
       type: 'UPDATE_PREVIEW', 
-      playerDeck: savedDecks.player, 
-      enemyDeck: savedDecks.enemy 
+      hostDeck: savedDecks.host, 
+      guestDeck: savedDecks.guest 
     });
   }, []);
 

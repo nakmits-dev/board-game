@@ -250,8 +250,8 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
         <CharacterModal
           character={character}
           onClose={() => setShowModal(false)}
-          playerCrystals={playerCrystals}
-          enemyCrystals={enemyCrystals}
+          hostCrystals={playerCrystals}
+          guestCrystals={enemyCrystals}
           currentTeam={currentTeam}
           onSkillSelect={(skill) => {
             dispatch({ type: 'SELECT_CHARACTER', character });

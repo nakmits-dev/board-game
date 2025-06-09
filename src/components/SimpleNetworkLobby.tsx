@@ -34,7 +34,7 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
     initialState?: any;
   } | null>(null);
 
-  const hasValidDeck = savedDecks.player && savedDecks.enemy;
+  const hasValidDeck = savedDecks.host && savedDecks.guest;
 
   useEffect(() => {
     if (useCustomRoomId && customRoomId) {
@@ -187,18 +187,17 @@ const SimpleNetworkLobby: React.FC<SimpleNetworkLobbyProps> = ({ onClose, onStar
       
       startRoomMonitoring(newRoomId, true);
 
-      // 🆕 ルーム作成直後に設定をアップロード（hostDeck/guestDeckに変更）
       const hasTimeLimit = timeLimitOption !== 'none';
       const timeLimitSeconds = timeLimitOption === 'none' ? 0 : parseInt(timeLimitOption);
       
       const initialState = {
         hostDeck: {
-          master: savedDecks.player?.master || 'blue',
-          monsters: savedDecks.player?.monsters || ['bear', 'wolf', 'golem']
+          master: savedDecks.host?.master || 'blue',
+          monsters: savedDecks.host?.monsters || ['bear', 'wolf', 'golem']
         },
         guestDeck: {
-          master: savedDecks.enemy?.master || 'red',
-          monsters: savedDecks.enemy?.monsters || ['bear', 'wolf', 'golem']
+          master: savedDecks.guest?.master || 'red',
+          monsters: savedDecks.guest?.monsters || ['bear', 'wolf', 'golem']
         },
         startingPlayer: 'host' as const,
         hasTimeLimit,

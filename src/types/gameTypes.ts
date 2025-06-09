@@ -103,8 +103,8 @@ export interface GameState {
   animationTarget?: { id: string; type: 'move' | 'attack' | 'damage' | 'heal' | 'ko' | 'crystal-gain' | 'turn-start' | 'evolve' } | null;
   pendingAnimations: AnimationSequence[];
   savedDecks?: {
-    player?: { master: keyof typeof import('../data/cardData').masterData; monsters: MonsterType[] };
-    enemy?: { master: keyof typeof import('../data/cardData').masterData; monsters: MonsterType[] };
+    host?: { master: keyof typeof import('../data/cardData').masterData; monsters: MonsterType[] };
+    guest?: { master: keyof typeof import('../data/cardData').masterData; monsters: MonsterType[] };
   };
   // ネットワークゲーム用（常に有効）
   isNetworkGame: boolean;

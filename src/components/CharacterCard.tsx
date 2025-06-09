@@ -6,8 +6,8 @@ import { skillData } from '../data/skillData';
 interface CharacterCardProps {
   character?: Character;
   currentTeam: Team;
-  playerCrystals: number;
-  enemyCrystals: number;
+  hostCrystals: number;
+  guestCrystals: number;
   onSkillSelect?: (skill: Skill) => void;
   variant?: 'panel' | 'modal';
 }
@@ -15,8 +15,8 @@ interface CharacterCardProps {
 const CharacterCard: React.FC<CharacterCardProps> = ({
   character,
   currentTeam,
-  playerCrystals,
-  enemyCrystals,
+  hostCrystals,
+  guestCrystals,
   onSkillSelect,
   variant = 'panel'
 }) => {
@@ -40,7 +40,7 @@ const CharacterCard: React.FC<CharacterCardProps> = ({
   const hasActions = character.remainingActions > 0;
   const teamColor = character.team === 'player' ? 'blue' : 'red';
   const TypeIcon = character.type === 'master' ? Crown : GitLab;
-  const availableCrystals = character.team === 'player' ? playerCrystals : enemyCrystals;
+  const availableCrystals = character.team === 'player' ? hostCrystals : guestCrystals;
 
   const skill = character.skillId ? skillData[character.skillId] : undefined;
 

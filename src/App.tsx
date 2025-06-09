@@ -37,8 +37,8 @@ const GameContent = () => {
       isHost, 
       hasTimeLimit,
       timeLimitSeconds,
-      playerDeck: savedDecks.player, 
-      enemyDeck: savedDecks.enemy 
+      hostDeck: savedDecks.host, 
+      guestDeck: savedDecks.guest 
     });
   };
 
@@ -47,35 +47,35 @@ const GameContent = () => {
   };
 
   const handleCloseDeckBuilder = (
-    playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] },
-    enemyDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }
+    hostDeck?: { master: keyof typeof masterData; monsters: MonsterType[] },
+    guestDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }
   ) => {
     // 編成内容を保存
-    if (playerDeck && enemyDeck) {
-      dispatch({ type: 'SET_SAVED_DECKS', playerDeck, enemyDeck });
+    if (hostDeck && guestDeck) {
+      dispatch({ type: 'SET_SAVED_DECKS', hostDeck, guestDeck });
       
       // 準備画面でのプレビューを更新
-      dispatch({ type: 'UPDATE_PREVIEW', playerDeck, enemyDeck });
+      dispatch({ type: 'UPDATE_PREVIEW', hostDeck, guestDeck });
     }
     setShowDeckBuilder(false);
   };
 
   // 対戦開始ボタンの活性化条件をチェック
   const canStartGame = () => {
-    return !!(savedDecks.player && savedDecks.enemy);
+    return !!(savedDecks.host && savedDecks.guest);
   };
 
   if (showDeckBuilder) {
     return (
       <DeckBuilder 
-        onStartGame={(playerDeck, enemyDeck) => {
+        onStartGame={(hostDeck, guestDeck) => {
           // デッキビルダーからは直接ネットワークゲームを開始
-          handleCloseDeckBuilder(playerDeck, enemyDeck);
+          handleCloseDeckBuilder(hostDeck, guestDeck);
           setShowNetworkLobby(true);
         }} 
         onClose={handleCloseDeckBuilder}
-        initialPlayerDeck={savedDecks.player}
-        initialEnemyDeck={savedDecks.enemy}
+        initialHostDeck={savedDecks.host}
+        initialGuestDeck={savedDecks.guest}
       />
     );
   }

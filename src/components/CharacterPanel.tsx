@@ -23,8 +23,8 @@ const CharacterPanel: React.FC = () => {
       <CharacterCard
         character={selectedCharacter}
         currentTeam={currentTeam}
-        playerCrystals={playerCrystals}
-        enemyCrystals={enemyCrystals}
+        hostCrystals={playerCrystals}
+        guestCrystals={enemyCrystals}
         onSkillSelect={handleSkillClick}
         variant="panel"
       />

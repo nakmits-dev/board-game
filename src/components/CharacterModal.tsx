@@ -6,8 +6,8 @@ import CharacterCard from './CharacterCard';
 interface CharacterModalProps {
   character: Character;
   onClose: () => void;
-  playerCrystals: number;
-  enemyCrystals: number;
+  hostCrystals: number;
+  guestCrystals: number;
   currentTeam: 'player' | 'enemy';
   onSkillSelect?: (skill: Skill) => void;
 }
@@ -15,8 +15,8 @@ interface CharacterModalProps {
 const CharacterModal: React.FC<CharacterModalProps> = ({
   character,
   onClose,
-  playerCrystals,
-  enemyCrystals,
+  hostCrystals,
+  guestCrystals,
   currentTeam,
   onSkillSelect,
 }) => {
@@ -39,8 +39,8 @@ const CharacterModal: React.FC<CharacterModalProps> = ({
         <CharacterCard
           character={character}
           currentTeam={currentTeam}
-          playerCrystals={playerCrystals}
-          enemyCrystals={enemyCrystals}
+          hostCrystals={hostCrystals}
+          guestCrystals={guestCrystals}
           onSkillSelect={onSkillSelect}
           variant="modal"
         />
