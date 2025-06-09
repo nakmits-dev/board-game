@@ -45,7 +45,7 @@ const TurnOrder: React.FC = () => {
     }
   };
 
-  // 🆕 ネットワークゲームでの時間同期機能
+  // 🆕 ネットワークゲームでの時間同期機能（残り時間も送信）
   const syncTimeWithNetwork = () => {
     if (!isNetworkGame || !state.networkSyncCallback || !isMyTurn()) return;
 
@@ -57,7 +57,7 @@ const TurnOrder: React.FC = () => {
         timeLeft: timeLeft,
         timestamp: Date.now()
       };
-      console.log('⏰ タイマー同期送信:', { timeLeft, team: state.currentTeam });
+      console.log('⏰ タイマー同期送信（残り時間含む）:', { timeLeft, team: state.currentTeam });
       state.networkSyncCallback(networkAction);
       lastSyncTime.current = Date.now();
     } catch (error) {
@@ -80,6 +80,7 @@ const TurnOrder: React.FC = () => {
           team: state.currentTeam,
           type: 'forced_end_turn',
           characterId: '',
+          timeLeft: 0, // 🆕 時間切れを明示
           timestamp: Date.now()
         };
         console.log('📤 強制ターン終了送信:', networkAction);
@@ -176,9 +177,33 @@ const TurnOrder: React.FC = () => {
     setShowSurrenderConfirm(false);
   };
 
+  // 🆕 降参処理（ネットワークゲームでは自分のターンのみ可能）
   const handleSurrender = () => {
+    // 🔧 ネットワークゲームでは自分のターンでない場合は無効
+    if (isNetworkGame && !isMyTurn()) {
+      console.log('🚫 降参無効 - 自分のターンではありません');
+      return;
+    }
+
     if (showSurrenderConfirm) {
-      // 降参処理 - 新しいSURRENDERアクションを使用
+      // 🆕 ネットワークゲームの場合、降参棋譜を送信
+      if (isNetworkGame && state.networkSyncCallback) {
+        const networkAction = {
+          turn: state.currentTurn,
+          team: state.currentTeam,
+          type: 'surrender',
+          characterId: '',
+          timestamp: Date.now()
+        };
+        console.log('📤 降参棋譜送信:', networkAction);
+        state.networkSyncCallback(networkAction);
+        
+        // ネットワークゲームでは棋譜送信のみ（ローカル適用は受信時）
+        setShowSurrenderConfirm(false);
+        return;
+      }
+
+      // ローカルゲームの場合は直接処理
       const surrenderTeam = isNetworkGame ? (isHost ? 'player' : 'enemy') : currentTeam;
       dispatch({ type: 'SURRENDER', team: surrenderTeam });
       setShowSurrenderConfirm(false);
@@ -200,6 +225,14 @@ const TurnOrder: React.FC = () => {
     
     setShowSurrenderConfirm(false);
     dispatch({ type: 'END_TURN' });
+  };
+
+  // 🆕 降参ボタンの活性化条件
+  const canSurrender = () => {
+    if (isNetworkGame) {
+      return isMyTurn(); // ネットワークゲームでは自分のターンのみ
+    }
+    return true; // ローカルゲームでは常に可能
   };
   
   return (
@@ -265,13 +298,18 @@ const TurnOrder: React.FC = () => {
             </button>
           )}
 
+          {/* 🆕 降参ボタン（ネットワークゲームでは自分のターンのみ有効） */}
           <button
             onClick={handleSurrender}
+            disabled={!canSurrender()}
             className={`px-3 py-2 font-bold rounded transform transition text-sm sm:text-base ${
-              showSurrenderConfirm
+              !canSurrender()
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : showSurrenderConfirm
                 ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse'
                 : 'bg-gray-600 hover:bg-gray-700 text-white'
             }`}
+            title={isNetworkGame && !isMyTurn() ? '自分のターンでのみ降参可能' : ''}
           >
             <div className="flex items-center gap-1.5">
               <Flag size={16} />
@@ -325,6 +363,8 @@ const TurnOrder: React.FC = () => {
             {isHost ? 'あなた: 青チーム' : 'あなた: 赤チーム'}
             {!isMyTurn() && ' | 相手の行動を待機中...'}
             {!hasTimeLimit && ' | 時間制限なし'}
+            {/* 🆕 降参制限の説明 */}
+            {!isMyTurn() && ' | 降参は自分のターンでのみ可能'}
           </p>
         </div>
       )}

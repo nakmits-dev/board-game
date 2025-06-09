@@ -360,6 +360,7 @@ const applyMoveToState = (state: GameState, move: any): GameState => {
     case 'surrender': {
       console.log('🏳️ 降参適用:', move.team);
       newGamePhase = 'result';
+      // 🆕 降参したチームのマスターを削除してゲーム終了を示す
       updatedCharacters = updatedCharacters.filter(char => 
         !(char.team === move.team && char.type === 'master')
       );
@@ -368,7 +369,7 @@ const applyMoveToState = (state: GameState, move: any): GameState => {
 
     case 'timer_sync': {
       console.log('⏰ タイマー同期受信:', { timeLeft: move.timeLeft, team: move.team });
-      // タイマー同期は状態変更なし
+      // タイマー同期は状態変更なし（UIでのみ使用）
       break;
     }
 

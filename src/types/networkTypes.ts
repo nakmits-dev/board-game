@@ -6,7 +6,7 @@ export interface GameMove {
   action: 'move' | 'attack' | 'skill' | 'end_turn' | 'surrender' | 'timer_sync' | 'forced_end_turn'; // 🆕 タイマー関連アクション追加
   from: { x: number; y: number };  // 移動前の座標
   to?: { x: number; y: number };   // 移動先（移動の場合）
-  timeLeft?: number; // 🆕 タイマー同期用
+  timeLeft?: number; // 🆕 タイマー同期用（残り時間）
   timestamp: number;
 }
 

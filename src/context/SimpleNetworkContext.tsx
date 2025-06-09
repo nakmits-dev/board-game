@@ -121,6 +121,10 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
             move.from = { x: 0, y: 0 };
             move.timeLeft = action.timeLeft;
             console.log('⏰ タイマー同期棋譜作成:', { timeLeft: action.timeLeft });
+          } else if (action.type === 'surrender') {
+            // 🆕 降参棋譜作成
+            move.from = { x: 0, y: 0 };
+            console.log('🏳️ 降参棋譜作成:', action.team);
           } else {
             console.warn('⚠️ 未対応のアクションタイプ:', action.type);
             return;
@@ -154,7 +158,8 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
           from: move.from,
           to: move.to,
           player: move.player,
-          isHost: state.isHost
+          isHost: state.isHost,
+          timeLeft: move.timeLeft // 🆕 残り時間情報
         });
 
         // 🎯 統一されたチーム変換: host→player、guest→enemy
@@ -164,7 +169,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
           type: move.action,
           from: move.from,
           to: move.to,
-          timeLeft: move.timeLeft,
+          timeLeft: move.timeLeft, // 🆕 残り時間を含める
           skillId: move.action === 'skill' ? 'rage-strike' : undefined // 🔧 スキルIDは別途実装が必要
         };
 
