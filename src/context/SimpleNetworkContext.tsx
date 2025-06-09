@@ -25,11 +25,11 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     isConnected 
   } = useSimpleGameSync();
   const { state, dispatch } = useGame();
-  const lastProcessedMoveCount = useRef<number>(0); // 🔧 処理済み棋譜数で管理
+  const lastProcessedMoveCount = useRef<number>(0); // 🎯 処理済み棋譜数で管理
   const lastProcessedTimerId = useRef<string>('');
   const syncCallbackRef = useRef<((action: any) => void) | null>(null);
   const isInitialized = useRef(false);
-  const initialGameState = useRef<any>(null); // 🔧 初期状態を保存
+  const initialGameState = useRef<any>(null); // 🎯 初期状態を保存
 
   // ネットワークゲーム開始時の監視開始
   useEffect(() => {
@@ -49,7 +49,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.isNetworkGame, state.roomId, state.isHost, isConnected, startRoomMonitoring]);
 
-  // 🎯 棋譜送信（変更なし）
+  // 🎯 棋譜送信（自分の手のみ）
   useEffect(() => {
     if (state.isNetworkGame && state.roomId) {
       const syncCallback = async (action: any) => {
@@ -59,7 +59,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
         }
         
         try {
-          // タイマー同期は別処理
+          // 🎯 タイマー同期は別処理（盤面に影響しない）
           if (action.type === 'timer_sync') {
             const timerSync: Omit<TimerSync, 'id' | 'timestamp'> = {
               turn: action.turn,
@@ -71,14 +71,15 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
             return;
           }
 
-          // 通常の棋譜作成
+          // 🎯 通常の棋譜作成（盤面に影響する手のみ）
           const move: Omit<GameMove, 'id' | 'timestamp'> = {
             turn: action.turn,
-            team: action.team, // 🔧 チーム情報を正確に設定
+            team: action.team,
             action: action.type,
             from: { x: 0, y: 0 }
           };
 
+          // アクションタイプに応じて座標情報を設定
           if (action.type === 'move') {
             const character = state.characters.find(c => c.id === action.characterId);
             if (character && action.position) {
@@ -176,11 +177,11 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.isNetworkGame, setOnInitialState, dispatch, state.roomId, state.isHost]);
 
-  // 🎯 新しい棋譜リプレイベースの同期処理
+  // 🎯 **棋譜リプレイベースの同期処理**（メイン機能）
   useEffect(() => {
     if (state.isNetworkGame && state.roomId) {
       const moveCallback = (allMoves: GameMove[]) => {
-        // 🔧 新しい棋譜があるかチェック
+        // 🎯 新しい棋譜があるかチェック
         if (allMoves.length <= lastProcessedMoveCount.current) {
           return; // 新しい棋譜なし
         }
@@ -191,13 +192,13 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
           newMoves: allMoves.length - lastProcessedMoveCount.current
         });
 
-        // 🔧 初期状態から全棋譜を再計算
+        // 🎯 初期状態から全棋譜を再計算
         if (!initialGameState.current) {
           console.warn('⚠️ 初期状態が設定されていません');
           return;
         }
 
-        // 🔧 初期状態を復元
+        // 🎯 初期状態を復元
         dispatch({
           type: 'START_NETWORK_GAME',
           roomId: state.roomId!,
@@ -208,7 +209,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
           guestDeck: initialGameState.current.guestDeck
         });
 
-        // 🔧 全棋譜を順番に適用
+        // 🎯 全棋譜を順番に適用（非同期で実行）
         setTimeout(() => {
           allMoves.forEach((move, index) => {
             console.log(`📋 棋譜適用 ${index + 1}/${allMoves.length}:`, {
@@ -231,7 +232,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
             dispatch({ type: 'APPLY_MOVE', move: moveData });
           });
 
-          // 🔧 処理済み棋譜数を更新
+          // 🎯 処理済み棋譜数を更新
           lastProcessedMoveCount.current = allMoves.length;
           console.log('✅ 棋譜リプレイ完了:', {
             totalMovesProcessed: allMoves.length
@@ -245,7 +246,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.isNetworkGame, setOnMove, dispatch, state.roomId, state.isHost]);
 
-  // タイマー同期受信処理（変更なし）
+  // 🎯 タイマー同期受信処理（盤面に影響しない）
   useEffect(() => {
     if (state.isNetworkGame && state.roomId) {
       const timerCallback = (timerSync: TimerSync) => {
@@ -258,6 +259,9 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
           timeLeft: timerSync.timeLeft,
           turn: timerSync.turn
         });
+
+        // 🎯 タイマー情報は盤面に影響しないため、UIのみ更新
+        // 必要に応じてタイマー表示を同期する処理をここに追加
 
         lastProcessedTimerId.current = timerSync.id;
       };
