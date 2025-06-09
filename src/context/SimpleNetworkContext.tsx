@@ -32,16 +32,22 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
   // 🔧 **修正: 最後に処理した棋譜のタイムスタンプを記録**
   const lastProcessedTimestamp = useRef<number>(0);
 
-  // 🔧 **シンプル化: sendMove関数を直接設定**
+  // 🔧 **修正: sendMove関数を常に設定（接続状態に関係なく）**
   useEffect(() => {
-    if (state.isNetworkGame && state.roomId && isConnected) {
-      console.log('🔗 [SimpleNetworkContext] sendMove関数設定');
+    console.log('🔗 [SimpleNetworkContext] sendMove関数設定:', {
+      isNetworkGame: state.isNetworkGame,
+      roomId: state.roomId,
+      isConnected,
+      sendMoveExists: !!sendMove
+    });
+    
+    // ネットワークゲームの場合は常にsendMove関数を設定
+    if (state.isNetworkGame) {
       dispatch({ type: 'SET_SEND_MOVE_FUNCTION', sendMoveFunction: sendMove });
     } else {
-      console.log('🔗 [SimpleNetworkContext] sendMove関数クリア');
       dispatch({ type: 'SET_SEND_MOVE_FUNCTION', sendMoveFunction: null });
     }
-  }, [state.isNetworkGame, state.roomId, isConnected, sendMove, dispatch]);
+  }, [state.isNetworkGame, sendMove, dispatch]);
 
   // ネットワークゲーム開始時の監視開始
   useEffect(() => {
