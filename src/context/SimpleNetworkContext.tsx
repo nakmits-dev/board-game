@@ -141,7 +141,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.isNetworkGame, state.roomId, sendMove, dispatch, state.characters, state.isHost, state.currentTeam, isConnected]);
 
-  // 🎯 統一された棋譜受信処理（非ターンプレイヤー）
+  // 🎯 統一された棋譜受信処理（全プレイヤー共通）
   useEffect(() => {
     if (state.isNetworkGame && state.roomId) {
       const moveCallback = (move: GameMove) => {
@@ -149,18 +149,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
           return;
         }
 
-        // 🎯 重要: 相手のターンの手のみ処理
-        const isOpponentMove = state.isHost ? move.player === 'guest' : move.player === 'host';
-        if (!isOpponentMove) {
-          console.log('⏭️ 自分の手なのでスキップ:', {
-            movePlayer: move.player,
-            isHost: state.isHost,
-            isOpponentMove
-          });
-          return;
-        }
-
-        console.log('📥 相手の手を受信（非ターンプレイヤー）:', {
+        console.log('📥 棋譜受信（全プレイヤー共通）:', {
           action: move.action,
           from: move.from,
           to: move.to,
@@ -179,7 +168,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
           skillId: move.action === 'skill' ? 'rage-strike' : undefined // 🔧 スキルIDは別途実装が必要
         };
 
-        console.log('🔄 棋譜適用:', {
+        console.log('🔄 棋譜適用（全プレイヤー共通）:', {
           original: { player: move.player, action: move.action },
           converted: { team: moveData.team, type: moveData.type },
           isHost: state.isHost,
