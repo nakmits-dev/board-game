@@ -35,6 +35,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
   
   // 🔧 **重要: 処理済み棋譜IDを記録（毎秒リセット防止）**
   const processedMoveIds = useRef<Set<string>>(new Set());
+  const lastProcessedMoveCount = useRef<number>(0);
 
   // 🎯 自分のターンかどうかを判定
   const isMyTurn = () => {
@@ -229,8 +230,15 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
       const moveCallback = (allMoves: GameMove[]) => {
         console.log('📥 棋譜監視コールバック実行:', {
           totalMoves: allMoves.length,
+          lastProcessedCount: lastProcessedMoveCount.current,
           processedMoveIds: processedMoveIds.current.size
         });
+
+        // 🔧 **重要: 棋譜数が変わっていない場合は処理をスキップ**
+        if (allMoves.length === lastProcessedMoveCount.current) {
+          console.log('⏭️ 棋譜数に変化なし - 処理をスキップ');
+          return;
+        }
 
         // 🔧 **重要: 新しい棋譜のみをフィルタリング**
         const newMoves = allMoves.filter(move => !processedMoveIds.current.has(move.id));
@@ -276,9 +284,13 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
           processedMoveIds.current.add(move.id);
         });
 
+        // 🔧 **重要: 処理済み棋譜数を更新**
+        lastProcessedMoveCount.current = allMoves.length;
+
         console.log('✅ 新しい棋譜処理完了:', {
           newMovesProcessed: newMoves.length,
-          totalProcessedIds: processedMoveIds.current.size
+          totalProcessedIds: processedMoveIds.current.size,
+          updatedProcessedCount: lastProcessedMoveCount.current
         });
       };
 
@@ -327,6 +339,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
       
       // 🔧 **重要: 処理済みIDもクリア**
       processedMoveIds.current.clear();
+      lastProcessedMoveCount.current = 0;
       
       if (timerSyncInterval.current) {
         clearInterval(timerSyncInterval.current);
@@ -351,7 +364,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
 export const useSimpleNetwork = (): SimpleNetworkContextType => {
   const context = useContext(SimpleNetworkContext);
   if (context === undefined) {
-    throw new Error('useSimpleNetwork must be used within a SimpleNetworkProvider');
+    throw new error('useSimpleNetwork must be used within a SimpleNetworkProvider');
   }
   return context;
 };
