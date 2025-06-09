@@ -27,7 +27,10 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
   const { state, dispatch } = useGame();
   const [currentTimeLeft, setCurrentTimeLeft] = React.useState(30);
   const isInitialized = useRef(false);
-  const initialGameState = useRef<any>(null);
+  
+  // 🔧 初期状態の重複受信を防ぐためのフラグ
+  const initialStateProcessed = useRef(false);
+  const processedInitialStateId = useRef<string | null>(null);
 
   // OperationReceiver の盤面更新コールバック設定
   useEffect(() => {
@@ -57,11 +60,23 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.roomId, state.isHost, isConnected, startRoomMonitoring]);
 
-  // 初期状態受信処理
+  // 🔧 初期状態受信処理（重複防止機能付き）
   useEffect(() => {
     if (state.roomId) {
       const initialStateCallback = (initialState: any) => {
-        initialGameState.current = initialState;
+        // 🔧 重複チェック: 同じ初期状態IDまたは既に処理済みの場合はスキップ
+        const initialStateId = `${initialState.uploadedAt}_${initialState.uploadedBy}`;
+        
+        if (initialStateProcessed.current || processedInitialStateId.current === initialStateId) {
+          console.log('🔧 初期盤面データ重複受信 - スキップ:', initialStateId);
+          return;
+        }
+
+        console.log('📥 初期盤面データ受信:', initialStateId);
+        
+        // 🔧 処理済みフラグを設定
+        initialStateProcessed.current = true;
+        processedInitialStateId.current = initialStateId;
         
         dispatch({
           type: 'START_NETWORK_GAME',
@@ -79,6 +94,9 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
       setOnInitialState(initialStateCallback);
     } else {
       setOnInitialState(() => {});
+      // 🔧 ルームIDがクリアされた場合は初期状態フラグもリセット
+      initialStateProcessed.current = false;
+      processedInitialStateId.current = null;
     }
   }, [state.roomId, setOnInitialState, dispatch, state.isHost]);
 
@@ -103,11 +121,13 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.currentTeam, state.gamePhase, state.timeLimitSeconds]);
 
-  // ゲーム終了時のクリーンアップ
+  // 🔧 ゲーム終了時のクリーンアップ（初期状態フラグもリセット）
   useEffect(() => {
     if (!state.roomId && isInitialized.current) {
+      console.log('🧹 ネットワークゲーム終了 - クリーンアップ');
       isInitialized.current = false;
-      initialGameState.current = null;
+      initialStateProcessed.current = false;
+      processedInitialStateId.current = null;
       operationReceiver.resetTimestamp();
     }
   }, [state.roomId]);
