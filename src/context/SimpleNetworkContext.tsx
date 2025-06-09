@@ -90,7 +90,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.isNetworkGame, state.isHost, state.roomId, setOnInitialState, dispatch]);
 
-  // ネットワーク同期コールバック
+  // 🔧 改善されたネットワーク同期コールバック（攻撃対象の座標も送信）
   useEffect(() => {
     if (state.isNetworkGame && state.roomId) {
       const syncCallback = async (action: any) => {
@@ -100,34 +100,59 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
         }
         
         try {
-          // 🔧 キャラクターIDではなく座標で検索
-          let character = null;
-          
-          if (action.characterId) {
-            character = state.characters.find(c => c.id === action.characterId);
-          }
+          // 🔧 アクションを実行するキャラクターを特定
+          const character = state.characters.find(c => c.id === action.characterId);
           
           if (!character) {
-            console.warn('⚠️ キャラクターIDで見つからない場合、座標で検索:', action);
-            // フォールバック: 現在のチームのキャラクターから推測
-            const teamCharacters = state.characters.filter(c => c.team === action.team);
-            if (teamCharacters.length > 0) {
-              character = teamCharacters[0]; // 最初のキャラクターを使用
-              console.log('🔧 フォールバック: 最初のキャラクターを使用:', character.name);
-            }
-          }
-          
-          if (!character) {
-            console.error('❌ キャラクターが見つかりません:', action);
+            console.error('❌ キャラクターが見つかりません:', action.characterId);
             return;
           }
 
-          const move = {
+          // 🔧 基本的な棋譜データを作成
+          const move: Omit<GameMove, 'id' | 'timestamp' | 'player'> = {
             turn: action.turn,
             action: action.type,
-            from: character.position,
-            ...(action.position && { to: action.position })
+            from: character.position
           };
+
+          // 🔧 アクションタイプに応じて追加情報を設定
+          if (action.type === 'move' && action.position) {
+            move.to = action.position;
+          } else if (action.type === 'attack' && action.targetId) {
+            // 🔧 攻撃対象の座標を取得
+            const target = state.characters.find(c => c.id === action.targetId);
+            if (target) {
+              move.to = target.position;
+              console.log('⚔️ 攻撃棋譜作成:', {
+                attacker: character.name,
+                attackerPos: character.position,
+                target: target.name,
+                targetPos: target.position
+              });
+            } else {
+              console.error('❌ 攻撃対象が見つかりません:', action.targetId);
+              return;
+            }
+          } else if (action.type === 'skill' && action.targetId) {
+            // 🔧 スキル対象の座標を取得
+            const target = state.characters.find(c => c.id === action.targetId);
+            if (target) {
+              move.to = target.position;
+              console.log('✨ スキル棋譜作成:', {
+                caster: character.name,
+                casterPos: character.position,
+                target: target.name,
+                targetPos: target.position,
+                skill: action.skillId
+              });
+            } else {
+              console.error('❌ スキル対象が見つかりません:', action.targetId);
+              return;
+            }
+          } else if (action.type === 'end_turn' || action.type === 'forced_end_turn') {
+            // ターン終了系は座標不要
+            console.log('🔄 ターン終了棋譜作成:', action.type);
+          }
 
           console.log('📤 棋譜送信:', move);
           await sendMove(state.roomId, move, state.isHost);
@@ -144,7 +169,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.isNetworkGame, state.roomId, sendMove, dispatch, state.characters, state.isHost, isConnected]);
 
-  // 手の受信コールバック
+  // 🔧 改善された手の受信コールバック（攻撃処理の修正）
   useEffect(() => {
     if (state.isNetworkGame && state.roomId) {
       const moveCallback = (move: GameMove) => {
@@ -155,7 +180,8 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
         console.log('📥 相手の手を受信:', {
           action: move.action,
           from: move.from,
-          to: move.to
+          to: move.to,
+          player: move.player
         });
 
         // 🔧 青チーム=host、赤チーム=guest の統一
@@ -164,8 +190,15 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
           team: state.isHost ? 'enemy' : 'player', // host=青チーム(player)、guest=赤チーム(enemy)
           type: move.action,
           from: move.from,
-          to: move.to
+          to: move.to,
+          timeLeft: move.timeLeft // 🆕 タイマー同期用
         };
+
+        console.log('🔄 ネットワークアクション変換:', {
+          original: { player: move.player, action: move.action },
+          converted: { team: networkAction.team, type: networkAction.type },
+          isHost: state.isHost
+        });
 
         dispatch({ type: 'SYNC_NETWORK_ACTION', action: networkAction });
         lastProcessedMoveId.current = move.id;

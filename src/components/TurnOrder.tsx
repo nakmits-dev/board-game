@@ -47,7 +47,7 @@ const TurnOrder: React.FC = () => {
 
   // 🆕 ネットワークゲームでの時間同期機能
   const syncTimeWithNetwork = () => {
-    if (!isNetworkGame || !state.networkSyncCallback) return;
+    if (!isNetworkGame || !state.networkSyncCallback || !isMyTurn()) return;
 
     try {
       const networkAction = {
@@ -65,18 +65,15 @@ const TurnOrder: React.FC = () => {
     }
   };
 
-  // 🆕 強制ターン終了の処理
+  // 🆕 強制ターン終了の処理（ターンプレイヤーが送信）
   const handleForcedTurnEnd = () => {
     if (isEndingTurn.current) return;
     
     isEndingTurn.current = true;
     console.log('⏰ 強制ターン終了:', { team: state.currentTeam, isMyTurn: isMyTurn() });
     
-    // 自分のターンの場合は通常のターン終了処理
+    // 🔧 自分のターンの場合のみ強制終了を送信
     if (isMyTurn()) {
-      dispatch({ type: 'END_TURN' });
-    } else {
-      // 相手のターンの場合はネットワーク経由で強制終了を送信
       if (state.networkSyncCallback) {
         const networkAction = {
           turn: state.currentTurn,
@@ -88,6 +85,9 @@ const TurnOrder: React.FC = () => {
         console.log('📤 強制ターン終了送信:', networkAction);
         state.networkSyncCallback(networkAction);
       }
+      
+      // 自分のターンなので通常のターン終了処理も実行
+      dispatch({ type: 'END_TURN' });
     }
     
     setTimeout(() => {
@@ -101,6 +101,12 @@ const TurnOrder: React.FC = () => {
     
     // ゲームフェーズが'action'でない場合は動作させない
     if (gamePhase !== 'action') return;
+
+    // ポーズ中は動作させない
+    if (isPaused) return;
+
+    // 🔧 ネットワークゲームでは自分のターンの場合のみタイマーを動作
+    if (isNetworkGame && !isMyTurn()) return;
 
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
@@ -123,14 +129,14 @@ const TurnOrder: React.FC = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [gamePhase, currentTeam, dispatch, isNetworkGame, isHost, hasTimeLimit, timeLeft]);
+  }, [gamePhase, currentTeam, dispatch, isNetworkGame, isHost, hasTimeLimit, timeLeft, isPaused]);
 
   // 🆕 ネットワークゲームでの同期インターバル設定
   useEffect(() => {
-    if (isNetworkGame && hasTimeLimit && gamePhase === 'action') {
+    if (isNetworkGame && hasTimeLimit && gamePhase === 'action' && isMyTurn()) {
       // 3秒ごとに同期チェック
       syncInterval.current = setInterval(() => {
-        if (isMyTurn() && Date.now() - lastSyncTime.current > 3000) {
+        if (Date.now() - lastSyncTime.current > 3000) {
           syncTimeWithNetwork();
         }
       }, 3000);
