@@ -90,7 +90,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.isNetworkGame, state.isHost, state.roomId, setOnInitialState, dispatch]);
 
-  // 🔧 改善されたネットワーク同期コールバック（攻撃対象の座標も送信）
+  // 🔧 改善されたネットワーク同期コールバック（移動・攻撃・スキルすべてに対応）
   useEffect(() => {
     if (state.isNetworkGame && state.roomId) {
       const syncCallback = async (action: any) => {
@@ -100,58 +100,71 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
         }
         
         try {
-          // 🔧 アクションを実行するキャラクターを特定
-          const character = state.characters.find(c => c.id === action.characterId);
-          
-          if (!character) {
-            console.error('❌ キャラクターが見つかりません:', action.characterId);
-            return;
-          }
-
           // 🔧 基本的な棋譜データを作成
           const move: Omit<GameMove, 'id' | 'timestamp' | 'player'> = {
             turn: action.turn,
             action: action.type,
-            from: character.position
+            from: { x: 0, y: 0 } // デフォルト値
           };
 
-          // 🔧 アクションタイプに応じて追加情報を設定
-          if (action.type === 'move' && action.position) {
-            move.to = action.position;
-          } else if (action.type === 'attack' && action.targetId) {
-            // 🔧 攻撃対象の座標を取得
+          // 🔧 アクションタイプに応じて座標情報を設定
+          if (action.type === 'move') {
+            // 移動の場合：キャラクターの現在位置と移動先
+            const character = state.characters.find(c => c.id === action.characterId);
+            if (character && action.position) {
+              move.from = character.position;
+              move.to = action.position;
+              console.log('🚶 移動棋譜作成:', {
+                character: character.name,
+                from: character.position,
+                to: action.position
+              });
+            } else {
+              console.error('❌ 移動: キャラクターまたは移動先が見つかりません');
+              return;
+            }
+          } else if (action.type === 'attack') {
+            // 攻撃の場合：攻撃者の位置と攻撃対象の位置
+            const attacker = state.characters.find(c => c.id === action.characterId);
             const target = state.characters.find(c => c.id === action.targetId);
-            if (target) {
+            if (attacker && target) {
+              move.from = attacker.position;
               move.to = target.position;
               console.log('⚔️ 攻撃棋譜作成:', {
-                attacker: character.name,
-                attackerPos: character.position,
+                attacker: attacker.name,
+                attackerPos: attacker.position,
                 target: target.name,
                 targetPos: target.position
               });
             } else {
-              console.error('❌ 攻撃対象が見つかりません:', action.targetId);
+              console.error('❌ 攻撃: 攻撃者または対象が見つかりません');
               return;
             }
-          } else if (action.type === 'skill' && action.targetId) {
-            // 🔧 スキル対象の座標を取得
+          } else if (action.type === 'skill') {
+            // スキルの場合：使用者の位置と対象の位置
+            const caster = state.characters.find(c => c.id === action.characterId);
             const target = state.characters.find(c => c.id === action.targetId);
-            if (target) {
+            if (caster && target) {
+              move.from = caster.position;
               move.to = target.position;
               console.log('✨ スキル棋譜作成:', {
-                caster: character.name,
-                casterPos: character.position,
+                caster: caster.name,
+                casterPos: caster.position,
                 target: target.name,
                 targetPos: target.position,
                 skill: action.skillId
               });
             } else {
-              console.error('❌ スキル対象が見つかりません:', action.targetId);
+              console.error('❌ スキル: 使用者または対象が見つかりません');
               return;
             }
           } else if (action.type === 'end_turn' || action.type === 'forced_end_turn') {
-            // ターン終了系は座標不要
+            // ターン終了系は座標不要（ダミー座標を設定）
+            move.from = { x: 0, y: 0 };
             console.log('🔄 ターン終了棋譜作成:', action.type);
+          } else {
+            console.warn('⚠️ 未対応のアクションタイプ:', action.type);
+            return;
           }
 
           console.log('📤 棋譜送信:', move);
@@ -169,7 +182,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.isNetworkGame, state.roomId, sendMove, dispatch, state.characters, state.isHost, isConnected]);
 
-  // 🔧 改善された手の受信コールバック（攻撃処理の修正）
+  // 🔧 改善された手の受信コールバック（移動・攻撃処理の修正）
   useEffect(() => {
     if (state.isNetworkGame && state.roomId) {
       const moveCallback = (move: GameMove) => {
