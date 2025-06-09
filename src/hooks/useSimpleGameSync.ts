@@ -212,7 +212,7 @@ export const useSimpleGameSync = () => {
     }
   }, [user, startHeartbeat]);
 
-  // 🔧 **修正: 初期盤面アップロード（ユーザーIDを記録）**
+  // 初期盤面アップロード
   const uploadInitialState = useCallback(async (roomId: string, initialState: InitialGameState) => {
     if (!roomId) {
       console.error('❌ 初期盤面アップロード: ルームIDがありません');
@@ -225,14 +225,14 @@ export const useSimpleGameSync = () => {
         initialState: {
           ...initialState,
           uploadedAt: Date.now(),
-          uploadedBy: getFixedUserId() // 🔧 **重要: アップロード者のIDを記録**
+          uploadedBy: user?.uid
         }
       });
     } catch (error: any) {
       console.error('❌ 初期盤面アップロードエラー:', error);
       throw new Error(`初期盤面のアップロードに失敗しました: ${error.message}`);
     }
-  }, []);
+  }, [user]);
 
   // ゲーム開始
   const startGame = useCallback(async (roomId: string) => {
@@ -249,7 +249,7 @@ export const useSimpleGameSync = () => {
     }
   }, []);
 
-  // 🔧 **修正: 手の送信（送信者IDを記録）**
+  // 手の送信
   const sendMove = useCallback(async (roomId: string, move: Omit<GameMove, 'id' | 'timestamp'>) => {
     if (!roomId) {
       console.error('❌ ルームに接続されていません');
@@ -263,11 +263,8 @@ export const useSimpleGameSync = () => {
     const moveData: GameMove = {
       ...move,
       id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      timestamp: Date.now(),
-      senderId: getFixedUserId() // 🔧 **重要: 送信者IDを記録**
+      timestamp: Date.now()
     };
-
-    console.log('📤 棋譜送信:', `${moveData.team} - ${moveData.action} - ターン${moveData.turn}`);
 
     try {
       const movesRef = ref(database, `simple_rooms/${roomId}/moves`);
@@ -403,11 +400,6 @@ export const useSimpleGameSync = () => {
     onRoomUpdateCallback.current = callback;
   }, []);
 
-  // 🔧 **新機能: 現在のユーザーIDを取得**
-  const getCurrentUserId = useCallback(() => {
-    return getFixedUserId();
-  }, []);
-
   return {
     // Firebase操作
     createRoom,
@@ -427,7 +419,6 @@ export const useSimpleGameSync = () => {
     // ユーティリティ
     forceNewUser,
     validateRoomId,
-    getCurrentUserId, // 🔧 **新機能**
     
     // 状態
     isConnected: connectionStatus === 'connected',

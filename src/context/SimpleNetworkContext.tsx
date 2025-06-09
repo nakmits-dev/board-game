@@ -28,7 +28,6 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
   const [currentTimeLeft, setCurrentTimeLeft] = React.useState(30);
   const isInitialized = useRef(false);
   const initialGameState = useRef<any>(null);
-  const currentUserId = useRef<string | null>(null);
 
   // OperationReceiver の盤面更新コールバック設定
   useEffect(() => {
@@ -58,23 +57,15 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.roomId, state.isHost, isConnected, startRoomMonitoring]);
 
-  // 🔧 **修正: 初期状態受信処理（重複防止）**
+  // 初期状態受信処理（修正）
   useEffect(() => {
     if (state.roomId) {
       const initialStateCallback = (initialState: any) => {
-        // 🔧 **重要: 自分がアップロードした初期状態は無視**
-        if (initialState.uploadedBy === currentUserId.current) {
-          console.log('📥 自分がアップロードした初期状態をスキップ');
-          return;
-        }
-        
         // 重複初期化を防ぐ
         if (initialGameState.current) {
-          console.log('📥 初期状態は既に処理済み');
           return;
         }
         
-        console.log('📥 初期状態受信・適用');
         initialGameState.current = initialState;
         
         dispatch({
@@ -98,29 +89,19 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.roomId, setOnInitialState, dispatch, state.isHost]);
 
-  // 🔧 **修正: 操作受信処理（自分の操作をフィルタリング）**
+  // 操作受信処理
   useEffect(() => {
     if (state.roomId) {
       const moveCallback = (allMoves: any[]) => {
-        // 🔧 **重要: 自分の操作は除外して処理**
-        const otherPlayerMoves = allMoves.filter(move => {
-          // 自分のチームの操作は除外
-          const myTeam = state.isHost ? 'player' : 'enemy';
-          return move.team !== myTeam;
-        });
-
-        if (otherPlayerMoves.length > 0) {
-          console.log('📥 相手の操作受信:', `${otherPlayerMoves.length}件`);
-          // OperationReceiver に処理を委譲
-          operationReceiver.processReceivedOperations(otherPlayerMoves);
-        }
+        // OperationReceiver に処理を委譲
+        operationReceiver.processReceivedOperations(allMoves);
       };
 
       setOnMove(moveCallback);
     } else {
       setOnMove(() => {});
     }
-  }, [state.roomId, state.isHost, setOnMove]);
+  }, [state.roomId, setOnMove]);
 
   // ターン変更時にタイマーをリセット（修正）
   useEffect(() => {
@@ -134,7 +115,6 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     if (!state.roomId && isInitialized.current) {
       isInitialized.current = false;
       initialGameState.current = null;
-      currentUserId.current = null;
       operationReceiver.resetTimestamp();
     }
   }, [state.roomId]);
