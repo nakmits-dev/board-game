@@ -403,7 +403,9 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       }
 
       // 🔧 **修正: ネットワークゲームでは棋譜送信のみ（画面反映なし）**
-      if (state.networkSyncCallback) {
+      if (state.isNetworkGame && state.networkSyncCallback) {
+        console.log('📤 [GameContext] ネットワークゲーム - 棋譜送信のみ実行');
+        
         const networkAction = {
           turn: state.currentTurn,
           team: state.currentTeam,
@@ -411,8 +413,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           characterId: state.selectedCharacter.id,
           targetId: state.pendingAction.targetId,
           position: state.pendingAction.position,
+          timestamp: Date.now()
         };
-        console.log('📤 棋譜送信のみ（画面反映なし）:', networkAction);
+        
+        console.log('📤 [GameContext] 棋譜送信:', networkAction);
         state.networkSyncCallback(networkAction);
         
         // 🔧 **重要: 選択状態のみクリア（画面反映は受信時に行う）**
@@ -426,6 +430,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       }
 
       // 🔧 **ローカルゲームの場合のみ即座に適用**
+      console.log('🎮 [GameContext] ローカルゲーム - 即座に適用');
       const move = {
         turn: state.currentTurn,
         team: state.currentTeam,
@@ -498,7 +503,9 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       if (!target) return state;
 
       // 🔧 **修正: ネットワークゲームでは棋譜送信のみ**
-      if (state.networkSyncCallback) {
+      if (state.isNetworkGame && state.networkSyncCallback) {
+        console.log('📤 [GameContext] スキル - 棋譜送信のみ実行');
+        
         const networkAction = {
           turn: state.currentTurn,
           team: state.currentTeam,
@@ -506,8 +513,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           characterId: state.selectedCharacter.id,
           targetId: action.targetId,
           skillId: state.selectedSkill.id,
+          timestamp: Date.now()
         };
-        console.log('📤 スキル棋譜送信のみ:', networkAction);
+        
+        console.log('📤 [GameContext] スキル棋譜送信:', networkAction);
         state.networkSyncCallback(networkAction);
         
         return {
@@ -519,6 +528,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         };
       }
 
+      console.log('🎮 [GameContext] スキル - ローカルゲーム適用');
       const move = {
         turn: state.currentTurn,
         team: state.currentTeam,
@@ -593,15 +603,19 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       if (state.gamePhase === 'preparation') return state;
 
       // 🔧 **修正: ネットワークゲームでは棋譜送信のみ**
-      if (state.networkSyncCallback) {
+      if (state.isNetworkGame && state.networkSyncCallback) {
+        console.log('📤 [GameContext] ターン終了 - 棋譜送信のみ実行');
+        
         try {
           const networkAction = {
             turn: state.currentTurn,
             team: state.currentTeam,
             type: 'end_turn',
             characterId: '',
+            timestamp: Date.now()
           };
-          console.log('📤 ターン終了棋譜送信のみ:', networkAction);
+          
+          console.log('📤 [GameContext] ターン終了棋譜送信:', networkAction);
           state.networkSyncCallback(networkAction);
           
           return {
@@ -612,11 +626,12 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             pendingAction: { type: null },
           };
         } catch (error) {
-          console.error('❌ ターン終了アクション送信エラー:', error);
+          console.error('❌ [GameContext] ターン終了アクション送信エラー:', error);
           return state;
         }
       }
       
+      console.log('🎮 [GameContext] ターン終了 - ローカルゲーム適用');
       const move = {
         turn: state.currentTurn,
         team: state.currentTeam,
@@ -717,7 +732,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
     case 'APPLY_MOVE': {
       // 🎯 棋譜を受信して適用する統一処理
-      console.log('🔄 棋譜受信・適用:', action.move);
+      console.log('🔄 [GameContext] 棋譜受信・適用:', action.move);
       return applyMoveToState(state, action.move);
     }
 
