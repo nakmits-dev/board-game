@@ -10,6 +10,8 @@ const TurnOrder: React.FC = () => {
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
   const endTurnButtonRef = useRef<HTMLButtonElement>(null);
   const isEndingTurn = useRef(false);
+  const lastSyncTime = useRef<number>(Date.now()); // 🆕 最後の同期時刻
+  const syncInterval = useRef<NodeJS.Timeout | null>(null); // 🆕 同期用インターバル
 
   // ネットワークゲームでの自分のターンかどうかを判定
   const isMyTurn = () => {
@@ -42,39 +44,112 @@ const TurnOrder: React.FC = () => {
       return 'text-red-600';
     }
   };
+
+  // 🆕 ネットワークゲームでの時間同期機能
+  const syncTimeWithNetwork = () => {
+    if (!isNetworkGame || !state.networkSyncCallback) return;
+
+    try {
+      const networkAction = {
+        turn: state.currentTurn,
+        team: state.currentTeam,
+        type: 'timer_sync',
+        timeLeft: timeLeft,
+        timestamp: Date.now()
+      };
+      console.log('⏰ タイマー同期送信:', { timeLeft, team: state.currentTeam });
+      state.networkSyncCallback(networkAction);
+      lastSyncTime.current = Date.now();
+    } catch (error) {
+      console.error('❌ タイマー同期エラー:', error);
+    }
+  };
+
+  // 🆕 強制ターン終了の処理
+  const handleForcedTurnEnd = () => {
+    if (isEndingTurn.current) return;
+    
+    isEndingTurn.current = true;
+    console.log('⏰ 強制ターン終了:', { team: state.currentTeam, isMyTurn: isMyTurn() });
+    
+    // 自分のターンの場合は通常のターン終了処理
+    if (isMyTurn()) {
+      dispatch({ type: 'END_TURN' });
+    } else {
+      // 相手のターンの場合はネットワーク経由で強制終了を送信
+      if (state.networkSyncCallback) {
+        const networkAction = {
+          turn: state.currentTurn,
+          team: state.currentTeam,
+          type: 'forced_end_turn',
+          characterId: '',
+          timestamp: Date.now()
+        };
+        console.log('📤 強制ターン終了送信:', networkAction);
+        state.networkSyncCallback(networkAction);
+      }
+    }
+    
+    setTimeout(() => {
+      isEndingTurn.current = false;
+    }, 1000);
+  };
   
   useEffect(() => {
     // 時間制限がない場合はタイマーを動作させない
     if (!hasTimeLimit) return;
     
-    // ゲームフェーズが'action'かつ自分のターンの時のみタイマーを動作させる
-    if (gamePhase !== 'action' || isPaused || (isNetworkGame && !isMyTurn())) {
-      return;
-    }
+    // ゲームフェーズが'action'でない場合は動作させない
+    if (gamePhase !== 'action') return;
 
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
-        if (prev <= 1 && !isEndingTurn.current) {
+        const newTime = prev - 1;
+        
+        // 🆕 5秒ごとに時間を同期（自分のターンの場合のみ）
+        if (isNetworkGame && isMyTurn() && newTime % 5 === 0 && newTime > 0) {
+          syncTimeWithNetwork();
+        }
+        
+        // 時間切れの処理
+        if (newTime <= 0 && !isEndingTurn.current) {
           clearInterval(timer);
-          isEndingTurn.current = true;
-          setTimeout(() => {
-            endTurnButtonRef.current?.click();
-            isEndingTurn.current = false;
-          }, 100);
+          handleForcedTurnEnd();
           return 0;
         }
-        return prev - 1;
+        
+        return newTime;
       });
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [gamePhase, currentTeam, dispatch, isPaused, isNetworkGame, isHost, hasTimeLimit]);
+  }, [gamePhase, currentTeam, dispatch, isNetworkGame, isHost, hasTimeLimit, timeLeft]);
+
+  // 🆕 ネットワークゲームでの同期インターバル設定
+  useEffect(() => {
+    if (isNetworkGame && hasTimeLimit && gamePhase === 'action') {
+      // 3秒ごとに同期チェック
+      syncInterval.current = setInterval(() => {
+        if (isMyTurn() && Date.now() - lastSyncTime.current > 3000) {
+          syncTimeWithNetwork();
+        }
+      }, 3000);
+
+      return () => {
+        if (syncInterval.current) {
+          clearInterval(syncInterval.current);
+          syncInterval.current = null;
+        }
+      };
+    }
+  }, [isNetworkGame, hasTimeLimit, gamePhase, isMyTurn()]);
 
   useEffect(() => {
     // ターンが変わった時のみタイマーをリセット
     if (gamePhase === 'action') {
       setTimeLeft(timeLimitSeconds);
       setShowSurrenderConfirm(false);
+      lastSyncTime.current = Date.now(); // 🆕 同期時刻もリセット
       // ターンが変わってもポーズ状態は維持
     }
   }, [currentTeam, gamePhase, timeLimitSeconds]);
@@ -82,7 +157,7 @@ const TurnOrder: React.FC = () => {
   if (gamePhase === 'preparation' || gamePhase === 'result') return null;
 
   const progressPercentage = (timeLeft / timeLimitSeconds) * 100;
-  const isLowTime = timeLeft <= 5 && !isPaused && (!isNetworkGame || isMyTurn()) && hasTimeLimit;
+  const isLowTime = timeLeft <= 5 && !isPaused && hasTimeLimit;
   
   const handlePauseToggle = () => {
     // 時間制限がない場合はポーズボタンを無効化
@@ -141,9 +216,9 @@ const TurnOrder: React.FC = () => {
               {/* ネットワークゲームでは相手のターン中はポーズボタンを無効化 */}
               <button
                 onClick={handlePauseToggle}
-                disabled={isNetworkGame && !isMyTurn()}
+                disabled={(isNetworkGame && !isMyTurn()) || !hasTimeLimit}
                 className={`p-2 rounded-lg transition-colors ${
-                  isNetworkGame && !isMyTurn()
+                  (isNetworkGame && !isMyTurn()) || !hasTimeLimit
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                     : isPaused 
                       ? 'bg-green-100 text-green-600 hover:bg-green-200' 

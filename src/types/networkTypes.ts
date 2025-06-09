@@ -3,9 +3,10 @@ export interface GameMove {
   id: string;
   turn: number;
   player: 'host' | 'guest';
-  action: 'move' | 'attack' | 'skill' | 'end_turn' | 'surrender';
+  action: 'move' | 'attack' | 'skill' | 'end_turn' | 'surrender' | 'timer_sync' | 'forced_end_turn'; // 🆕 タイマー関連アクション追加
   from: { x: number; y: number };  // 移動前の座標
   to?: { x: number; y: number };   // 移動先（移動の場合）
+  timeLeft?: number; // 🆕 タイマー同期用
   timestamp: number;
 }
 

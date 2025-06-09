@@ -944,8 +944,9 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           };
 
         case 'end_turn':
+        case 'forced_end_turn': // 🆕 強制ターン終了も同じ処理
           // ターン終了処理
-          console.log('🔄 ターン終了処理');
+          console.log('🔄 ターン終了処理:', networkAction.type);
           const nextTeam: Team = state.currentTeam === 'player' ? 'enemy' : 'player';
           
           const refreshedCharacters = state.characters.map(character => {
@@ -985,6 +986,11 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             enemyCrystals: newEnemyCrystals,
             pendingAnimations: turnAnimations,
           };
+
+        case 'timer_sync': // 🆕 タイマー同期処理
+          console.log('⏰ タイマー同期受信:', { timeLeft: networkAction.timeLeft, team: networkAction.team });
+          // タイマー同期は受信のみ（実際の時間更新はTurnOrderコンポーネントで処理）
+          break;
 
         case 'surrender':
           // 降参処理
