@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useReducer, ReactNode, useEffect } from 'react';
-import { GameState, Character, Position, ActionType, Skill, Team, AnimationSequence, MonsterType } from '../types/gameTypes';
+import { GameState, Character, Position, ActionType, Skill, Team, AnimationSequence, MonsterType, BoardAction } from '../types/gameTypes';
 import { createInitialGameState, getEvolvedMonsterType, monsterData } from '../data/initialGameState';
 import { skillData } from '../data/skillData';
 import { masterData } from '../data/cardData';
+import { addGameHistoryMove } from '../components/GameHistory';
 
 type GameAction =
   | { type: 'SELECT_CHARACTER'; character: Character | null }
@@ -21,7 +22,8 @@ type GameAction =
   | { type: 'SET_PENDING_ANIMATIONS'; animations: AnimationSequence[] }
   | { type: 'REMOVE_DEFEATED_CHARACTERS'; targetId: string; killerTeam?: Team }
   | { type: 'EVOLVE_CHARACTER'; characterId: string }
-  | { type: 'SURRENDER'; team: Team };
+  | { type: 'SURRENDER'; team: Team }
+  | { type: 'APPLY_BOARD_ACTION'; boardAction: BoardAction };
 
 interface GameContextType {
   state: GameState;
@@ -30,6 +32,7 @@ interface GameContextType {
   isValidAttack: (targetId: string) => boolean;
   isValidSkillTarget: (targetId: string) => boolean;
   getCharacterAt: (position: Position) => Character | undefined;
+  applyBoardAction: (boardAction: BoardAction) => boolean;
   savedDecks: {
     host?: { master: keyof typeof masterData; monsters: MonsterType[] };
     guest?: { master: keyof typeof masterData; monsters: MonsterType[] };
@@ -42,6 +45,302 @@ const ANIMATION_DURATION = 300;
 
 function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
+    case 'APPLY_BOARD_ACTION': {
+      const { boardAction } = action;
+      
+      if (state.gamePhase !== 'action') {
+        console.warn('ゲームが進行中ではありません');
+        return state;
+      }
+
+      let newState = { ...state };
+      let newCharacters = [...state.characters];
+      let animations: AnimationSequence[] = [];
+      let newPlayerCrystals = state.playerCrystals;
+      let newEnemyCrystals = state.enemyCrystals;
+      let newGamePhase = state.gamePhase;
+
+      if (boardAction.action === 'move' && boardAction.from && boardAction.to) {
+        // 移動処理
+        const character = newCharacters.find(char => 
+          char.position.x === boardAction.from!.x && 
+          char.position.y === boardAction.from!.y &&
+          char.team === state.currentTeam &&
+          char.remainingActions > 0
+        );
+
+        if (character) {
+          // 移動先が空いているかチェック
+          const isOccupied = newCharacters.some(char => 
+            char.position.x === boardAction.to!.x && 
+            char.position.y === boardAction.to!.y
+          );
+
+          if (!isOccupied) {
+            animations.push({ id: character.id, type: 'move' });
+            
+            newCharacters = newCharacters.map(char => 
+              char.id === character.id
+                ? {
+                    ...char,
+                    position: boardAction.to!,
+                    remainingActions: Math.max(0, char.remainingActions - 1),
+                  }
+                : char
+            );
+
+            // 棋譜に記録
+            addGameHistoryMove(
+              state.currentTurn,
+              state.currentTeam,
+              'move',
+              `${character.name}が(${boardAction.to.x},${boardAction.to.y})に移動`
+            );
+          }
+        }
+      } else if (boardAction.action === 'attack' && boardAction.from && boardAction.to) {
+        // 攻撃処理
+        const attacker = newCharacters.find(char => 
+          char.position.x === boardAction.from!.x && 
+          char.position.y === boardAction.from!.y &&
+          char.team === state.currentTeam &&
+          char.remainingActions > 0
+        );
+
+        const target = newCharacters.find(char => 
+          char.position.x === boardAction.to!.x && 
+          char.position.y === boardAction.to!.y &&
+          char.team !== state.currentTeam
+        );
+
+        if (attacker && target) {
+          const damage = Math.max(0, attacker.attack - target.defense);
+          const newHp = Math.max(0, target.hp - damage);
+          
+          animations.push(
+            { id: attacker.id, type: 'attack' },
+            { id: target.id, type: 'damage' }
+          );
+
+          if (newHp === 0) {
+            animations.push(
+              { id: target.id, type: 'ko' },
+              { id: target.team, type: 'crystal-gain' }
+            );
+
+            // 進化チェック
+            if (attacker.type === 'monster' && !attacker.isEvolved && attacker.monsterType) {
+              const evolvedType = getEvolvedMonsterType(attacker.monsterType);
+              if (evolvedType) {
+                animations.push({ id: attacker.id, type: 'evolve' });
+              }
+            }
+
+            // クリスタル獲得
+            if (target.team === 'player') {
+              newEnemyCrystals = Math.min(8, newEnemyCrystals + target.cost);
+            } else {
+              newPlayerCrystals = Math.min(8, newPlayerCrystals + target.cost);
+            }
+
+            // マスターが倒された場合はゲーム終了
+            if (target.type === 'master') {
+              newGamePhase = 'result';
+            }
+          }
+
+          newCharacters = newCharacters.map(char => {
+            if (char.id === attacker.id) {
+              return { ...char, remainingActions: Math.max(0, char.remainingActions - 1) };
+            }
+            if (char.id === target.id) {
+              return { ...char, hp: newHp };
+            }
+            return char;
+          });
+
+          // 棋譜に記録
+          addGameHistoryMove(
+            state.currentTurn,
+            state.currentTeam,
+            'attack',
+            `${attacker.name}が${target.name}を攻撃（ダメージ: ${damage}）`
+          );
+        }
+      } else if (boardAction.action === 'skill' && boardAction.from && boardAction.to && boardAction.skillId) {
+        // スキル使用処理
+        const caster = newCharacters.find(char => 
+          char.position.x === boardAction.from!.x && 
+          char.position.y === boardAction.from!.y &&
+          char.team === state.currentTeam &&
+          char.remainingActions > 0
+        );
+
+        const target = newCharacters.find(char => 
+          char.position.x === boardAction.to!.x && 
+          char.position.y === boardAction.to!.y
+        );
+
+        const skill = skillData[boardAction.skillId];
+
+        if (caster && target && skill) {
+          const crystals = state.currentTeam === 'player' ? state.playerCrystals : state.enemyCrystals;
+          
+          if (crystals >= skill.crystalCost) {
+            animations.push({ id: caster.id, type: 'attack' });
+
+            // クリスタル消費
+            if (state.currentTeam === 'player') {
+              newPlayerCrystals = Math.max(0, newPlayerCrystals - skill.crystalCost);
+            } else {
+              newEnemyCrystals = Math.max(0, newEnemyCrystals - skill.crystalCost);
+            }
+
+            // スキル効果適用
+            if (skill.healing) {
+              animations.push({ id: target.id, type: 'heal' });
+              newCharacters = newCharacters.map(char => {
+                if (char.id === target.id) {
+                  return {
+                    ...char,
+                    hp: Math.min(char.maxHp, char.hp + skill.healing!),
+                  };
+                }
+                return char;
+              });
+            }
+
+            if (skill.damage) {
+              animations.push({ id: target.id, type: 'damage' });
+              
+              let newHp: number;
+              if (skill.ignoreDefense) {
+                newHp = Math.max(0, target.hp - 1);
+              } else {
+                const totalDamage = caster.attack + skill.damage;
+                const damage = Math.max(0, totalDamage - target.defense);
+                newHp = Math.max(0, target.hp - damage);
+              }
+
+              if (newHp === 0) {
+                animations.push(
+                  { id: target.id, type: 'ko' },
+                  { id: target.team, type: 'crystal-gain' }
+                );
+
+                if (target.team === 'player') {
+                  newEnemyCrystals = Math.min(8, newEnemyCrystals + target.cost);
+                } else {
+                  newPlayerCrystals = Math.min(8, newPlayerCrystals + target.cost);
+                }
+
+                if (target.type === 'master') {
+                  newGamePhase = 'result';
+                }
+              }
+
+              newCharacters = newCharacters.map(char => {
+                if (char.id === target.id) {
+                  return { ...char, hp: newHp };
+                }
+                return char;
+              });
+            }
+
+            if (skill.effects?.some(effect => effect.type === 'evolve')) {
+              if (target.type === 'monster' && !target.isEvolved && target.monsterType) {
+                const evolvedType = getEvolvedMonsterType(target.monsterType);
+                if (evolvedType) {
+                  animations.push({ id: target.id, type: 'evolve' });
+                }
+              }
+            }
+
+            newCharacters = newCharacters.map(char => {
+              if (char.id === caster.id) {
+                return { ...char, remainingActions: Math.max(0, char.remainingActions - 1) };
+              }
+              return char;
+            });
+
+            // 棋譜に記録
+            addGameHistoryMove(
+              state.currentTurn,
+              state.currentTeam,
+              'skill',
+              `${caster.name}が${target.name}に${skill.name}を使用`
+            );
+          }
+        }
+      } else if (boardAction.action === 'end_turn') {
+        // ターン終了処理
+        const newCurrentTeam: Team = state.currentTeam === 'player' ? 'enemy' : 'player';
+        
+        const refreshedCharacters = newCharacters.map(character => {
+          if (character.team === newCurrentTeam) {
+            return {
+              ...character,
+              remainingActions: character.actions,
+            };
+          }
+          return character;
+        });
+
+        const newPlayerCrystalsEndTurn = newCurrentTeam === 'player' 
+          ? Math.min(8, newPlayerCrystals + 1)
+          : newPlayerCrystals;
+        
+        const newEnemyCrystalsEndTurn = newCurrentTeam === 'enemy'
+          ? Math.min(8, newEnemyCrystals + 1)
+          : newEnemyCrystals;
+
+        const newCurrentTurn = newCurrentTeam === 'player' ? state.currentTurn + 1 : state.currentTurn;
+
+        animations.push({ id: newCurrentTeam, type: 'turn-start' });
+        
+        if (newCurrentTeam === 'player' && newPlayerCrystalsEndTurn > newPlayerCrystals) {
+          animations.push({ id: 'player-crystal', type: 'crystal-gain' });
+        } else if (newCurrentTeam === 'enemy' && newEnemyCrystalsEndTurn > newEnemyCrystals) {
+          animations.push({ id: 'enemy-crystal', type: 'crystal-gain' });
+        }
+
+        // 棋譜に記録
+        addGameHistoryMove(
+          state.currentTurn,
+          state.currentTeam,
+          'end_turn',
+          `${state.currentTeam === 'player' ? '青チーム' : '赤チーム'}のターン終了`
+        );
+
+        return {
+          ...state,
+          characters: refreshedCharacters,
+          currentTeam: newCurrentTeam,
+          currentTurn: newCurrentTurn,
+          selectedCharacter: null,
+          selectedAction: null,
+          selectedSkill: null,
+          pendingAction: { type: null },
+          pendingAnimations: animations,
+          playerCrystals: newPlayerCrystalsEndTurn,
+          enemyCrystals: newEnemyCrystalsEndTurn,
+        };
+      }
+
+      return {
+        ...newState,
+        characters: newCharacters,
+        selectedCharacter: null,
+        selectedAction: null,
+        selectedSkill: null,
+        pendingAction: { type: null },
+        pendingAnimations: animations,
+        playerCrystals: newPlayerCrystals,
+        enemyCrystals: newEnemyCrystals,
+        gamePhase: newGamePhase,
+      };
+    }
+
     case 'SELECT_CHARACTER': {
       if (!action.character) {
         return {
@@ -137,6 +436,14 @@ function gameReducer(state: GameState, action: GameAction): GameState {
               }
             : char
         );
+
+        // 棋譜に記録
+        addGameHistoryMove(
+          state.currentTurn,
+          state.currentTeam,
+          'move',
+          `${character.name}が(${state.pendingAction.position.x},${state.pendingAction.position.y})に移動`
+        );
       } else if (state.pendingAction.type === 'attack' && state.pendingAction.targetId) {
         const target = state.characters.find(char => char.id === state.pendingAction.targetId);
         if (target) {
@@ -181,6 +488,14 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             }
             return char;
           });
+
+          // 棋譜に記録
+          addGameHistoryMove(
+            state.currentTurn,
+            state.currentTeam,
+            'attack',
+            `${character.name}が${target.name}を攻撃（ダメージ: ${damage}）`
+          );
         }
       }
 
@@ -334,6 +649,14 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         return char;
       });
 
+      // 棋譜に記録
+      addGameHistoryMove(
+        state.currentTurn,
+        state.currentTeam,
+        'skill',
+        `${state.selectedCharacter.name}が${target.name}に${skill.name}を使用`
+      );
+
       return {
         ...state,
         characters: newCharacters,
@@ -392,6 +715,14 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'SURRENDER': {
+      // 棋譜に記録
+      addGameHistoryMove(
+        state.currentTurn,
+        action.team,
+        'surrender',
+        `${action.team === 'player' ? '青チーム' : '赤チーム'}が降参`
+      );
+
       return {
         ...state,
         gamePhase: 'result',
@@ -440,6 +771,14 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         animations.push({ id: 'enemy-crystal', type: 'crystal-gain' });
       }
 
+      // 棋譜に記録
+      addGameHistoryMove(
+        state.currentTurn,
+        state.currentTeam,
+        'end_turn',
+        `${state.currentTeam === 'player' ? '青チーム' : '赤チーム'}のターン終了`
+      );
+
       return {
         ...state,
         characters: refreshedCharacters,
@@ -457,6 +796,14 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
     case 'START_LOCAL_GAME': {
       const newState = createInitialGameState(action.hostDeck, action.guestDeck);
+      
+      // 棋譜に記録
+      addGameHistoryMove(
+        0,
+        'player',
+        'game_start',
+        'ゲーム開始'
+      );
       
       return {
         ...newState,
@@ -640,6 +987,17 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     );
   };
 
+  // 🆕 棋譜アクションをボードに反映する関数
+  const applyBoardAction = (boardAction: BoardAction): boolean => {
+    try {
+      dispatch({ type: 'APPLY_BOARD_ACTION', boardAction });
+      return true;
+    } catch (error) {
+      console.error('ボードアクション適用エラー:', error);
+      return false;
+    }
+  };
+
   return (
     <GameContext.Provider 
       value={{ 
@@ -649,6 +1007,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         isValidAttack, 
         isValidSkillTarget,
         getCharacterAt,
+        applyBoardAction,
         savedDecks: state.savedDecks || savedDecks
       }}
     >

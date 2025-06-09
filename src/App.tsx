@@ -9,6 +9,7 @@ import DeckBuilder from './components/DeckBuilder';
 import ShareButton from './components/ShareButton';
 import Tutorial from './components/Tutorial';
 import GameHistory from './components/GameHistory';
+import BoardActionInput from './components/BoardActionInput';
 import { useGame } from './context/GameContext';
 import { MonsterType } from './types/gameTypes';
 import { masterData } from './data/cardData';
@@ -144,6 +145,9 @@ const GameContent = () => {
                 <TurnOrder />
               </div>
             )}
+            
+            {/* 🆕 棋譜入力コンポーネント */}
+            <BoardActionInput />
             
             <div className="flex justify-center mb-4 relative">
               <CrystalDisplay />
