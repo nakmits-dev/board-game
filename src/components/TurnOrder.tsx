@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useGame } from '../context/GameContext';
 import { useSimpleNetwork } from '../context/SimpleNetworkContext';
-import { networkSender } from '../modules/NetworkSender';
+import { operationUploader } from '../modules/OperationUploader';
 import { Pause, Play, Flag } from 'lucide-react';
 
 const TurnOrder: React.FC = () => {
@@ -55,8 +55,8 @@ const TurnOrder: React.FC = () => {
             console.log('⏰ 時間切れ - 強制ターン終了');
             isEndingTurn.current = true;
             
-            // NetworkSender を使用して強制ターン終了送信
-            networkSender.sendEndTurn(state, true);
+            // OperationUploader を使用して強制ターン終了送信
+            operationUploader.uploadEndTurnOperation(state, true);
             
             dispatch({ type: 'END_TURN' });
             
