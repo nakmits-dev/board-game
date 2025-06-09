@@ -112,5 +112,4 @@ export interface GameState {
   roomId: string | null;
   hasTimeLimit: boolean;
   timeLimitSeconds: number;
-  sendMoveFunction: ((roomId: string, move: any) => Promise<void>) | null;
 }
