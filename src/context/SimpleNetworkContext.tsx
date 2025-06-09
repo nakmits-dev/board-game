@@ -198,7 +198,7 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.isNetworkGame, state.roomId, sendMove, dispatch, state.characters, state.isHost, state.currentTeam, isConnected]);
 
-  // 🔧 改善された手の受信コールバック（非ターンプレイヤーが受信）
+  // 🎯 棋譜受信コールバック（統一された計算処理を使用）
   useEffect(() => {
     if (state.isNetworkGame && state.roomId) {
       const moveCallback = (move: GameMove) => {
@@ -225,24 +225,26 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
           isHost: state.isHost
         });
 
-        // 🔧 チーム判定の修正：host=青チーム(player)、guest=赤チーム(enemy)
-        const networkAction = {
+        // 🎯 棋譜を統一された計算関数で処理
+        const moveData = {
           turn: move.turn,
           team: move.player === 'host' ? 'player' : 'enemy', // host→player、guest→enemy
           type: move.action,
           from: move.from,
           to: move.to,
-          timeLeft: move.timeLeft // 🆕 タイマー同期用
+          timeLeft: move.timeLeft, // 🆕 タイマー同期用
+          skillId: move.action === 'skill' ? 'rage-strike' : undefined // 🔧 スキルIDは別途実装が必要
         };
 
-        console.log('🔄 ネットワークアクション変換:', {
+        console.log('🔄 棋譜適用:', {
           original: { player: move.player, action: move.action },
-          converted: { team: networkAction.team, type: networkAction.type },
+          converted: { team: moveData.team, type: moveData.type },
           isHost: state.isHost,
-          explanation: `${move.player} → ${networkAction.team} (host=青チーム, guest=赤チーム)`
+          explanation: `${move.player} → ${moveData.team} (host=青チーム, guest=赤チーム)`
         });
 
-        dispatch({ type: 'SYNC_NETWORK_ACTION', action: networkAction });
+        // 🎯 統一された棋譜適用処理を使用
+        dispatch({ type: 'APPLY_MOVE', move: moveData });
         lastProcessedMoveId.current = move.id;
       };
 

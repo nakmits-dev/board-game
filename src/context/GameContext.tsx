@@ -25,7 +25,7 @@ type GameAction =
   | { type: 'EVOLVE_CHARACTER'; characterId: string }
   | { type: 'UNDO_MOVE' }
   | { type: 'SURRENDER'; team: Team }
-  | { type: 'SYNC_NETWORK_ACTION'; action: any }
+  | { type: 'APPLY_MOVE'; move: any } // 🆕 棋譜を適用するアクション
   | { type: 'SET_NETWORK_SYNC_CALLBACK'; callback: ((action: any) => void) | null };
 
 interface GameContextType {
@@ -80,6 +80,305 @@ const getMyTeam = (isHost: boolean): Team => {
 const isMyTurn = (currentTeam: Team, isHost: boolean): boolean => {
   const myTeam = getMyTeam(isHost);
   return currentTeam === myTeam;
+};
+
+// 🎯 棋譜を元にゲーム状態を計算する統一関数
+const applyMoveToState = (state: GameState, move: any): GameState => {
+  console.log('🎯 棋譜適用開始:', move);
+  
+  let updatedCharacters = [...state.characters];
+  let animations: AnimationSequence[] = [];
+  let playerCrystals = state.playerCrystals;
+  let enemyCrystals = state.enemyCrystals;
+  let newGamePhase = state.gamePhase;
+  let newCurrentTeam = state.currentTeam;
+  let newCurrentTurn = state.currentTurn;
+
+  switch (move.type) {
+    case 'move': {
+      // 座標から移動するキャラクターを特定
+      const character = updatedCharacters.find(char => 
+        char.position.x === move.from.x && 
+        char.position.y === move.from.y &&
+        char.team === move.team
+      );
+      
+      if (character && move.to) {
+        console.log('📍 移動適用:', character.name, move.from, '->', move.to);
+        animations.push({ id: character.id, type: 'move' });
+        
+        updatedCharacters = updatedCharacters.map(char => 
+          char.id === character.id
+            ? {
+                ...char,
+                position: move.to,
+                remainingActions: char.remainingActions - 1,
+              }
+            : char
+        );
+      } else {
+        console.warn('⚠️ 移動対象キャラクターが見つかりません:', move.from);
+      }
+      break;
+    }
+
+    case 'attack': {
+      // 攻撃者と対象を座標から特定
+      const attacker = updatedCharacters.find(char => 
+        char.position.x === move.from.x && 
+        char.position.y === move.from.y &&
+        char.team === move.team
+      );
+      
+      if (!attacker) {
+        console.error('❌ 攻撃者が見つかりません:', move.from);
+        break;
+      }
+
+      if (!move.to) {
+        console.error('❌ 攻撃対象の座標がありません:', move);
+        break;
+      }
+      
+      const target = updatedCharacters.find(char => 
+        char.position.x === move.to.x && 
+        char.position.y === move.to.y &&
+        char.team !== move.team
+      );
+      
+      if (!target) {
+        console.error('❌ 攻撃対象が見つかりません:', move.to);
+        break;
+      }
+      
+      console.log('⚔️ 攻撃適用:', attacker.name, '->', target.name);
+      const damage = Math.max(0, attacker.attack - target.defense);
+      const newHp = Math.max(0, target.hp - damage);
+      
+      animations.push(
+        { id: attacker.id, type: 'attack' },
+        { id: target.id, type: 'damage' }
+      );
+
+      if (newHp === 0) {
+        animations.push(
+          { id: target.id, type: 'ko' },
+          { id: target.team, type: 'crystal-gain' }
+        );
+
+        // 進化条件を満たしているか確認
+        if (attacker.type === 'monster' && !attacker.isEvolved && attacker.monsterType) {
+          const evolvedType = getEvolvedMonsterType(attacker.monsterType);
+          if (evolvedType) {
+            animations.push({ id: attacker.id, type: 'evolve' });
+          }
+        }
+      }
+
+      updatedCharacters = updatedCharacters.map(char => {
+        if (char.id === attacker.id) {
+          return { ...char, remainingActions: char.remainingActions - 1 };
+        }
+        if (char.id === target.id) {
+          return { ...char, hp: newHp };
+        }
+        return char;
+      });
+
+      // マスターが倒された場合は即座にゲーム終了
+      if (newHp === 0 && target.type === 'master') {
+        newGamePhase = 'result';
+      }
+      break;
+    }
+
+    case 'skill': {
+      // スキル使用者と対象を座標から特定
+      const caster = updatedCharacters.find(char => 
+        char.position.x === move.from.x && 
+        char.position.y === move.from.y &&
+        char.team === move.team
+      );
+      
+      const target = updatedCharacters.find(char => 
+        char.position.x === move.to.x && 
+        char.position.y === move.to.y
+      );
+      
+      if (!caster || !target) {
+        console.error('❌ スキル: 使用者または対象が見つかりません');
+        break;
+      }
+
+      const skill = skillData[move.skillId];
+      if (!skill) {
+        console.error('❌ スキルが見つかりません:', move.skillId);
+        break;
+      }
+
+      console.log('✨ スキル適用:', caster.name, '->', target.name, skill.name);
+
+      // クリスタル消費
+      if (move.team === 'player') {
+        playerCrystals -= skill.crystalCost;
+      } else {
+        enemyCrystals -= skill.crystalCost;
+      }
+
+      animations.push({ id: caster.id, type: 'attack' });
+
+      if (skill.healing) {
+        animations.push({ id: target.id, type: 'heal' });
+        updatedCharacters = updatedCharacters.map(char => {
+          if (char.id === target.id) {
+            return {
+              ...char,
+              hp: Math.min(char.maxHp, char.hp + skill.healing!),
+            };
+          }
+          return char;
+        });
+      }
+
+      if (skill.damage) {
+        animations.push({ id: target.id, type: 'damage' });
+        
+        let newHp: number;
+        if (skill.ignoreDefense) {
+          newHp = Math.max(0, target.hp - 1);
+        } else {
+          const totalDamage = caster.attack + skill.damage;
+          const damage = Math.max(0, totalDamage - target.defense);
+          newHp = Math.max(0, target.hp - damage);
+        }
+
+        if (newHp === 0) {
+          animations.push(
+            { id: target.id, type: 'ko' },
+            { id: target.team, type: 'crystal-gain' }
+          );
+        }
+
+        updatedCharacters = updatedCharacters.map(char => {
+          if (char.id === target.id) {
+            return { ...char, hp: newHp };
+          }
+          return char;
+        });
+
+        // マスターが倒された場合は即座にゲーム終了
+        if (newHp === 0 && target.type === 'master') {
+          newGamePhase = 'result';
+        }
+      }
+
+      if (skill.effects?.some(effect => effect.type === 'evolve')) {
+        if (target.type === 'monster' && !target.isEvolved && target.monsterType) {
+          const evolvedType = getEvolvedMonsterType(target.monsterType);
+          if (evolvedType) {
+            animations.push({ id: target.id, type: 'evolve' });
+          }
+        }
+      }
+
+      updatedCharacters = updatedCharacters.map(char => {
+        if (char.id === caster.id) {
+          return { ...char, remainingActions: char.remainingActions - 1 };
+        }
+        return char;
+      });
+      break;
+    }
+
+    case 'end_turn':
+    case 'forced_end_turn': {
+      console.log('🔄 ターン終了適用:', move.type);
+      
+      newCurrentTeam = move.team === 'player' ? 'enemy' : 'player';
+      
+      const refreshedCharacters = updatedCharacters.map(character => {
+        if (character.team === newCurrentTeam) {
+          return {
+            ...character,
+            remainingActions: character.actions,
+          };
+        }
+        return character;
+      });
+
+      updatedCharacters = refreshedCharacters;
+
+      playerCrystals = newCurrentTeam === 'player' 
+        ? Math.min(MAX_CRYSTALS, playerCrystals + 1)
+        : playerCrystals;
+      
+      enemyCrystals = newCurrentTeam === 'enemy'
+        ? Math.min(MAX_CRYSTALS, enemyCrystals + 1)
+        : enemyCrystals;
+
+      newCurrentTurn = newCurrentTeam === 'player' ? newCurrentTurn + 1 : newCurrentTurn;
+
+      animations.push({ id: newCurrentTeam, type: 'turn-start' });
+      
+      if (newCurrentTeam === 'player' && playerCrystals > state.playerCrystals) {
+        animations.push({ id: 'player-crystal', type: 'crystal-gain' });
+      } else if (newCurrentTeam === 'enemy' && enemyCrystals > state.enemyCrystals) {
+        animations.push({ id: 'enemy-crystal', type: 'crystal-gain' });
+      }
+      break;
+    }
+
+    case 'surrender': {
+      console.log('🏳️ 降参適用:', move.team);
+      newGamePhase = 'result';
+      updatedCharacters = updatedCharacters.filter(char => 
+        !(char.team === move.team && char.type === 'master')
+      );
+      break;
+    }
+
+    case 'timer_sync': {
+      console.log('⏰ タイマー同期受信:', { timeLeft: move.timeLeft, team: move.team });
+      // タイマー同期は状態変更なし
+      break;
+    }
+
+    default: {
+      console.warn('❓ 未対応の棋譜タイプ:', move.type);
+      break;
+    }
+  }
+
+  // ゲーム終了チェック
+  if (newGamePhase !== 'result') {
+    const { playerMasterAlive, enemyMasterAlive } = checkMasterStatus(updatedCharacters);
+    if (!playerMasterAlive || !enemyMasterAlive) {
+      newGamePhase = 'result';
+    }
+  }
+
+  console.log('✅ 棋譜適用完了:', {
+    type: move.type,
+    charactersChanged: updatedCharacters.length !== state.characters.length,
+    gamePhaseChanged: newGamePhase !== state.gamePhase,
+    teamChanged: newCurrentTeam !== state.currentTeam
+  });
+
+  return {
+    ...state,
+    characters: updatedCharacters,
+    playerCrystals,
+    enemyCrystals,
+    gamePhase: newGamePhase,
+    currentTeam: newCurrentTeam,
+    currentTurn: newCurrentTurn,
+    pendingAnimations: animations,
+    selectedCharacter: null,
+    selectedAction: null,
+    selectedSkill: null,
+    pendingAction: { type: null },
+    animationTarget: null,
+  };
 };
 
 function gameReducer(state: GameState, action: GameAction): GameState {
@@ -204,10 +503,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       // 現在の状態を保存（待った用）
       const previousState = deepCloneState(state);
 
-      let updatedCharacters = [...state.characters];
-      let animations: AnimationSequence[] = [];
-
-      // ネットワークゲームの場合、アクションを送信
+      // 🎯 棋譜を作成してネットワークに送信
       if (state.isNetworkGame && state.networkSyncCallback) {
         const networkAction = {
           turn: state.currentTurn,
@@ -220,109 +516,22 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         state.networkSyncCallback(networkAction);
       }
 
-      if (state.pendingAction.type === 'move' && state.pendingAction.position) {
-        animations.push({ id: state.selectedCharacter.id, type: 'move' });
-        
-        updatedCharacters = updatedCharacters.map(character => 
-          character.id === state.selectedCharacter!.id
-            ? {
-                ...character,
-                position: state.pendingAction.position!,
-                remainingActions: character.remainingActions - 1,
-              }
-            : character
-        );
-      }
+      // 🎯 棋譜を作成してローカルに適用
+      const move = {
+        turn: state.currentTurn,
+        team: state.currentTeam,
+        type: state.pendingAction.type,
+        from: state.selectedCharacter.position,
+        to: state.pendingAction.position || (state.pendingAction.targetId ? 
+          state.characters.find(c => c.id === state.pendingAction.targetId)?.position : undefined
+        ),
+        targetId: state.pendingAction.targetId,
+      };
 
-      if (state.pendingAction.type === 'attack' && state.pendingAction.targetId) {
-        const target = updatedCharacters.find(char => char.id === state.pendingAction.targetId);
-        if (target) {
-          animations.push(
-            { id: state.selectedCharacter.id, type: 'attack' },
-            { id: target.id, type: 'damage' }
-          );
-
-          const damage = Math.max(0, state.selectedCharacter.attack - target.defense);
-          const newHp = Math.max(0, target.hp - damage);
-
-          // マスターが倒される場合は即座にゲーム終了
-          if (newHp === 0 && target.type === 'master') {
-            updatedCharacters = updatedCharacters.map(character => {
-              if (character.id === state.selectedCharacter!.id) {
-                return {
-                  ...character,
-                  remainingActions: character.remainingActions - 1,
-                };
-              }
-              if (character.id === target.id) {
-                return {
-                  ...character,
-                  hp: newHp,
-                };
-              }
-              return character;
-            });
-
-            // マスターが倒された場合は即座に結果画面へ
-            return {
-              ...state,
-              characters: updatedCharacters,
-              selectedCharacter: null,
-              selectedAction: null,
-              selectedSkill: null,
-              pendingAction: { type: null },
-              gamePhase: 'result',
-              pendingAnimations: animations,
-              previousState,
-              canUndo: !state.isNetworkGame, // ネットワークゲームでは待ったを無効化
-            };
-          }
-
-          if (newHp === 0) {
-            animations.push(
-              { id: target.id, type: 'ko' },
-              { id: target.team, type: 'crystal-gain' } // 倒された側がクリスタル獲得
-            );
-
-            // 進化条件を満たしているか確認（進化先があるモンスターのみ）
-            const attacker = state.selectedCharacter;
-            if (attacker.type === 'monster' && !attacker.isEvolved && attacker.monsterType) {
-              const evolvedType = getEvolvedMonsterType(attacker.monsterType);
-              if (evolvedType) {
-                animations.push({ id: attacker.id, type: 'evolve' });
-              }
-            }
-          }
-
-          updatedCharacters = updatedCharacters.map(character => {
-            if (character.id === state.selectedCharacter!.id) {
-              return {
-                ...character,
-                remainingActions: character.remainingActions - 1,
-              };
-            }
-            if (character.id === target.id) {
-              return {
-                ...character,
-                hp: newHp,
-              };
-            }
-            return character;
-          });
-        }
-      }
-
-      const { playerMasterAlive, enemyMasterAlive } = checkMasterStatus(updatedCharacters);
+      const newState = applyMoveToState(state, move);
 
       return {
-        ...state,
-        characters: updatedCharacters,
-        selectedCharacter: null,
-        selectedAction: null,
-        selectedSkill: null,
-        pendingAction: { type: null },
-        gamePhase: (!playerMasterAlive || !enemyMasterAlive) ? 'result' : 'action',
-        pendingAnimations: animations,
+        ...newState,
         previousState,
         canUndo: !state.isNetworkGame, // ネットワークゲームでは待ったを無効化
       };
@@ -414,141 +623,23 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         state.networkSyncCallback(networkAction);
       }
       
-      let updatedCharacters = [...state.characters];
-      let animations: AnimationSequence[] = [];
-      const target = updatedCharacters.find(char => char.id === action.targetId);
-      let playerCrystals = state.playerCrystals;
-      let enemyCrystals = state.enemyCrystals;
-      
+      // 🎯 棋譜を作成してローカルに適用
+      const target = state.characters.find(char => char.id === action.targetId);
       if (!target) return state;
 
-      if (state.currentTeam === 'player') {
-        playerCrystals -= state.selectedSkill.crystalCost;
-      } else {
-        enemyCrystals -= state.selectedSkill.crystalCost;
-      }
+      const move = {
+        turn: state.currentTurn,
+        team: state.currentTeam,
+        type: 'skill',
+        from: state.selectedCharacter.position,
+        to: target.position,
+        skillId: state.selectedSkill.id,
+      };
 
-      if (state.selectedSkill.healing) {
-        const healing = state.selectedSkill.healing;
-        animations.push(
-          { id: state.selectedCharacter.id, type: 'attack' },
-          { id: target.id, type: 'heal' }
-        );
-
-        updatedCharacters = updatedCharacters.map(character => {
-          if (character.id === target.id) {
-            return {
-              ...character,
-              hp: Math.min(character.maxHp, character.hp + healing),
-            };
-          }
-          return character;
-        });
-      }
-
-      if (state.selectedSkill.damage) {
-        animations.push(
-          { id: state.selectedCharacter.id, type: 'attack' },
-          { id: target.id, type: 'damage' }
-        );
-
-        let newHp: number;
-        
-        // 呪いスキルの場合は防御力を無視してHPを直接1減らす
-        if (state.selectedSkill.ignoreDefense) {
-          newHp = Math.max(0, target.hp - 1);
-        } else {
-          // 通常のダメージ計算
-          const totalDamage = state.selectedCharacter.attack + state.selectedSkill.damage;
-          const damage = Math.max(0, totalDamage - target.defense);
-          newHp = Math.max(0, target.hp - damage);
-        }
-
-        // マスターが倒される場合は即座にゲーム終了
-        if (newHp === 0 && target.type === 'master') {
-          updatedCharacters = updatedCharacters.map(character => {
-            if (character.id === state.selectedCharacter!.id) {
-              return {
-                ...character,
-                remainingActions: character.remainingActions - 1,
-              };
-            }
-            if (character.id === target.id) {
-              return {
-                ...character,
-                hp: newHp,
-              };
-            }
-            return character;
-          });
-
-          // マスターが倒された場合は即座に結果画面へ
-          return {
-            ...state,
-            characters: updatedCharacters,
-            playerCrystals,
-            enemyCrystals,
-            selectedCharacter: null,
-            selectedAction: null,
-            selectedSkill: null,
-            pendingAction: { type: null },
-            gamePhase: 'result',
-            pendingAnimations: animations,
-            previousState,
-            canUndo: !state.isNetworkGame, // ネットワークゲームでは待ったを無効化
-          };
-        }
-
-        if (newHp === 0) {
-          animations.push(
-            { id: target.id, type: 'ko' },
-            { id: target.team, type: 'crystal-gain' } // 倒された側がクリスタル獲得
-          );
-        }
-
-        updatedCharacters = updatedCharacters.map(character => {
-          if (character.id === target.id) {
-            return {
-              ...character,
-              hp: newHp,
-            };
-          }
-          return character;
-        });
-      }
-
-      if (state.selectedSkill.effects?.some(effect => effect.type === 'evolve')) {
-        if (target.type === 'monster' && !target.isEvolved && target.monsterType) {
-          const evolvedType = getEvolvedMonsterType(target.monsterType);
-          if (evolvedType) {
-            animations.push({ id: target.id, type: 'evolve' });
-          }
-        }
-      }
-
-      updatedCharacters = updatedCharacters.map(character => {
-        if (character.id === state.selectedCharacter!.id) {
-          return {
-            ...character,
-            remainingActions: character.remainingActions - 1,
-          };
-        }
-        return character;
-      });
-
-      const { playerMasterAlive, enemyMasterAlive } = checkMasterStatus(updatedCharacters);
+      const newState = applyMoveToState(state, move);
 
       return {
-        ...state,
-        characters: updatedCharacters,
-        playerCrystals,
-        enemyCrystals,
-        selectedCharacter: null,
-        selectedAction: null,
-        selectedSkill: null,
-        pendingAction: { type: null },
-        gamePhase: (!playerMasterAlive || !enemyMasterAlive) ? 'result' : 'action',
-        pendingAnimations: animations,
+        ...newState,
         previousState,
         canUndo: !state.isNetworkGame, // ネットワークゲームでは待ったを無効化
       };
@@ -654,49 +745,18 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         }
       }
       
-      const nextTeam: Team = state.currentTeam === 'player' ? 'enemy' : 'player';
-      
-      const refreshedCharacters = state.characters.map(character => {
-        if (character.team === nextTeam) {
-          return {
-            ...character,
-            remainingActions: character.actions,
-          };
-        }
-        return character;
-      });
+      // 🎯 棋譜を作成してローカルに適用
+      const move = {
+        turn: state.currentTurn,
+        team: state.currentTeam,
+        type: 'end_turn',
+        from: { x: 0, y: 0 }, // ダミー座標
+      };
 
-      const playerCrystals = nextTeam === 'player' 
-        ? Math.min(MAX_CRYSTALS, state.playerCrystals + 1)
-        : state.playerCrystals;
-      
-      const enemyCrystals = nextTeam === 'enemy'
-        ? Math.min(MAX_CRYSTALS, state.enemyCrystals + 1)
-        : state.enemyCrystals;
-
-      const animations: AnimationSequence[] = [
-        { id: nextTeam, type: 'turn-start' }
-      ];
-      
-      if (nextTeam === 'player' && playerCrystals > state.playerCrystals) {
-        animations.push({ id: 'player-crystal', type: 'crystal-gain' });
-      } else if (nextTeam === 'enemy' && enemyCrystals > state.enemyCrystals) {
-        animations.push({ id: 'enemy-crystal', type: 'crystal-gain' });
-      }
+      const newState = applyMoveToState(state, move);
 
       return {
-        ...state,
-        characters: refreshedCharacters,
-        currentTeam: nextTeam,
-        currentTurn: nextTeam === 'player' ? state.currentTurn + 1 : state.currentTurn,
-        selectedCharacter: null,
-        selectedAction: null,
-        selectedSkill: null,
-        pendingAction: { type: null },
-        playerCrystals,
-        enemyCrystals,
-        animationTarget: null,
-        pendingAnimations: animations,
+        ...newState,
         previousState,
         canUndo: !state.isNetworkGame, // ネットワークゲームでは待ったを無効化
       };
@@ -838,186 +898,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       };
     }
 
-    case 'SYNC_NETWORK_ACTION': {
-      // ネットワークアクションを受信して状態を同期
-      if (!state.isNetworkGame) return state;
-
-      const networkAction = action.action;
-      console.log('🔄 ネットワークアクション同期:', networkAction);
-      
-      // 🔧 相手のアクションのみ処理（自分のアクションは既に処理済み）
-      const isOpponentAction = state.isHost ? 
-        networkAction.team === 'enemy' : 
-        networkAction.team === 'player';
-      
-      if (!isOpponentAction) {
-        console.log('⏭️ 自分のアクションなのでスキップ');
-        return state;
-      }
-
-      console.log('🎯 相手のアクションを処理:', networkAction.type);
-
-      // 🔧 改善された座標ベースの同期処理
-      switch (networkAction.type) {
-        case 'move':
-          // 座標から該当キャラクターを特定して移動
-          const moveCharacter = state.characters.find(char => 
-            char.position.x === networkAction.from.x && 
-            char.position.y === networkAction.from.y &&
-            char.team === (state.isHost ? 'enemy' : 'player')
-          );
-          
-          if (moveCharacter && networkAction.to) {
-            console.log('📍 移動処理:', moveCharacter.name, networkAction.from, '->', networkAction.to);
-            const updatedCharacters = state.characters.map(char =>
-              char.id === moveCharacter.id
-                ? { ...char, position: networkAction.to!, remainingActions: char.remainingActions - 1 }
-                : char
-            );
-            return {
-              ...state,
-              characters: updatedCharacters,
-              pendingAnimations: [{ id: moveCharacter.id, type: 'move' }],
-            };
-          } else {
-            console.warn('⚠️ 移動対象キャラクターが見つかりません:', networkAction.from);
-          }
-          break;
-
-        case 'attack':
-          // 🔧 攻撃者と対象を座標から特定（エラーハンドリング強化）
-          const attacker = state.characters.find(char => 
-            char.position.x === networkAction.from.x && 
-            char.position.y === networkAction.from.y &&
-            char.team === (state.isHost ? 'enemy' : 'player')
-          );
-          
-          if (!attacker) {
-            console.error('❌ 攻撃者が見つかりません:', networkAction.from);
-            break;
-          }
-
-          if (!networkAction.to) {
-            console.error('❌ 攻撃対象の座標がありません:', networkAction);
-            break;
-          }
-          
-          const target = state.characters.find(char => 
-            char.position.x === networkAction.to.x && 
-            char.position.y === networkAction.to.y &&
-            char.team === (state.isHost ? 'player' : 'enemy')
-          );
-          
-          if (!target) {
-            console.error('❌ 攻撃対象が見つかりません:', networkAction.to);
-            break;
-          }
-          
-          console.log('⚔️ 攻撃処理:', attacker.name, '->', target.name);
-          const damage = Math.max(0, attacker.attack - target.defense);
-          const newHp = Math.max(0, target.hp - damage);
-          
-          const updatedCharacters = state.characters.map(char => {
-            if (char.id === attacker.id) {
-              return { ...char, remainingActions: char.remainingActions - 1 };
-            }
-            if (char.id === target.id) {
-              return { ...char, hp: newHp };
-            }
-            return char;
-          });
-
-          const animations = [
-            { id: attacker.id, type: 'attack' as const },
-            { id: target.id, type: 'damage' as const }
-          ];
-
-          if (newHp === 0) {
-            animations.push(
-              { id: target.id, type: 'ko' as const },
-              { id: target.team, type: 'crystal-gain' as const }
-            );
-          }
-
-          const { playerMasterAlive, enemyMasterAlive } = checkMasterStatus(updatedCharacters);
-
-          return {
-            ...state,
-            characters: updatedCharacters,
-            gamePhase: (!playerMasterAlive || !enemyMasterAlive) ? 'result' : 'action',
-            pendingAnimations: animations,
-          };
-
-        case 'end_turn':
-        case 'forced_end_turn': // 🆕 強制ターン終了も同じ処理
-          // 🔧 ターン終了処理（相手のターンのみ処理）
-          console.log('🔄 ターン終了処理:', networkAction.type);
-          
-          // 🔧 相手のターンでない場合は処理しない
-          if (networkAction.team !== (state.isHost ? 'enemy' : 'player')) {
-            console.log('⏭️ 自分のチームのターン終了なのでスキップ');
-            return state;
-          }
-          
-          const nextTeam: Team = state.currentTeam === 'player' ? 'enemy' : 'player';
-          
-          const refreshedCharacters = state.characters.map(character => {
-            if (character.team === nextTeam) {
-              return {
-                ...character,
-                remainingActions: character.actions,
-              };
-            }
-            return character;
-          });
-
-          const newPlayerCrystals = nextTeam === 'player' 
-            ? Math.min(MAX_CRYSTALS, state.playerCrystals + 1)
-            : state.playerCrystals;
-          
-          const newEnemyCrystals = nextTeam === 'enemy'
-            ? Math.min(MAX_CRYSTALS, state.enemyCrystals + 1)
-            : state.enemyCrystals;
-
-          const turnAnimations: AnimationSequence[] = [
-            { id: nextTeam, type: 'turn-start' }
-          ];
-          
-          if (nextTeam === 'player' && newPlayerCrystals > state.playerCrystals) {
-            turnAnimations.push({ id: 'player-crystal', type: 'crystal-gain' });
-          } else if (nextTeam === 'enemy' && newEnemyCrystals > state.enemyCrystals) {
-            turnAnimations.push({ id: 'enemy-crystal', type: 'crystal-gain' });
-          }
-
-          return {
-            ...state,
-            characters: refreshedCharacters,
-            currentTeam: nextTeam,
-            currentTurn: nextTeam === 'player' ? state.currentTurn + 1 : state.currentTurn,
-            playerCrystals: newPlayerCrystals,
-            enemyCrystals: newEnemyCrystals,
-            pendingAnimations: turnAnimations,
-          };
-
-        case 'timer_sync': // 🆕 タイマー同期処理
-          console.log('⏰ タイマー同期受信:', { timeLeft: networkAction.timeLeft, team: networkAction.team });
-          // タイマー同期は受信のみ（実際の時間更新はTurnOrderコンポーネントで処理）
-          break;
-
-        case 'surrender':
-          // 降参処理
-          console.log('🏳️ 降参処理:', networkAction.team);
-          return {
-            ...state,
-            gamePhase: 'result',
-            characters: state.characters.filter(char => 
-              !(char.team === networkAction.team && char.type === 'master')
-            ),
-          };
-      }
-
-      console.log('❓ 未対応のアクションタイプ:', networkAction.type);
-      return state;
+    case 'APPLY_MOVE': {
+      // 🎯 棋譜を受信して適用する統一処理
+      console.log('🔄 棋譜受信・適用:', action.move);
+      return applyMoveToState(state, action.move);
     }
 
     default:
