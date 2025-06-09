@@ -177,7 +177,7 @@ export const useSimpleGameSync = () => {
     }
   }, [user, startHeartbeat]);
 
-  // ルーム参加（固定IDを使用）
+  // 🔧 ルーム参加（再参加対応・固定IDを使用）
   const joinRoom = useCallback(async (roomId: string, playerName: string): Promise<void> => {
     if (!user) {
       throw new Error('認証が必要です');
@@ -196,23 +196,31 @@ export const useSimpleGameSync = () => {
         throw new Error('ルームが見つかりません');
       }
 
-      if (existingRoomData.guest) {
+      // 🔧 再参加チェック: 既にゲストが存在し、かつ切断状態の場合は再参加を許可
+      if (existingRoomData.guest && existingRoomData.guest.connected) {
         throw new Error('ルームは満員です');
       }
 
       const userId = getFixedUserId(); // 🔧 固定IDを使用
 
+      // 🔧 再参加の場合は既存のゲスト情報を更新、新規参加の場合は新規作成
+      const guestData = {
+        name: playerName,
+        ready: true,
+        connected: true,
+        lastSeen: Date.now(),
+        userId: userId
+      };
+
       await update(roomRef, {
-        guest: {
-          name: playerName,
-          ready: true,
-          connected: true,
-          lastSeen: Date.now(),
-          userId: userId
-        }
+        guest: guestData
       });
 
-      console.log('✅ ルーム参加成功:', { roomId: trimmedRoomId, guestUserId: userId });
+      console.log('✅ ルーム参加成功:', { 
+        roomId: trimmedRoomId, 
+        guestUserId: userId,
+        isReconnection: !!existingRoomData.guest
+      });
 
       currentRoomId.current = trimmedRoomId;
       startHeartbeat(trimmedRoomId, false);
@@ -222,7 +230,7 @@ export const useSimpleGameSync = () => {
     }
   }, [user, startHeartbeat]);
 
-  // 初期盤面アップロード
+  // 🆕 最適化された初期盤面アップロード
   const uploadInitialState = useCallback(async (roomId: string, initialState: InitialGameState) => {
     if (!roomId) {
       console.error('❌ 初期盤面アップロード: ルームIDがありません');
@@ -300,7 +308,7 @@ export const useSimpleGameSync = () => {
     }
   }, [user]);
 
-  // ルーム監視
+  // 🔧 ルーム監視（再参加対応・整合性改善）
   const startRoomMonitoring = useCallback((roomId: string, isHost: boolean) => {
     console.log('👀 ルーム監視開始:', roomId);
 
@@ -331,7 +339,7 @@ export const useSimpleGameSync = () => {
         hasInitialState: !!roomData.initialState
       });
 
-      // 🔧 ルーム更新コールバックを呼び出し
+      // 🔧 ルーム更新コールバックを呼び出し（再参加対応）
       if (onRoomUpdateCallback.current) {
         onRoomUpdateCallback.current(roomData);
       }
@@ -449,7 +457,7 @@ export const useSimpleGameSync = () => {
     onInitialStateCallback.current = callback;
   }, []);
 
-  // 🔧 ルーム更新コールバック設定
+  // 🔧 ルーム更新コールバック設定（再参加対応）
   const setOnRoomUpdate = useCallback((callback: (roomData: SimpleRoom) => void) => {
     onRoomUpdateCallback.current = callback;
   }, []);

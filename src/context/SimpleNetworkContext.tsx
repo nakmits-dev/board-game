@@ -39,43 +39,29 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
     }
   }, [state.isNetworkGame, state.roomId, state.isHost, isConnected, startRoomMonitoring]);
 
-  // 初期盤面のアップロード（ホストのみ、ゲーム開始時に1回だけ）
+  // 🆕 最適化された初期盤面のアップロード（ホストのみ、ゲーム開始時に1回だけ）
   useEffect(() => {
     if (state.isNetworkGame && state.isHost && state.gamePhase === 'action' && 
         state.roomId && !initialStateUploaded.current && isConnected) {
       
       console.log('📤 初期盤面アップロード開始');
       
+      // 🆕 最適化された初期状態データ（必要最小限の情報のみ）
       const initialState = {
-        characters: state.characters.map(char => ({
-          id: char.id,
-          name: char.name,
-          type: char.type,
-          team: char.team,
-          position: char.position,
-          hp: char.hp,
-          maxHp: char.maxHp,
-          attack: char.attack,
-          defense: char.defense,
-          actions: char.actions,
-          cost: char.cost,
-          image: char.image,
-          skillId: char.skillId,
-          ...(char.type === 'monster' && {
-            monsterType: char.monsterType,
-            canEvolve: char.canEvolve,
-            isEvolved: char.isEvolved
-          }),
-          ...(char.type === 'master' && {
-            masterType: char.masterType
-          })
-        })),
-        playerCrystals: state.playerCrystals,
-        enemyCrystals: state.enemyCrystals,
-        currentTeam: state.currentTeam,
-        currentTurn: state.currentTurn,
-        gamePhase: state.gamePhase,
+        // キャラクター情報（カードIDとチームのみ）
+        playerDeck: {
+          master: state.savedDecks?.player?.master || 'blue',
+          monsters: state.savedDecks?.player?.monsters || ['bear', 'wolf', 'golem']
+        },
+        enemyDeck: {
+          master: state.savedDecks?.enemy?.master || 'red',
+          monsters: state.savedDecks?.enemy?.monsters || ['bear', 'wolf', 'golem']
+        },
+        // ゲーム設定
         startingTeam: state.currentTeam,
+        hasTimeLimit: state.hasTimeLimit,
+        timeLimitSeconds: state.timeLimitSeconds,
+        // メタデータ
         uploadedAt: Date.now(),
         uploadedBy: 'host'
       };
@@ -90,8 +76,8 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
         });
     }
   }, [state.isNetworkGame, state.isHost, state.gamePhase, state.roomId, 
-      state.characters, state.playerCrystals, state.enemyCrystals, 
-      state.currentTeam, state.currentTurn, uploadInitialState, isConnected]);
+      state.savedDecks, state.currentTeam, state.hasTimeLimit, state.timeLimitSeconds, 
+      uploadInitialState, isConnected]);
 
   // ネットワーク同期コールバック
   useEffect(() => {
@@ -145,9 +131,10 @@ export const SimpleNetworkProvider: React.FC<SimpleNetworkProviderProps> = ({ ch
           to: move.to
         });
 
+        // 🔧 青チーム=host、赤チーム=guest の統一
         const networkAction = {
           turn: move.turn,
-          team: state.isHost ? 'enemy' : 'player',
+          team: state.isHost ? 'enemy' : 'player', // host=青チーム(player)、guest=赤チーム(enemy)
           type: move.action,
           from: move.from,
           to: move.to
