@@ -852,7 +852,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
       console.log('🎯 相手のアクションを処理:', networkAction.type);
 
-      // シンプルな座標ベースの同期処理
+      // 🔧 改善された座標ベースの同期処理
       switch (networkAction.type) {
         case 'move':
           // 座標から該当キャラクターを特定して移動
@@ -874,16 +874,28 @@ function gameReducer(state: GameState, action: GameAction): GameState {
               characters: updatedCharacters,
               pendingAnimations: [{ id: moveCharacter.id, type: 'move' }],
             };
+          } else {
+            console.warn('⚠️ 移動対象キャラクターが見つかりません:', networkAction.from);
           }
           break;
 
         case 'attack':
-          // 攻撃者と対象を座標から特定
+          // 🔧 攻撃者と対象を座標から特定（エラーハンドリング強化）
           const attacker = state.characters.find(char => 
             char.position.x === networkAction.from.x && 
             char.position.y === networkAction.from.y &&
             char.team === (state.isHost ? 'enemy' : 'player')
           );
+          
+          if (!attacker) {
+            console.error('❌ 攻撃者が見つかりません:', networkAction.from);
+            break;
+          }
+
+          if (!networkAction.to) {
+            console.error('❌ 攻撃対象の座標がありません:', networkAction);
+            break;
+          }
           
           const target = state.characters.find(char => 
             char.position.x === networkAction.to.x && 
@@ -891,43 +903,45 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             char.team === (state.isHost ? 'player' : 'enemy')
           );
           
-          if (attacker && target) {
-            console.log('⚔️ 攻撃処理:', attacker.name, '->', target.name);
-            const damage = Math.max(0, attacker.attack - target.defense);
-            const newHp = Math.max(0, target.hp - damage);
-            
-            const updatedCharacters = state.characters.map(char => {
-              if (char.id === attacker.id) {
-                return { ...char, remainingActions: char.remainingActions - 1 };
-              }
-              if (char.id === target.id) {
-                return { ...char, hp: newHp };
-              }
-              return char;
-            });
-
-            const animations = [
-              { id: attacker.id, type: 'attack' as const },
-              { id: target.id, type: 'damage' as const }
-            ];
-
-            if (newHp === 0) {
-              animations.push(
-                { id: target.id, type: 'ko' as const },
-                { id: target.team, type: 'crystal-gain' as const }
-              );
-            }
-
-            const { playerMasterAlive, enemyMasterAlive } = checkMasterStatus(updatedCharacters);
-
-            return {
-              ...state,
-              characters: updatedCharacters,
-              gamePhase: (!playerMasterAlive || !enemyMasterAlive) ? 'result' : 'action',
-              pendingAnimations: animations,
-            };
+          if (!target) {
+            console.error('❌ 攻撃対象が見つかりません:', networkAction.to);
+            break;
           }
-          break;
+          
+          console.log('⚔️ 攻撃処理:', attacker.name, '->', target.name);
+          const damage = Math.max(0, attacker.attack - target.defense);
+          const newHp = Math.max(0, target.hp - damage);
+          
+          const updatedCharacters = state.characters.map(char => {
+            if (char.id === attacker.id) {
+              return { ...char, remainingActions: char.remainingActions - 1 };
+            }
+            if (char.id === target.id) {
+              return { ...char, hp: newHp };
+            }
+            return char;
+          });
+
+          const animations = [
+            { id: attacker.id, type: 'attack' as const },
+            { id: target.id, type: 'damage' as const }
+          ];
+
+          if (newHp === 0) {
+            animations.push(
+              { id: target.id, type: 'ko' as const },
+              { id: target.team, type: 'crystal-gain' as const }
+            );
+          }
+
+          const { playerMasterAlive, enemyMasterAlive } = checkMasterStatus(updatedCharacters);
+
+          return {
+            ...state,
+            characters: updatedCharacters,
+            gamePhase: (!playerMasterAlive || !enemyMasterAlive) ? 'result' : 'action',
+            pendingAnimations: animations,
+          };
 
         case 'end_turn':
           // ターン終了処理
