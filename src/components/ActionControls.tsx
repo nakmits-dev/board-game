@@ -17,8 +17,19 @@ const ActionControls: React.FC = () => {
   }
   
   if (gamePhase === 'result') {
+    // 🔧 降参時の勝敗判定を修正
     const playerMasterAlive = characters.some(char => char.team === 'player' && char.type === 'master');
-    const winner = playerMasterAlive ? 'player' : 'enemy';
+    const enemyMasterAlive = characters.some(char => char.team === 'enemy' && char.type === 'master');
+    
+    // 両方のマスターが生きている場合は降参による勝敗
+    let winner: 'player' | 'enemy';
+    if (playerMasterAlive && enemyMasterAlive) {
+      // 降参の場合は現在のターンの相手が勝利
+      winner = currentTeam === 'player' ? 'enemy' : 'player';
+    } else {
+      // マスターが倒された場合
+      winner = playerMasterAlive ? 'player' : 'enemy';
+    }
 
     return (
       <div className="p-6 bg-white rounded-xl shadow-lg border border-blue-100">

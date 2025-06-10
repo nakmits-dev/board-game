@@ -451,18 +451,25 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     }
   };
 
-  // フィルタ変更時にスクロール位置を保持
+  // 🔧 フィルタ変更時にリセット（毎回リセット）
   const handleFilterChange = (newFilter: number | null) => {
-    const currentScrollTop = cardSelectionRef.current?.scrollTop || 0;
     setCostFilter(newFilter);
     
-    // フィルタ変更後にスクロール位置を復元
-    setTimeout(() => {
-      if (cardSelectionRef.current) {
-        cardSelectionRef.current.scrollTop = currentScrollTop;
-      }
-    }, 0);
+    // スクロール位置をトップにリセット
+    if (cardSelectionRef.current) {
+      cardSelectionRef.current.scrollTop = 0;
+    }
   };
+
+  // 🔧 ポジション選択時にフィルターをリセット
+  useEffect(() => {
+    if (selectedPosition) {
+      setCostFilter(null);
+      if (cardSelectionRef.current) {
+        cardSelectionRef.current.scrollTop = 0;
+      }
+    }
+  }, [selectedPosition]);
 
   // カード選択エリアの高さを動的に計算
   const getCardSelectionHeight = () => {

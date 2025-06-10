@@ -165,15 +165,16 @@ export const createInitialGameState = (
       }
     });
   } else {
-    // デフォルト編成（ブルーマスター + ベアー、ウルフ、ゴーレム）
-    const defaultHostDeck = { master: 'blue' as keyof typeof masterData, monsters: ['bear', 'wolf', 'golem'] as MonsterType[] };
+    // デフォルト編成（ブルーマスター + ウルフ、ベアー、ゴーレム）
+    // 🔧 青チームの初期配置変更：ベアーとウルフの位置を逆に
+    const defaultHostDeck = { master: 'blue' as keyof typeof masterData, monsters: ['wolf', 'bear', 'golem'] as MonsterType[] };
     const defaultGuestDeck = { master: 'red' as keyof typeof masterData, monsters: ['bear', 'wolf', 'golem'] as MonsterType[] };
     
     // ホストチーム
     characters.push(createMaster(defaultHostDeck.master, { x: 1, y: 3 }, 'player'));
     const hostPositions = [
-      { x: 0, y: 3 }, // 左：ベアー
-      { x: 2, y: 3 }, // 右：ウルフ  
+      { x: 0, y: 3 }, // 左：ウルフ（変更）
+      { x: 2, y: 3 }, // 右：ベアー（変更）
       { x: 1, y: 2 }  // 上：ゴーレム
     ];
     
