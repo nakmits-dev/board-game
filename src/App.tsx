@@ -41,18 +41,15 @@ const GameContent = () => {
     hostDeck: { master: keyof typeof masterData; monsters: MonsterType[] },
     guestDeck: { master: keyof typeof masterData; monsters: MonsterType[] }
   ) => {
-    // 🔧 編成内容を保存してDeckBuilderを閉じるだけ
+    // 編成内容を保存してDeckBuilderを閉じる
     handleCloseDeckBuilder(hostDeck, guestDeck);
-    
-    // 🔧 ゲーム開始処理は handleGameStart で行う
   };
 
   const handleGameStart = () => {
-    // 🔧 チェックを1回だけ実行
+    // チェックを1回だけ実行
     const hasValidDecks = !!(savedDecks.host && savedDecks.guest);
     
     if (!hasValidDecks) {
-      console.warn('⚠️ ゲーム開始不可: デッキが不完全');
       return;
     }
     
@@ -60,8 +57,7 @@ const GameContent = () => {
       dispatch({ type: 'RESET_GAME' });
     }
     
-    // 🔧 保存されたデッキでゲーム開始（1回のみ実行）
-    console.log('🎮 ゲーム開始');
+    // 保存されたデッキでゲーム開始
     dispatch({ 
       type: 'START_LOCAL_GAME', 
       hostDeck: savedDecks.host!, 
@@ -69,7 +65,7 @@ const GameContent = () => {
     });
   };
 
-  // 🔧 ボタンの活性化状態を計算（レンダリング時のみ）
+  // ボタンの活性化状態を計算
   const isGameStartEnabled = !!(savedDecks.host && savedDecks.guest);
 
   if (showDeckBuilder) {

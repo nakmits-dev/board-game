@@ -7,15 +7,15 @@ import CharacterCard from './CharacterCard';
 
 interface DeckBuilderProps {
   onStartGame: (
-    playerDeck: { master: keyof typeof masterData; monsters: MonsterType[] },
-    enemyDeck: { master: keyof typeof masterData; monsters: MonsterType[] }
+    hostDeck: { master: keyof typeof masterData; monsters: MonsterType[] },
+    guestDeck: { master: keyof typeof masterData; monsters: MonsterType[] }
   ) => void;
   onClose: (
-    playerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] },
-    enemyDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }
+    hostDeck?: { master: keyof typeof masterData; monsters: MonsterType[] },
+    guestDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }
   ) => void;
-  initialPlayerDeck?: { master: keyof typeof masterData; monsters: MonsterType[] };
-  initialEnemyDeck?: { master: keyof typeof masterData; monsters: MonsterType[] };
+  initialHostDeck?: { master: keyof typeof masterData; monsters: MonsterType[] };
+  initialGuestDeck?: { master: keyof typeof masterData; monsters: MonsterType[] };
 }
 
 interface PositionAssignment {
@@ -27,8 +27,8 @@ interface PositionAssignment {
 const DeckBuilder: React.FC<DeckBuilderProps> = ({ 
   onStartGame, 
   onClose, 
-  initialPlayerDeck, 
-  initialEnemyDeck 
+  initialHostDeck, 
+  initialGuestDeck 
 }) => {
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
   const [costFilter, setCostFilter] = useState<number | null>(null);
@@ -77,13 +77,13 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     });
   };
 
-  // 🔧 初期状態を設定（プロップスから受け取った編成を使用）
+  // 初期状態を設定（プロップスから受け取った編成を使用）
   const getInitialState = () => {
-    if (initialPlayerDeck && initialEnemyDeck) {
+    if (initialHostDeck && initialGuestDeck) {
       // 既存の編成がある場合はそれを使用
       return {
-        player: createAssignmentsFromDeck(initialPlayerDeck, true),
-        enemy: createAssignmentsFromDeck(initialEnemyDeck, false)
+        player: createAssignmentsFromDeck(initialHostDeck, true),
+        enemy: createAssignmentsFromDeck(initialGuestDeck, false)
       };
     } else {
       // 新規の場合はオールクリア状態
@@ -94,16 +94,15 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     }
   };
 
-  const initialState = getInitialState();
-  const [playerAssignments, setPlayerAssignments] = useState<PositionAssignment[]>(initialState.player);
-  const [enemyAssignments, setEnemyAssignments] = useState<PositionAssignment[]>(initialState.enemy);
+  const [playerAssignments, setPlayerAssignments] = useState<PositionAssignment[]>(() => getInitialState().player);
+  const [enemyAssignments, setEnemyAssignments] = useState<PositionAssignment[]>(() => getInitialState().enemy);
   
-  // 🔧 プロップスが変更された場合に状態を更新
+  // プロップスが変更された場合に状態を更新
   useEffect(() => {
     const newState = getInitialState();
     setPlayerAssignments(newState.player);
     setEnemyAssignments(newState.enemy);
-  }, [initialPlayerDeck, initialEnemyDeck]);
+  }, [initialHostDeck, initialGuestDeck]);
   
   const getTotalCost = (assignments: PositionAssignment[]) => {
     return assignments.reduce((total, assignment) => {
@@ -200,7 +199,6 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     return !!playerMaster && !!enemyMaster;
   };
 
-  // 🔧 完了ボタンの処理を修正（編成内容を保存して戻る）
   const handleComplete = () => {
     if (!canStartGame()) return;
     
@@ -215,7 +213,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
       .filter(a => a.type === 'monster' && a.id)
       .map(a => a.id as MonsterType);
     
-    // 🔧 編成内容を保存して戻る（ゲーム開始はしない）
+    // 編成内容を保存して戻る（ゲーム開始はしない）
     onClose(
       { master: playerMaster, monsters: playerMonsters },
       { master: enemyMaster, monsters: enemyMonsters }
