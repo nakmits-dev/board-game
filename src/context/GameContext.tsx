@@ -21,6 +21,7 @@ type GameAction =
   | { type: 'SET_PENDING_ANIMATIONS'; animations: AnimationSequence[] }
   | { type: 'REMOVE_DEFEATED_CHARACTERS'; targetId: string; killerTeam?: Team }
   | { type: 'EVOLVE_CHARACTER'; characterId: string }
+  | { type: 'CHECK_GAME_END' }
   | { type: 'SURRENDER'; team: Team };
 
 interface GameContextType {
@@ -123,7 +124,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       let animations: AnimationSequence[] = [];
       let newPlayerCrystals = state.playerCrystals;
       let newEnemyCrystals = state.enemyCrystals;
-      let newGamePhase = state.gamePhase;
 
       if (state.pendingAction.type === 'move' && state.pendingAction.position) {
         animations.push({ id: character.id, type: 'move' });
@@ -152,26 +152,22 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           if (newHp === 0) {
             animations.push({ id: target.id, type: 'ko' });
 
-            // 🔧 マスターが倒された場合は即座にゲーム終了（進化やクリスタル取得なし）
-            if (target.type === 'master') {
-              newGamePhase = 'result';
+            // 🔧 マスターが倒された場合でもクリスタル取得とアニメーションは実行
+            // 勝利判定は気絶アニメーション後に別途実行
+            // クリスタル取得ルール変更：倒された側がクリスタルを取得
+            if (target.team === 'player') {
+              newPlayerCrystals = Math.min(8, newPlayerCrystals + target.cost);
+              animations.push({ id: 'player-crystal', type: 'crystal-gain' });
             } else {
-              // 🔧 モンスターが倒された場合のみクリスタル取得と進化処理
-              // クリスタル取得ルール変更：倒された側がクリスタルを取得
-              if (target.team === 'player') {
-                newPlayerCrystals = Math.min(8, newPlayerCrystals + target.cost);
-                animations.push({ id: 'player-crystal', type: 'crystal-gain' });
-              } else {
-                newEnemyCrystals = Math.min(8, newEnemyCrystals + target.cost);
-                animations.push({ id: 'enemy-crystal', type: 'crystal-gain' });
-              }
+              newEnemyCrystals = Math.min(8, newEnemyCrystals + target.cost);
+              animations.push({ id: 'enemy-crystal', type: 'crystal-gain' });
+            }
 
-              // 進化処理（攻撃側のキャラクターが進化可能な場合）
-              if (character.type === 'monster' && !character.isEvolved && character.monsterType) {
-                const evolvedType = getEvolvedMonsterType(character.monsterType);
-                if (evolvedType) {
-                  animations.push({ id: character.id, type: 'evolve' });
-                }
+            // 進化処理（攻撃側のキャラクターが進化可能な場合）
+            if (character.type === 'monster' && !character.isEvolved && character.monsterType) {
+              const evolvedType = getEvolvedMonsterType(character.monsterType);
+              if (evolvedType) {
+                animations.push({ id: character.id, type: 'evolve' });
               }
             }
           }
@@ -198,7 +194,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         pendingAnimations: animations,
         playerCrystals: newPlayerCrystals,
         enemyCrystals: newEnemyCrystals,
-        gamePhase: newGamePhase,
       };
     }
 
@@ -264,7 +259,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       let animations: AnimationSequence[] = [{ id: state.selectedCharacter.id, type: 'attack' }];
       let newPlayerCrystals = state.playerCrystals;
       let newEnemyCrystals = state.enemyCrystals;
-      let newGamePhase = state.gamePhase;
 
       if (state.currentTeam === 'player') {
         newPlayerCrystals = Math.max(0, newPlayerCrystals - skill.crystalCost);
@@ -300,19 +294,15 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         if (newHp === 0) {
           animations.push({ id: target.id, type: 'ko' });
 
-          // 🔧 マスターが倒された場合は即座にゲーム終了（クリスタル取得なし）
-          if (target.type === 'master') {
-            newGamePhase = 'result';
+          // 🔧 マスターが倒された場合でもクリスタル取得とアニメーションは実行
+          // 勝利判定は気絶アニメーション後に別途実行
+          // クリスタル取得ルール変更：倒された側がクリスタルを取得
+          if (target.team === 'player') {
+            newPlayerCrystals = Math.min(8, newPlayerCrystals + target.cost);
+            animations.push({ id: 'player-crystal', type: 'crystal-gain' });
           } else {
-            // 🔧 モンスターが倒された場合のみクリスタル取得
-            // クリスタル取得ルール変更：倒された側がクリスタルを取得
-            if (target.team === 'player') {
-              newPlayerCrystals = Math.min(8, newPlayerCrystals + target.cost);
-              animations.push({ id: 'player-crystal', type: 'crystal-gain' });
-            } else {
-              newEnemyCrystals = Math.min(8, newEnemyCrystals + target.cost);
-              animations.push({ id: 'enemy-crystal', type: 'crystal-gain' });
-            }
+            newEnemyCrystals = Math.min(8, newEnemyCrystals + target.cost);
+            animations.push({ id: 'enemy-crystal', type: 'crystal-gain' });
           }
         }
 
@@ -350,7 +340,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         pendingAnimations: animations,
         playerCrystals: newPlayerCrystals,
         enemyCrystals: newEnemyCrystals,
-        gamePhase: newGamePhase,
       };
     }
 
@@ -360,13 +349,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
       let hostCrystals = state.playerCrystals;
       let guestCrystals = state.enemyCrystals;
-
-      if (state.gamePhase === 'result') {
-        return {
-          ...state,
-          characters: updatedCharacters,
-        };
-      }
 
       // 🔧 クリスタル取得処理は既に他の場所で行われているため、ここでは重複処理を削除
       // if (defeatedCharacter) {
@@ -379,16 +361,26 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       //   }
       // }
 
-      const hostMasterAlive = updatedCharacters.some(char => char.team === 'player' && char.type === 'master');
-      const guestMasterAlive = updatedCharacters.some(char => char.team === 'enemy' && char.type === 'master');
-
       return {
         ...state,
         characters: updatedCharacters,
         playerCrystals: hostCrystals,
         enemyCrystals: guestCrystals,
-        gamePhase: (!hostMasterAlive || !guestMasterAlive) ? 'result' : 'action',
       };
+    }
+
+    case 'CHECK_GAME_END': {
+      const hostMasterAlive = state.characters.some(char => char.team === 'player' && char.type === 'master');
+      const guestMasterAlive = state.characters.some(char => char.team === 'enemy' && char.type === 'master');
+
+      if (!hostMasterAlive || !guestMasterAlive) {
+        return {
+          ...state,
+          gamePhase: 'result',
+        };
+      }
+
+      return state;
     }
 
     case 'CANCEL_ACTION': {
@@ -552,17 +544,18 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           dispatch({ type: 'SET_ANIMATION_TARGET', target: animation });
           await new Promise(resolve => setTimeout(resolve, ANIMATION_DURATION));
           
-          if (state.gamePhase === 'result') {
-            if (animation.type === 'ko') {
-              await new Promise(resolve => setTimeout(resolve, 100));
-              dispatch({ type: 'REMOVE_DEFEATED_CHARACTERS', targetId: animation.id });
-            }
-            continue;
-          }
-          
           if (animation.type === 'ko') {
             await new Promise(resolve => setTimeout(resolve, 100));
             dispatch({ type: 'REMOVE_DEFEATED_CHARACTERS', targetId: animation.id });
+            
+            // 🔧 気絶アニメーション後に勝利判定をチェック
+            // マスターが倒された場合の勝利判定
+            const defeatedCharacter = state.characters.find(char => char.id === animation.id);
+            if (defeatedCharacter?.type === 'master') {
+              // 少し遅延してから勝利判定
+              await new Promise(resolve => setTimeout(resolve, 200));
+              dispatch({ type: 'CHECK_GAME_END' });
+            }
           } else if (animation.type === 'evolve') {
             await new Promise(resolve => setTimeout(resolve, 100));
             dispatch({ type: 'EVOLVE_CHARACTER', characterId: animation.id });
