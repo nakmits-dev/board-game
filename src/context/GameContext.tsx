@@ -826,12 +826,12 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     case 'START_LOCAL_GAME': {
       const newState = createInitialGameState(action.hostDeck, action.guestDeck);
       
-      // 棋譜に記録
+      // 🔧 ゲーム開始時の棋譜記録を1つにまとめる
       addGameHistoryMove(
         0,
         'player',
         'game_start',
-        'ゲーム開始'
+        'ローカルゲーム開始 - 青チームのターン'
       );
       
       return {
