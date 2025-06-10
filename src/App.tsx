@@ -6,6 +6,7 @@ import ActionControls from './components/ActionControls';
 import TurnOrder from './components/TurnOrder';
 import CrystalDisplay from './components/CrystalDisplay';
 import DeckBuilder from './components/DeckBuilder';
+import StartingTeamSelector from './components/StartingTeamSelector';
 import ShareButton from './components/ShareButton';
 import Tutorial from './components/Tutorial';
 import { useGame } from './context/GameContext';
@@ -18,6 +19,7 @@ const GameContent = () => {
   const { gamePhase } = state;
   const [showDeckBuilder, setShowDeckBuilder] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [startingTeam, setStartingTeam] = useState<'player' | 'enemy' | 'random'>('player');
 
   const handleShowDeckBuilder = () => {
     setShowDeckBuilder(true);
@@ -57,11 +59,20 @@ const GameContent = () => {
       dispatch({ type: 'RESET_GAME' });
     }
     
+    // 開始チームを決定
+    let actualStartingTeam: 'player' | 'enemy';
+    if (startingTeam === 'random') {
+      actualStartingTeam = Math.random() < 0.5 ? 'player' : 'enemy';
+    } else {
+      actualStartingTeam = startingTeam;
+    }
+    
     // 保存されたデッキでゲーム開始
     dispatch({ 
       type: 'START_LOCAL_GAME', 
       hostDeck: savedDecks.host!, 
-      guestDeck: savedDecks.guest! 
+      guestDeck: savedDecks.guest!,
+      startingTeam: actualStartingTeam
     });
   };
 
@@ -107,24 +118,35 @@ const GameContent = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
             {(gamePhase === 'preparation' || gamePhase === 'result') ? (
-              <div className="flex justify-center gap-4 mb-4">
-                <button
-                  className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow-lg transform transition hover:scale-105"
-                  onClick={handleShowDeckBuilder}
-                >
-                  チーム編成
-                </button>
-                <button
-                  className={`px-6 py-3 font-bold rounded-lg shadow-lg transform transition ${
-                    isGameStartEnabled
-                      ? 'bg-blue-600 hover:bg-blue-700 text-white hover:scale-105'
-                      : 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                  }`}
-                  onClick={handleGameStart}
-                  disabled={!isGameStartEnabled}
-                >
-                  {gamePhase === 'preparation' ? 'ゲーム開始' : 'もう一度プレイ'}
-                </button>
+              <div className="space-y-4">
+                {/* 開始チーム選択 */}
+                <div className="flex justify-center">
+                  <StartingTeamSelector
+                    startingTeam={startingTeam}
+                    onStartingTeamChange={setStartingTeam}
+                  />
+                </div>
+                
+                {/* ボタン */}
+                <div className="flex justify-center gap-4">
+                  <button
+                    className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow-lg transform transition hover:scale-105"
+                    onClick={handleShowDeckBuilder}
+                  >
+                    チーム編成
+                  </button>
+                  <button
+                    className={`px-6 py-3 font-bold rounded-lg shadow-lg transform transition ${
+                      isGameStartEnabled
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white hover:scale-105'
+                        : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                    }`}
+                    onClick={handleGameStart}
+                    disabled={!isGameStartEnabled}
+                  >
+                    {gamePhase === 'preparation' ? 'ゲーム開始' : 'もう一度プレイ'}
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="mb-4">

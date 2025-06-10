@@ -2,14 +2,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import { MonsterType, MasterCard, Position } from '../types/gameTypes';
 import { monsterData, masterData, generateTeamWithCost8 } from '../data/cardData';
 import { skillData } from '../data/skillData';
-import { Shield, Sword, Sparkle, Heart, Crown, Gitlab as GitLab, Play, X, Filter, Star, Shuffle, ArrowLeft, Trash2, Eye, EyeOff, HelpCircle, Dice1 } from 'lucide-react';
+import { Shield, Sword, Sparkle, Heart, Crown, Gitlab as GitLab, Play, X, Filter, Star, Shuffle, ArrowLeft, Trash2, Eye, EyeOff, HelpCircle } from 'lucide-react';
 import CharacterCard from './CharacterCard';
 
 interface DeckBuilderProps {
   onStartGame: (
     hostDeck: { master: keyof typeof masterData; monsters: MonsterType[] },
-    guestDeck: { master: keyof typeof masterData; monsters: MonsterType[] },
-    startingTeam?: 'player' | 'enemy' | 'random'
+    guestDeck: { master: keyof typeof masterData; monsters: MonsterType[] }
   ) => void;
   onClose: (
     hostDeck?: { master: keyof typeof masterData; monsters: MonsterType[] },
@@ -34,7 +33,6 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
   const [costFilter, setCostFilter] = useState<number | null>(null);
   const [secretMode, setSecretMode] = useState(false);
-  const [startingTeam, setStartingTeam] = useState<'player' | 'enemy' | 'random'>('player');
   const cardSelectionRef = useRef<HTMLDivElement>(null);
   
   // 空の初期状態を作成する関数
@@ -219,28 +217,6 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     onClose(
       { master: playerMaster, monsters: playerMonsters },
       { master: enemyMaster, monsters: enemyMonsters }
-    );
-  };
-
-  const handleStartGame = () => {
-    if (!canStartGame()) return;
-    
-    const playerMaster = playerAssignments.find(a => a.type === 'master')?.id as keyof typeof masterData;
-    const enemyMaster = enemyAssignments.find(a => a.type === 'master')?.id as keyof typeof masterData;
-    
-    const playerMonsters = playerAssignments
-      .filter(a => a.type === 'monster' && a.id)
-      .map(a => a.id as MonsterType);
-    
-    const enemyMonsters = enemyAssignments
-      .filter(a => a.type === 'monster' && a.id)
-      .map(a => a.id as MonsterType);
-    
-    // ゲーム開始
-    onStartGame(
-      { master: playerMaster, monsters: playerMonsters },
-      { master: enemyMaster, monsters: enemyMonsters },
-      startingTeam
     );
   };
 
@@ -591,48 +567,6 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
               </div>
             </div>
           </div>
-
-          {/* 🆕 開始チーム選択 */}
-          <div className="flex justify-center mb-4">
-            <div className="bg-gray-50 rounded-lg p-3">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-sm font-medium text-gray-700">開始チーム:</span>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setStartingTeam('player')}
-                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    startingTeam === 'player'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white text-blue-600 hover:bg-blue-50'
-                  }`}
-                >
-                  青チーム
-                </button>
-                <button
-                  onClick={() => setStartingTeam('enemy')}
-                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    startingTeam === 'enemy'
-                      ? 'bg-red-600 text-white'
-                      : 'bg-white text-red-600 hover:bg-red-50'
-                  }`}
-                >
-                  赤チーム
-                </button>
-                <button
-                  onClick={() => setStartingTeam('random')}
-                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1 ${
-                    startingTeam === 'random'
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-white text-purple-600 hover:bg-purple-50'
-                  }`}
-                >
-                  <Dice1 size={14} />
-                  ランダム
-                </button>
-              </div>
-            </div>
-          </div>
           
           {/* ボタン配置 */}
           <div className="flex justify-center gap-2">
@@ -663,19 +597,6 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
             >
               <Play size={14} />
               完了
-            </button>
-
-            <button
-              onClick={handleStartGame}
-              disabled={!canStartGame()}
-              className={`px-4 py-2 font-bold rounded-lg shadow transform transition flex items-center gap-1.5 text-sm ${
-                canStartGame()
-                  ? 'bg-blue-600 hover:bg-blue-700 text-white hover:scale-105'
-                  : 'bg-gray-400 text-gray-200 cursor-not-allowed'
-              }`}
-            >
-              <Play size={14} />
-              ゲーム開始
             </button>
           </div>
         </div>

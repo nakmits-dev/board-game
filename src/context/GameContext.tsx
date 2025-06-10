@@ -13,7 +13,7 @@ type GameAction =
   | { type: 'SELECT_SKILL'; skill: Skill }
   | { type: 'USE_SKILL'; targetId: string }
   | { type: 'END_TURN' }
-  | { type: 'START_LOCAL_GAME'; hostDeck: { master: keyof typeof masterData; monsters: MonsterType[] }; guestDeck: { master: keyof typeof masterData; monsters: MonsterType[] } }
+  | { type: 'START_LOCAL_GAME'; hostDeck: { master: keyof typeof masterData; monsters: MonsterType[] }; guestDeck: { master: keyof typeof masterData; monsters: MonsterType[] }; startingTeam?: 'player' | 'enemy' }
   | { type: 'RESET_GAME' }
   | { type: 'UPDATE_PREVIEW'; hostDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }; guestDeck?: { master: keyof typeof masterData; monsters: MonsterType[] } }
   | { type: 'SET_SAVED_DECKS'; hostDeck: { master: keyof typeof masterData; monsters: MonsterType[] }; guestDeck: { master: keyof typeof masterData; monsters: MonsterType[] } }
@@ -456,15 +456,18 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     case 'START_LOCAL_GAME': {
       const newState = createInitialGameState(action.hostDeck, action.guestDeck);
       
+      // 開始チームを決定
+      const startingTeam = action.startingTeam || 'player';
+      
       return {
         ...newState,
         gamePhase: 'action',
-        currentTeam: 'player',
+        currentTeam: startingTeam,
         characters: newState.characters.map(char => ({
           ...char,
-          remainingActions: char.team === 'player' ? char.actions : 0,
+          remainingActions: char.team === startingTeam ? char.actions : 0,
         })),
-        pendingAnimations: [{ id: 'player', type: 'turn-start' }],
+        pendingAnimations: [{ id: startingTeam, type: 'turn-start' }],
         savedDecks: {
           host: action.hostDeck,
           guest: action.guestDeck
