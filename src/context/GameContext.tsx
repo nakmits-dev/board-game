@@ -143,6 +143,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           const damage = Math.max(0, character.attack - target.defense);
           const newHp = Math.max(0, target.hp - damage);
           
+          // 🔧 アニメーション順序を正しく設定：攻撃 → ダメージ → 気絶 → クリスタル取得
           animations.push(
             { id: character.id, type: 'attack' },
             { id: target.id, type: 'damage' }
@@ -156,13 +157,13 @@ function gameReducer(state: GameState, action: GameAction): GameState {
               newGamePhase = 'result';
             } else {
               // 🔧 モンスターが倒された場合のみクリスタル取得と進化処理
-              animations.push({ id: target.team, type: 'crystal-gain' });
-
-              // 🔧 クリスタル取得ルール変更：倒された側がクリスタルを取得
+              // クリスタル取得ルール変更：倒された側がクリスタルを取得
               if (target.team === 'player') {
                 newPlayerCrystals = Math.min(8, newPlayerCrystals + target.cost);
+                animations.push({ id: 'player-crystal', type: 'crystal-gain' });
               } else {
                 newEnemyCrystals = Math.min(8, newEnemyCrystals + target.cost);
+                animations.push({ id: 'enemy-crystal', type: 'crystal-gain' });
               }
 
               // 進化処理（攻撃側のキャラクターが進化可能な場合）
@@ -304,13 +305,13 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             newGamePhase = 'result';
           } else {
             // 🔧 モンスターが倒された場合のみクリスタル取得
-            animations.push({ id: target.team, type: 'crystal-gain' });
-
-            // 🔧 クリスタル取得ルール変更：倒された側がクリスタルを取得
+            // クリスタル取得ルール変更：倒された側がクリスタルを取得
             if (target.team === 'player') {
               newPlayerCrystals = Math.min(8, newPlayerCrystals + target.cost);
+              animations.push({ id: 'player-crystal', type: 'crystal-gain' });
             } else {
               newEnemyCrystals = Math.min(8, newEnemyCrystals + target.cost);
+              animations.push({ id: 'enemy-crystal', type: 'crystal-gain' });
             }
           }
         }
