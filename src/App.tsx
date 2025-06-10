@@ -119,33 +119,33 @@ const GameContent = () => {
           <div className="lg:col-span-2">
             {(gamePhase === 'preparation' || gamePhase === 'result') ? (
               <div className="space-y-4">
-                {/* 開始チーム選択 */}
-                <div className="flex justify-center">
+                {/* ボタンと開始チーム選択を1行に */}
+                <div className="flex justify-center items-center gap-6">
+                  <div className="flex gap-4">
+                    <button
+                      className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow-lg transform transition hover:scale-105"
+                      onClick={handleShowDeckBuilder}
+                    >
+                      チーム編成
+                    </button>
+                    <button
+                      className={`px-6 py-3 font-bold rounded-lg shadow-lg transform transition ${
+                        isGameStartEnabled
+                          ? 'bg-blue-600 hover:bg-blue-700 text-white hover:scale-105'
+                          : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                      }`}
+                      onClick={handleGameStart}
+                      disabled={!isGameStartEnabled}
+                    >
+                      {gamePhase === 'preparation' ? 'ゲーム開始' : 'もう一度プレイ'}
+                    </button>
+                  </div>
+                  
+                  {/* 開始チーム選択 */}
                   <StartingTeamSelector
                     startingTeam={startingTeam}
                     onStartingTeamChange={setStartingTeam}
                   />
-                </div>
-                
-                {/* ボタン */}
-                <div className="flex justify-center gap-4">
-                  <button
-                    className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow-lg transform transition hover:scale-105"
-                    onClick={handleShowDeckBuilder}
-                  >
-                    チーム編成
-                  </button>
-                  <button
-                    className={`px-6 py-3 font-bold rounded-lg shadow-lg transform transition ${
-                      isGameStartEnabled
-                        ? 'bg-blue-600 hover:bg-blue-700 text-white hover:scale-105'
-                        : 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                    }`}
-                    onClick={handleGameStart}
-                    disabled={!isGameStartEnabled}
-                  >
-                    {gamePhase === 'preparation' ? 'ゲーム開始' : 'もう一度プレイ'}
-                  </button>
                 </div>
               </div>
             ) : (
