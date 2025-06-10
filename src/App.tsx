@@ -9,6 +9,7 @@ import DeckBuilder from './components/DeckBuilder';
 import ShareButton from './components/ShareButton';
 import Tutorial from './components/Tutorial';
 import GameHistory from './components/GameHistory';
+import BoardActionInput from './components/BoardActionInput';
 import { useGame } from './context/GameContext';
 import { MonsterType } from './types/gameTypes';
 import { masterData } from './data/cardData';
@@ -21,6 +22,7 @@ const GameContent = () => {
   const [showTutorial, setShowTutorial] = useState(false);
 
   const handleShowDeckBuilder = () => {
+    console.log(`🎮 [App] DeckBuilder表示`);
     setShowDeckBuilder(true);
   };
 
@@ -28,34 +30,77 @@ const GameContent = () => {
     hostDeck?: { master: keyof typeof masterData; monsters: MonsterType[] },
     guestDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }
   ) => {
+    console.log(`🎮 [App] DeckBuilder終了:`, { hostDeck, guestDeck });
+    
+    // 編成内容を保存
     if (hostDeck && guestDeck) {
-      // 新しいゲームを開始
-      dispatch({ 
-        type: 'START_GAME', 
-        hostDeck, 
-        guestDeck 
-      });
+      dispatch({ type: 'SET_SAVED_DECKS', hostDeck, guestDeck });
+      
+      // 準備画面でのプレビューを更新
+      dispatch({ type: 'UPDATE_PREVIEW', hostDeck, guestDeck });
     }
     setShowDeckBuilder(false);
   };
 
-  const handleStartGame = () => {
-    if (gamePhase === 'result') {
-      dispatch({ type: 'RESET_GAME' });
-    }
-    handleShowDeckBuilder();
+  const handleStartLocalGame = (
+    hostDeck: { master: keyof typeof masterData; monsters: MonsterType[] },
+    guestDeck: { master: keyof typeof masterData; monsters: MonsterType[] }
+  ) => {
+    console.log(`🎮 [App] ローカルゲーム開始処理:`, { hostDeck, guestDeck });
+    
+    // 🔧 編成内容を保存してDeckBuilderを閉じるだけ
+    handleCloseDeckBuilder(hostDeck, guestDeck);
+    
+    // 🔧 ゲーム開始処理は handleGameStart で行う
   };
 
-  const canStartGame = () => {
-    return !!(savedDecks.host && savedDecks.guest);
+  const handleGameStart = () => {
+    console.log(`🎮 [App] ゲーム開始ボタンクリック:`, {
+      canStart: canStartGame(),
+      savedDecks,
+      gamePhase
+    });
+    
+    if (!canStartGame()) return;
+    
+    if (gamePhase === 'result') {
+      console.log(`🎮 [App] ゲームリセット実行`);
+      dispatch({ type: 'RESET_GAME' });
+    }
+    
+    // 🔧 保存されたデッキでゲーム開始（1回のみ実行）
+    console.log(`🎮 [App] START_LOCAL_GAME ディスパッチ実行`);
+    dispatch({ 
+      type: 'START_LOCAL_GAME', 
+      hostDeck: savedDecks.host!, 
+      guestDeck: savedDecks.guest! 
+    });
   };
+
+  // 対戦開始ボタンの活性化条件をチェック
+  const canStartGame = () => {
+    const result = !!(savedDecks.host && savedDecks.guest);
+    console.log(`🎮 [App] ゲーム開始可能チェック:`, { 
+      result, 
+      hasHost: !!savedDecks.host, 
+      hasGuest: !!savedDecks.guest 
+    });
+    return result;
+  };
+
+  // ゲームフェーズの変更を監視
+  useEffect(() => {
+    console.log(`🎮 [App] ゲームフェーズ変更:`, {
+      gamePhase,
+      currentTeam: state.currentTeam,
+      currentTurn: state.currentTurn
+    });
+  }, [gamePhase, state.currentTeam, state.currentTurn]);
 
   if (showDeckBuilder) {
     return (
       <DeckBuilder 
-        onStartGame={(hostDeck, guestDeck) => {
-          handleCloseDeckBuilder(hostDeck, guestDeck);
-        }} 
+        onStartGame={handleStartLocalGame} 
         onClose={handleCloseDeckBuilder}
         initialHostDeck={savedDecks.host}
         initialGuestDeck={savedDecks.guest}
@@ -94,7 +139,18 @@ const GameContent = () => {
               <div className="flex justify-center gap-4 mb-4">
                 <button
                   className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow-lg transform transition hover:scale-105"
-                  onClick={handleStartGame}
+                  onClick={handleShowDeckBuilder}
+                >
+                  チーム編成
+                </button>
+                <button
+                  className={`px-6 py-3 font-bold rounded-lg shadow-lg transform transition ${
+                    canStartGame()
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white hover:scale-105'
+                      : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                  }`}
+                  onClick={handleGameStart}
+                  disabled={!canStartGame()}
                 >
                   {gamePhase === 'preparation' ? 'ゲーム開始' : 'もう一度プレイ'}
                 </button>
@@ -104,6 +160,9 @@ const GameContent = () => {
                 <TurnOrder />
               </div>
             )}
+            
+            {/* 🆕 棋譜入力コンポーネント */}
+            <BoardActionInput />
             
             <div className="flex justify-center mb-4 relative">
               <CrystalDisplay />
@@ -143,6 +202,8 @@ const GameContent = () => {
 };
 
 function App() {
+  console.log(`🎮 [App] アプリケーション初期化`);
+  
   return (
     <GameProvider>
       <GameContent />

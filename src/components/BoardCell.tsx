@@ -10,16 +10,103 @@ interface BoardCellProps {
 
 const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
   const { state, dispatch, isValidMove, isValidAttack, isValidSkillTarget, getCharacterAt } = useGame();
-  const { selectedCharacter, currentTeam, gamePhase, selectedSkill } = state;
+  const { selectedCharacter, currentTeam, gamePhase, animationTarget, selectedAction, selectedSkill, playerCrystals, enemyCrystals } = state;
   const [showModal, setShowModal] = React.useState(false);
+  const [isDragOver, setIsDragOver] = React.useState(false);
   const [lastTap, setLastTap] = React.useState(0);
+  const [actionInProgress, setActionInProgress] = React.useState(false);
   
   const character = getCharacterAt(position);
   const isSelected = selectedCharacter?.id === character?.id;
   const isActionable = gamePhase === 'action' && character?.team === currentTeam && character.remainingActions > 0;
-  
+  const canMoveTo = selectedCharacter && gamePhase === 'action' && !character && isValidMove(position) && selectedAction !== 'skill';
+  const canAttack = selectedCharacter && gamePhase === 'action' && character && isValidAttack(character.id) && selectedAction !== 'skill';
+  const canUseSkill = selectedCharacter && gamePhase === 'action' && character && selectedAction === 'skill' && isValidSkillTarget(character.id);
+
   // スマホかどうかを判定
   const isMobile = window.innerWidth < 1024;
+
+  const executeAction = React.useCallback(async (actionType: 'move' | 'attack' | 'skill', targetId?: string, targetPosition?: Position) => {
+    if (actionInProgress) {
+      return;
+    }
+
+    setActionInProgress(true);
+
+    try {
+      if (actionType === 'move' && targetPosition) {
+        dispatch({
+          type: 'SET_PENDING_ACTION',
+          action: { type: 'move', position: targetPosition }
+        });
+        dispatch({ type: 'CONFIRM_ACTION' });
+      } else if (actionType === 'attack' && targetId) {
+        dispatch({
+          type: 'SET_PENDING_ACTION',
+          action: { type: 'attack', targetId }
+        });
+        dispatch({ type: 'CONFIRM_ACTION' });
+      } else if (actionType === 'skill' && targetId) {
+        dispatch({ type: 'USE_SKILL', targetId });
+      }
+    } finally {
+      setTimeout(() => {
+        setActionInProgress(false);
+      }, 200);
+    }
+  }, [actionInProgress, dispatch]);
+
+  React.useEffect(() => {
+    setActionInProgress(false);
+  }, [selectedCharacter?.id, selectedAction]);
+
+  // PCドラッグイベントハンドラー（PC専用）
+  const handleDragStart = (e: React.DragEvent) => {
+    if (isMobile) return;
+    
+    if (character && character.team === currentTeam && character.remainingActions > 0) {
+      e.dataTransfer.setData('text/plain', character.id);
+      e.dataTransfer.effectAllowed = 'move';
+      dispatch({ type: 'SELECT_CHARACTER', character });
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    if (isMobile) return;
+    
+    e.preventDefault();
+    if (!selectedCharacter || selectedAction === 'skill') return;
+    
+    const isValidTarget = (!character && isValidMove(position)) || (character && isValidAttack(character.id));
+    if (isValidTarget) {
+      e.dataTransfer.dropEffect = 'move';
+      setIsDragOver(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    if (isMobile) return;
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    if (isMobile) return;
+    
+    e.preventDefault();
+    setIsDragOver(false);
+    
+    if (selectedAction === 'skill' || actionInProgress) return;
+    
+    const draggedCharacterId = e.dataTransfer.getData('text/plain');
+    if (!draggedCharacterId || !selectedCharacter) return;
+
+    if (!character && isValidMove(position)) {
+      executeAction('move', undefined, position);
+    } else if (character && isValidAttack(character.id)) {
+      executeAction('attack', character.id);
+    }
+  };
 
   // ダブルタップ検出（スマホ専用）
   const handleTouchEnd = (e: React.TouchEvent) => {
@@ -40,52 +127,26 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
   };
 
   const handleClick = () => {
+    if (actionInProgress) {
+      return;
+    }
+
     if (character) {
-      if (selectedCharacter && selectedSkill) {
-        // スキル使用
-        if (isValidSkillTarget(selectedCharacter.id, character.id, selectedSkill.id)) {
-          dispatch({
-            type: 'USE_SKILL',
-            casterId: selectedCharacter.id,
-            targetId: character.id,
-            skillId: selectedSkill.id
-          });
-        }
-      } else if (selectedCharacter && selectedCharacter.id !== character.id) {
-        // 攻撃
-        if (isValidAttack(selectedCharacter.id, character.id)) {
-          dispatch({
-            type: 'ATTACK_CHARACTER',
-            attackerId: selectedCharacter.id,
-            targetId: character.id
-          });
-        }
+      if (selectedCharacter && selectedAction === 'attack' && isValidAttack(character.id)) {
+        executeAction('attack', character.id);
+      } else if (selectedCharacter && selectedAction === 'skill' && isValidSkillTarget(character.id)) {
+        executeAction('skill', character.id);
       } else {
-        // キャラクター選択
         dispatch({ type: 'SELECT_CHARACTER', character });
       }
-    } else {
-      // 空いているマスの処理
-      if (selectedCharacter && !selectedSkill) {
-        // 移動可能な場合は移動
-        if (isValidMove(selectedCharacter.id, position)) {
-          dispatch({
-            type: 'MOVE_CHARACTER',
-            characterId: selectedCharacter.id,
-            position
-          });
-        } else {
-          // 移動できない場合は選択解除
-          dispatch({ type: 'SELECT_CHARACTER', character: null });
-        }
-      } else {
-        // 選択解除
-        dispatch({ type: 'SELECT_CHARACTER', character: null });
-      }
+    } else if (selectedCharacter && canMoveTo) {
+      executeAction('move', undefined, position);
+    } else if (!character && !canMoveTo && !canAttack && !canUseSkill) {
+      dispatch({ type: 'SELECT_CHARACTER', character: null });
     }
   };
 
-  let cellClassName = "w-20 h-20 flex items-center justify-center relative border transition-all duration-200 cursor-pointer";
+  let cellClassName = "w-20 h-20 flex items-center justify-center relative border transition-all duration-200";
   
   if (character) {
     cellClassName += character.team === 'player' 
@@ -95,38 +156,57 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
     cellClassName += " border-slate-100";
   }
 
-  if (isSelected) {
-    cellClassName += " ring-2 ring-yellow-300 bg-yellow-50/30";
-  }
-
-  // 有効なアクションのハイライト（移動可能な場合のみ）
-  if (selectedCharacter && gamePhase === 'action') {
-    if (selectedSkill) {
-      if (character && isValidSkillTarget(selectedCharacter.id, character.id, selectedSkill.id)) {
-        cellClassName += " ring-1 ring-purple-400/50 bg-purple-400/10 hover:bg-purple-400/20";
-      }
-    } else {
-      // 移動可能な空いているマスのみハイライト
-      if (!character && isValidMove(selectedCharacter.id, position)) {
-        cellClassName += " ring-1 ring-green-400/50 bg-green-400/10 hover:bg-green-400/20";
-      }
-      // 攻撃可能なキャラクターのハイライト
-      if (character && isValidAttack(selectedCharacter.id, character.id)) {
-        cellClassName += " ring-1 ring-red-400/50 bg-red-400/10 hover:bg-red-400/20";
+  if (gamePhase === 'action' && selectedCharacter) {
+    if (isSelected) {
+      cellClassName += " ring-2 ring-yellow-300 bg-yellow-50/30";
+    }
+    
+    if (selectedCharacter.team === currentTeam && selectedCharacter.remainingActions > 0) {
+      if (selectedAction === 'skill') {
+        if (canUseSkill) {
+          cellClassName += " ring-1 ring-purple-400/50 bg-purple-400/10 cursor-pointer hover:bg-purple-400/20";
+          if (isDragOver) {
+            cellClassName += " ring-2 ring-purple-500 bg-purple-400/30 scale-105 shadow-lg";
+          }
+        }
+      } else {
+        if (canMoveTo) {
+          cellClassName += " ring-1 ring-green-400/50 bg-green-400/10 cursor-pointer hover:bg-green-400/20";
+          if (isDragOver) {
+            cellClassName += " ring-2 ring-green-500 bg-green-400/30 scale-105 shadow-lg";
+          }
+        }
+        if (canAttack) {
+          cellClassName += " ring-1 ring-red-400/50 bg-red-400/10 cursor-pointer hover:bg-red-400/20";
+          if (isDragOver) {
+            cellClassName += " ring-2 ring-red-500 bg-red-400/30 scale-105 shadow-lg";
+          }
+        }
       }
     }
   }
 
-  if (isActionable) {
-    cellClassName += " character-actionable";
+  const isDraggablePC = !isMobile && isActionable && selectedAction !== 'skill';
+  
+  if (isDraggablePC) {
+    cellClassName += " cursor-grab active:cursor-grabbing";
+  }
+
+  if (actionInProgress) {
+    cellClassName += " pointer-events-none opacity-75";
   }
 
   return (
     <>
       <div 
-        className={cellClassName}
+        className={`${cellClassName} ${animationTarget?.id === character?.id && animationTarget?.type ? `character-${animationTarget.type}` : ''} ${isActionable ? 'character-actionable' : ''}`}
         onClick={handleClick}
         onTouchEnd={isMobile ? handleTouchEnd : undefined}
+        draggable={isDraggablePC}
+        onDragStart={isDraggablePC ? handleDragStart : undefined}
+        onDragOver={!isMobile ? handleDragOver : undefined}
+        onDragLeave={!isMobile ? handleDragLeave : undefined}
+        onDrop={!isMobile ? handleDrop : undefined}
       >
         {character && (
           <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -194,8 +274,8 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
         <CharacterModal
           character={character}
           onClose={() => setShowModal(false)}
-          hostCrystals={state.playerCrystals}
-          guestCrystals={state.enemyCrystals}
+          hostCrystals={playerCrystals}
+          guestCrystals={enemyCrystals}
           currentTeam={currentTeam}
           onSkillSelect={(skill) => {
             dispatch({ type: 'SELECT_CHARACTER', character });
