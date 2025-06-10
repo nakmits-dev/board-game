@@ -13,6 +13,7 @@ const TurnOrder: React.FC = () => {
   const [isWarning, setIsWarning] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastTeamRef = useRef<'player' | 'enemy' | null>(null);
+  const hasTriggeredEndTurn = useRef(false); // 🔧 重複実行防止フラグ
 
   // ゲームフェーズまたはチームが変わったときにタイマーをリセット
   useEffect(() => {
@@ -22,6 +23,7 @@ const TurnOrder: React.FC = () => {
         setTimeLeft(30);
         setIsPaused(false);
         setIsWarning(false);
+        hasTriggeredEndTurn.current = false; // 🔧 フラグもリセット
         lastTeamRef.current = currentTeam;
       }
     } else {
@@ -31,6 +33,7 @@ const TurnOrder: React.FC = () => {
         intervalRef.current = null;
       }
       lastTeamRef.current = null;
+      hasTriggeredEndTurn.current = false; // 🔧 フラグもリセット
     }
   }, [gamePhase, currentTeam]);
 
@@ -46,16 +49,17 @@ const TurnOrder: React.FC = () => {
             setIsWarning(true);
           }
           
-          // 時間切れで強制ターン終了
-          if (newTime <= 0) {
-            // 1. タイマーをリセット（次のターンの準備）
-            setTimeout(() => {
-              setTimeLeft(30);
-              setIsPaused(false);
-              setIsWarning(false);
-            }, 100);
+          // 🔧 時間切れで強制ターン終了（重複実行防止）
+          if (newTime <= 0 && !hasTriggeredEndTurn.current) {
+            hasTriggeredEndTurn.current = true; // フラグを立てて重複実行を防止
             
-            // 2. 強制ターン終了を実行
+            // タイマーを即座に停止
+            if (intervalRef.current) {
+              clearInterval(intervalRef.current);
+              intervalRef.current = null;
+            }
+            
+            // 強制ターン終了を実行
             dispatch({ type: 'FORCE_END_TURN' });
             
             return 0;
