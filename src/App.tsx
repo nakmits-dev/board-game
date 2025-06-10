@@ -56,12 +56,22 @@ const GameContent = () => {
 
   const handleGameStart = () => {
     console.log(`🎮 [App] ゲーム開始ボタンクリック:`, {
-      canStart: canStartGame(),
-      savedDecks,
-      gamePhase
+      gamePhase,
+      savedDecks
     });
     
-    if (!canStartGame()) return;
+    // 🔧 チェックを1回だけ実行
+    const hasValidDecks = !!(savedDecks.host && savedDecks.guest);
+    console.log(`🎮 [App] ゲーム開始可能チェック:`, { 
+      hasValidDecks, 
+      hasHost: !!savedDecks.host, 
+      hasGuest: !!savedDecks.guest 
+    });
+    
+    if (!hasValidDecks) {
+      console.warn(`⚠️ [App] ゲーム開始不可: デッキが不完全`);
+      return;
+    }
     
     if (gamePhase === 'result') {
       console.log(`🎮 [App] ゲームリセット実行`);
@@ -77,16 +87,8 @@ const GameContent = () => {
     });
   };
 
-  // 対戦開始ボタンの活性化条件をチェック
-  const canStartGame = () => {
-    const result = !!(savedDecks.host && savedDecks.guest);
-    console.log(`🎮 [App] ゲーム開始可能チェック:`, { 
-      result, 
-      hasHost: !!savedDecks.host, 
-      hasGuest: !!savedDecks.guest 
-    });
-    return result;
-  };
+  // 🔧 ボタンの活性化状態を計算（レンダリング時のみ）
+  const isGameStartEnabled = !!(savedDecks.host && savedDecks.guest);
 
   // ゲームフェーズの変更を監視
   useEffect(() => {
@@ -145,12 +147,12 @@ const GameContent = () => {
                 </button>
                 <button
                   className={`px-6 py-3 font-bold rounded-lg shadow-lg transform transition ${
-                    canStartGame()
+                    isGameStartEnabled
                       ? 'bg-blue-600 hover:bg-blue-700 text-white hover:scale-105'
                       : 'bg-gray-400 text-gray-200 cursor-not-allowed'
                   }`}
                   onClick={handleGameStart}
-                  disabled={!canStartGame()}
+                  disabled={!isGameStartEnabled}
                 >
                   {gamePhase === 'preparation' ? 'ゲーム開始' : 'もう一度プレイ'}
                 </button>
