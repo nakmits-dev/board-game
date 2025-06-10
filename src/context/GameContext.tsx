@@ -13,6 +13,7 @@ type GameAction =
   | { type: 'SELECT_SKILL'; skill: Skill }
   | { type: 'USE_SKILL'; targetId: string }
   | { type: 'END_TURN' }
+  | { type: 'FORCE_END_TURN' }
   | { type: 'START_LOCAL_GAME'; hostDeck: { master: keyof typeof masterData; monsters: MonsterType[] }; guestDeck: { master: keyof typeof masterData; monsters: MonsterType[] }; startingTeam?: 'player' | 'enemy' }
   | { type: 'RESET_GAME' }
   | { type: 'UPDATE_PREVIEW'; hostDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }; guestDeck?: { master: keyof typeof masterData; monsters: MonsterType[] } }
@@ -405,7 +406,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       };
     }
 
-    case 'END_TURN': {
+    case 'END_TURN':
+    case 'FORCE_END_TURN': {
       if (state.gamePhase === 'preparation') return state;
 
       const newCurrentTeam: Team = state.currentTeam === 'player' ? 'enemy' : 'player';
