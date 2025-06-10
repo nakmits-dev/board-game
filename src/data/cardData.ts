@@ -36,7 +36,7 @@ export const monsterData: Record<string, MonsterCard> = {
   },
   'star-wolf': {
     name: 'スターウルフ',
-    hp: 3,
+    hp: 4,
     attack: 2,
     defense: 0,
     actions: 2,
@@ -46,7 +46,7 @@ export const monsterData: Record<string, MonsterCard> = {
   },
   'iron-golem': {
     name: 'アイアンゴーレム',
-    hp: 2,
+    hp: 3,
     attack: 2,
     defense: 1,
     actions: 1,
@@ -56,7 +56,7 @@ export const monsterData: Record<string, MonsterCard> = {
   },
   'white-bear': {
     name: 'ホワイトベアー',
-    hp: 3,
+    hp: 4,
     attack: 3,
     defense: 0,
     actions: 1,
@@ -77,7 +77,7 @@ export const monsterData: Record<string, MonsterCard> = {
   },
   'red-slime': {
     name: 'レッドスライム',
-    hp: 3,
+    hp: 4,
     attack: 2,
     defense: 0,
     actions: 1,
@@ -98,7 +98,7 @@ export const monsterData: Record<string, MonsterCard> = {
   },
   'king-whale': {
     name: 'キングホエール',
-    hp: 4,
+    hp: 5,
     attack: 2,
     defense: 0,
     actions: 1,
