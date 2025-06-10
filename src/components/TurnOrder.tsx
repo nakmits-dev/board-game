@@ -48,8 +48,16 @@ const TurnOrder: React.FC = () => {
           
           // 時間切れで強制ターン終了
           if (newTime <= 0) {
-            // 強制ターン終了を実行
+            // 1. タイマーをリセット（次のターンの準備）
+            setTimeout(() => {
+              setTimeLeft(30);
+              setIsPaused(false);
+              setIsWarning(false);
+            }, 100);
+            
+            // 2. 強制ターン終了を実行
             dispatch({ type: 'FORCE_END_TURN' });
+            
             return 0;
           }
           
@@ -76,9 +84,7 @@ const TurnOrder: React.FC = () => {
   };
 
   const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    return `${seconds}s`;
   };
 
   const getProgressPercentage = () => {
@@ -123,23 +129,23 @@ const TurnOrder: React.FC = () => {
               {currentTeam === 'player' ? '青チームのターン' : '赤チームのターン'}
             </h3>
             
-            {/* コンパクトなタイマー表示 */}
-            <div className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-1">
-              <Clock size={14} className={getTextColor()} />
-              <span className={`text-sm font-bold ${getTextColor()} ${isWarning ? 'animate-pulse' : ''}`}>
+            {/* よりコンパクトなタイマー表示 */}
+            <div className="flex items-center gap-1 bg-gray-50 rounded px-2 py-1">
+              <Clock size={12} className={getTextColor()} />
+              <span className={`text-sm font-mono ${getTextColor()} ${isWarning ? 'animate-pulse' : ''}`}>
                 {formatTime(timeLeft)}
               </span>
               
               <button
                 onClick={togglePause}
-                className={`p-1 rounded transition-colors ${
+                className={`p-0.5 rounded transition-colors ${
                   isPaused 
                     ? 'bg-green-100 text-green-600 hover:bg-green-200' 
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
                 title={isPaused ? '再開' : '一時停止'}
               >
-                {isPaused ? <Play size={12} /> : <Pause size={12} />}
+                {isPaused ? <Play size={10} /> : <Pause size={10} />}
               </button>
             </div>
           </div>
@@ -179,18 +185,12 @@ const TurnOrder: React.FC = () => {
           />
         </div>
         
-        {/* 警告メッセージまたは一時停止表示 */}
-        {isPaused ? (
+        {/* 一時停止表示のみ */}
+        {isPaused && (
           <div className="text-center text-xs text-gray-500">
             ⏸️ 一時停止中
           </div>
-        ) : timeLeft <= 10 && timeLeft > 0 ? (
-          <div className={`text-center text-xs font-medium ${
-            timeLeft <= 5 ? 'text-red-600' : 'text-yellow-600'
-          } animate-pulse`}>
-            {timeLeft <= 5 ? '⚠️ 時間切れ間近！' : '⏰ 残り時間わずか'}
-          </div>
-        ) : null}
+        )}
       </div>
     </div>
   );
