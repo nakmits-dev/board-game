@@ -49,8 +49,24 @@ const GameContext = createContext<GameContextType | undefined>(undefined);
 const ANIMATION_DURATION = 300;
 
 function gameReducer(state: GameState, action: GameAction): GameState {
+  // 🔧 全てのアクションをログ出力
+  console.log(`🎮 [GameReducer] アクション実行:`, {
+    type: action.type,
+    currentPhase: state.gamePhase,
+    currentTeam: state.currentTeam,
+    currentTurn: state.currentTurn,
+    timestamp: new Date().toISOString(),
+    action: action
+  });
+
   switch (action.type) {
     case 'CREATE_GAME_RECORD': {
+      console.log(`📋 [CREATE_GAME_RECORD] 棋譜作成:`, {
+        description: action.description,
+        actionsCount: action.actions.length,
+        actions: action.actions
+      });
+
       const newRecord: GameRecord = {
         id: `record_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         actions: action.actions,
@@ -65,6 +81,11 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'SET_EXECUTION_STATE': {
+      console.log(`⚙️ [SET_EXECUTION_STATE] 実行状態変更:`, {
+        isExecuting: action.isExecuting,
+        index: action.index
+      });
+
       return {
         ...state,
         isExecutingRecord: action.isExecuting,
@@ -75,8 +96,16 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     case 'APPLY_BOARD_ACTION': {
       const { boardAction } = action;
       
+      console.log(`🎯 [APPLY_BOARD_ACTION] ボードアクション適用:`, {
+        action: boardAction.action,
+        from: boardAction.from,
+        to: boardAction.to,
+        gamePhase: state.gamePhase,
+        currentTeam: state.currentTeam
+      });
+
       if (state.gamePhase !== 'action') {
-        console.warn('ゲームが進行中ではありません');
+        console.warn('⚠️ [APPLY_BOARD_ACTION] ゲームが進行中ではありません');
         return state;
       }
 
@@ -88,6 +117,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       let newGamePhase = state.gamePhase;
 
       if (boardAction.action === 'move' && boardAction.from && boardAction.to) {
+        console.log(`🚶 [MOVE] 移動処理開始:`, { from: boardAction.from, to: boardAction.to });
+        
         // 移動処理
         const character = newCharacters.find(char => 
           char.position.x === boardAction.from!.x && 
@@ -97,6 +128,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         );
 
         if (character) {
+          console.log(`✅ [MOVE] 移動キャラクター発見:`, { name: character.name, id: character.id });
+          
           // 移動先が空いているかチェック
           const isOccupied = newCharacters.some(char => 
             char.position.x === boardAction.to!.x && 
@@ -104,6 +137,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           );
 
           if (!isOccupied) {
+            console.log(`✅ [MOVE] 移動先が空いています - 移動実行`);
             animations.push({ id: character.id, type: 'move' });
             
             newCharacters = newCharacters.map(char => 
@@ -123,9 +157,15 @@ function gameReducer(state: GameState, action: GameAction): GameState {
               'move',
               `${character.name}が(${boardAction.to.x},${boardAction.to.y})に移動`
             );
+          } else {
+            console.warn(`⚠️ [MOVE] 移動先が占有されています`);
           }
+        } else {
+          console.warn(`⚠️ [MOVE] 移動可能なキャラクターが見つかりません`);
         }
       } else if (boardAction.action === 'attack' && boardAction.from && boardAction.to) {
+        console.log(`⚔️ [ATTACK] 攻撃処理開始:`, { from: boardAction.from, to: boardAction.to });
+        
         // 攻撃処理
         const attacker = newCharacters.find(char => 
           char.position.x === boardAction.from!.x && 
@@ -141,8 +181,19 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         );
 
         if (attacker && target) {
+          console.log(`✅ [ATTACK] 攻撃者と対象発見:`, { 
+            attacker: attacker.name, 
+            target: target.name 
+          });
+          
           const damage = Math.max(0, attacker.attack - target.defense);
           const newHp = Math.max(0, target.hp - damage);
+          
+          console.log(`💥 [ATTACK] ダメージ計算:`, { 
+            damage, 
+            targetOldHp: target.hp, 
+            targetNewHp: newHp 
+          });
           
           animations.push(
             { id: attacker.id, type: 'attack' },
@@ -150,6 +201,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           );
 
           if (newHp === 0) {
+            console.log(`💀 [ATTACK] 対象が倒されました:`, target.name);
             animations.push(
               { id: target.id, type: 'ko' },
               { id: target.team, type: 'crystal-gain' }
@@ -159,6 +211,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             if (attacker.type === 'monster' && !attacker.isEvolved && attacker.monsterType) {
               const evolvedType = getEvolvedMonsterType(attacker.monsterType);
               if (evolvedType) {
+                console.log(`🌟 [ATTACK] 攻撃者が進化します:`, { from: attacker.monsterType, to: evolvedType });
                 animations.push({ id: attacker.id, type: 'evolve' });
               }
             }
@@ -166,12 +219,15 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             // クリスタル獲得
             if (target.team === 'player') {
               newEnemyCrystals = Math.min(8, newEnemyCrystals + target.cost);
+              console.log(`💎 [ATTACK] 敵チームがクリスタル獲得:`, { amount: target.cost, total: newEnemyCrystals });
             } else {
               newPlayerCrystals = Math.min(8, newPlayerCrystals + target.cost);
+              console.log(`💎 [ATTACK] プレイヤーチームがクリスタル獲得:`, { amount: target.cost, total: newPlayerCrystals });
             }
 
             // マスターが倒された場合はゲーム終了
             if (target.type === 'master') {
+              console.log(`👑 [ATTACK] マスターが倒されました - ゲーム終了`);
               newGamePhase = 'result';
             }
           }
@@ -193,8 +249,15 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             'attack',
             `${attacker.name}が${target.name}を攻撃（ダメージ: ${damage}）`
           );
+        } else {
+          console.warn(`⚠️ [ATTACK] 攻撃者または対象が見つかりません:`, { 
+            attackerFound: !!attacker, 
+            targetFound: !!target 
+          });
         }
       } else if (boardAction.action === 'skill' && boardAction.from && boardAction.to) {
+        console.log(`✨ [SKILL] スキル使用処理開始:`, { from: boardAction.from, to: boardAction.to });
+        
         // スキル使用処理（キャラクターのskillIdを使用）
         const caster = newCharacters.find(char => 
           char.position.x === boardAction.from!.x && 
@@ -211,10 +274,22 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         if (caster && target && caster.skillId) {
           const skill = skillData[caster.skillId];
           
+          console.log(`✅ [SKILL] スキル使用者と対象発見:`, { 
+            caster: caster.name, 
+            target: target.name,
+            skill: skill?.name 
+          });
+          
           if (skill) {
             const crystals = state.currentTeam === 'player' ? state.playerCrystals : state.enemyCrystals;
             
+            console.log(`💎 [SKILL] クリスタルチェック:`, { 
+              required: skill.crystalCost, 
+              available: crystals 
+            });
+            
             if (crystals >= skill.crystalCost) {
+              console.log(`✅ [SKILL] スキル実行開始:`, skill.name);
               animations.push({ id: caster.id, type: 'attack' });
 
               // クリスタル消費
@@ -226,6 +301,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
               // スキル効果適用
               if (skill.healing) {
+                console.log(`💚 [SKILL] 回復効果適用:`, { amount: skill.healing });
                 animations.push({ id: target.id, type: 'heal' });
                 newCharacters = newCharacters.map(char => {
                   if (char.id === target.id) {
@@ -239,18 +315,22 @@ function gameReducer(state: GameState, action: GameAction): GameState {
               }
 
               if (skill.damage) {
+                console.log(`💥 [SKILL] ダメージ効果適用:`, { damage: skill.damage });
                 animations.push({ id: target.id, type: 'damage' });
                 
                 let newHp: number;
                 if (skill.ignoreDefense) {
                   newHp = Math.max(0, target.hp - 1);
+                  console.log(`🛡️ [SKILL] 防御無視ダメージ:`, { newHp });
                 } else {
                   const totalDamage = caster.attack + skill.damage;
                   const damage = Math.max(0, totalDamage - target.defense);
                   newHp = Math.max(0, target.hp - damage);
+                  console.log(`⚔️ [SKILL] 通常ダメージ:`, { totalDamage, damage, newHp });
                 }
 
                 if (newHp === 0) {
+                  console.log(`💀 [SKILL] 対象が倒されました:`, target.name);
                   animations.push(
                     { id: target.id, type: 'ko' },
                     { id: target.team, type: 'crystal-gain' }
@@ -263,6 +343,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
                   }
 
                   if (target.type === 'master') {
+                    console.log(`👑 [SKILL] マスターが倒されました - ゲーム終了`);
                     newGamePhase = 'result';
                   }
                 }
@@ -279,6 +360,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
                 if (target.type === 'monster' && !target.isEvolved && target.monsterType) {
                   const evolvedType = getEvolvedMonsterType(target.monsterType);
                   if (evolvedType) {
+                    console.log(`🌟 [SKILL] 対象が進化します:`, { from: target.monsterType, to: evolvedType });
                     animations.push({ id: target.id, type: 'evolve' });
                   }
                 }
@@ -298,12 +380,29 @@ function gameReducer(state: GameState, action: GameAction): GameState {
                 'skill',
                 `${caster.name}が${target.name}に${skill.name}を使用`
               );
+            } else {
+              console.warn(`⚠️ [SKILL] クリスタルが不足しています`);
             }
+          } else {
+            console.warn(`⚠️ [SKILL] スキルが見つかりません:`, caster.skillId);
           }
+        } else {
+          console.warn(`⚠️ [SKILL] スキル使用者または対象が見つかりません:`, { 
+            casterFound: !!caster, 
+            targetFound: !!target,
+            hasSkill: !!caster?.skillId 
+          });
         }
       } else if (boardAction.action === 'end_turn') {
+        console.log(`🔄 [END_TURN] ターン終了処理開始`);
+        
         // ターン終了処理
         const newCurrentTeam: Team = state.currentTeam === 'player' ? 'enemy' : 'player';
+        
+        console.log(`🔄 [END_TURN] チーム切り替え:`, { 
+          from: state.currentTeam, 
+          to: newCurrentTeam 
+        });
         
         const refreshedCharacters = newCharacters.map(character => {
           if (character.team === newCurrentTeam) {
@@ -324,6 +423,12 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           : newEnemyCrystals;
 
         const newCurrentTurn = newCurrentTeam === 'player' ? state.currentTurn + 1 : state.currentTurn;
+
+        console.log(`🔄 [END_TURN] ターン情報更新:`, { 
+          newTurn: newCurrentTurn,
+          playerCrystals: newPlayerCrystalsEndTurn,
+          enemyCrystals: newEnemyCrystalsEndTurn
+        });
 
         animations.push({ id: newCurrentTeam, type: 'turn-start' });
         
@@ -356,6 +461,11 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         };
       }
 
+      console.log(`✅ [APPLY_BOARD_ACTION] 処理完了:`, {
+        animationsCount: animations.length,
+        newGamePhase
+      });
+
       return {
         ...newState,
         characters: newCharacters,
@@ -371,6 +481,12 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'SELECT_CHARACTER': {
+      console.log(`👆 [SELECT_CHARACTER] キャラクター選択:`, {
+        character: action.character?.name || 'null',
+        team: action.character?.team,
+        remainingActions: action.character?.remainingActions
+      });
+
       if (!action.character) {
         return {
           ...state,
@@ -401,6 +517,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'SET_ACTION_MODE': {
+      console.log(`🎯 [SET_ACTION_MODE] アクションモード設定:`, action.mode);
+
       if (!state.selectedCharacter || state.selectedCharacter.team !== state.currentTeam) {
         return state;
       }
@@ -413,6 +531,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'SET_PENDING_ACTION': {
+      console.log(`⏳ [SET_PENDING_ACTION] 保留アクション設定:`, action.action);
+
       if (state.gamePhase === 'preparation') return state;
       
       if (!state.selectedCharacter || state.selectedCharacter.team !== state.currentTeam) {
@@ -426,6 +546,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'SET_ANIMATION_TARGET': {
+      console.log(`🎬 [SET_ANIMATION_TARGET] アニメーション対象設定:`, action.target);
+
       return {
         ...state,
         animationTarget: action.target,
@@ -433,6 +555,11 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'SET_PENDING_ANIMATIONS': {
+      console.log(`🎬 [SET_PENDING_ANIMATIONS] 保留アニメーション設定:`, {
+        count: action.animations.length,
+        animations: action.animations
+      });
+
       return {
         ...state,
         pendingAnimations: action.animations,
@@ -440,6 +567,11 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'CONFIRM_ACTION': {
+      console.log(`✅ [CONFIRM_ACTION] アクション確定:`, {
+        selectedCharacter: state.selectedCharacter?.name,
+        pendingAction: state.pendingAction
+      });
+
       if (!state.selectedCharacter || !state.pendingAction.type) return state;
       
       if (state.selectedCharacter.team !== state.currentTeam) {
@@ -454,6 +586,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       let newGamePhase = state.gamePhase;
 
       if (state.pendingAction.type === 'move' && state.pendingAction.position) {
+        console.log(`🚶 [CONFIRM_ACTION] 移動実行:`, state.pendingAction.position);
         animations.push({ id: character.id, type: 'move' });
         
         newCharacters = newCharacters.map(char => 
@@ -474,10 +607,13 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           `${character.name}が(${state.pendingAction.position.x},${state.pendingAction.position.y})に移動`
         );
       } else if (state.pendingAction.type === 'attack' && state.pendingAction.targetId) {
+        console.log(`⚔️ [CONFIRM_ACTION] 攻撃実行:`, state.pendingAction.targetId);
         const target = state.characters.find(char => char.id === state.pendingAction.targetId);
         if (target) {
           const damage = Math.max(0, character.attack - target.defense);
           const newHp = Math.max(0, target.hp - damage);
+          
+          console.log(`💥 [CONFIRM_ACTION] ダメージ計算:`, { damage, newHp });
           
           animations.push(
             { id: character.id, type: 'attack' },
@@ -485,6 +621,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           );
 
           if (newHp === 0) {
+            console.log(`💀 [CONFIRM_ACTION] 対象撃破:`, target.name);
             animations.push(
               { id: target.id, type: 'ko' },
               { id: target.team, type: 'crystal-gain' }
@@ -493,6 +630,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             if (character.type === 'monster' && !character.isEvolved && character.monsterType) {
               const evolvedType = getEvolvedMonsterType(character.monsterType);
               if (evolvedType) {
+                console.log(`🌟 [CONFIRM_ACTION] 進化発生:`, evolvedType);
                 animations.push({ id: character.id, type: 'evolve' });
               }
             }
@@ -504,6 +642,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             }
 
             if (target.type === 'master') {
+              console.log(`👑 [CONFIRM_ACTION] ゲーム終了`);
               newGamePhase = 'result';
             }
           }
@@ -543,11 +682,15 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'EVOLVE_CHARACTER': {
+      console.log(`🌟 [EVOLVE_CHARACTER] 進化処理:`, action.characterId);
+
       const character = state.characters.find(char => char.id === action.characterId);
       if (!character || character.type !== 'monster' || !character.monsterType || character.isEvolved) return state;
 
       const evolvedType = getEvolvedMonsterType(character.monsterType);
       if (!evolvedType) return state;
+
+      console.log(`🌟 [EVOLVE_CHARACTER] 進化実行:`, { from: character.monsterType, to: evolvedType });
 
       const evolvedStats = monsterData[evolvedType];
       const updatedCharacters = state.characters.map(char => {
@@ -576,12 +719,19 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'SELECT_SKILL': {
+      console.log(`✨ [SELECT_SKILL] スキル選択:`, {
+        skill: action.skill.name,
+        cost: action.skill.crystalCost,
+        character: state.selectedCharacter?.name
+      });
+
       if (!state.selectedCharacter || state.selectedCharacter.team !== state.currentTeam) {
         return state;
       }
 
       const crystals = state.currentTeam === 'player' ? state.playerCrystals : state.enemyCrystals;
       if (crystals < action.skill.crystalCost) {
+        console.warn(`⚠️ [SELECT_SKILL] クリスタル不足:`, { required: action.skill.crystalCost, available: crystals });
         return state;
       }
 
@@ -594,6 +744,12 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'USE_SKILL': {
+      console.log(`✨ [USE_SKILL] スキル使用:`, {
+        skill: state.selectedSkill?.name,
+        targetId: action.targetId,
+        caster: state.selectedCharacter?.name
+      });
+
       if (!state.selectedCharacter || !state.selectedSkill) return state;
       
       const target = state.characters.find(char => char.id === action.targetId);
@@ -612,7 +768,10 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         newEnemyCrystals = Math.max(0, newEnemyCrystals - skill.crystalCost);
       }
 
+      console.log(`💎 [USE_SKILL] クリスタル消費:`, { cost: skill.crystalCost });
+
       if (skill.healing) {
+        console.log(`💚 [USE_SKILL] 回復効果:`, skill.healing);
         animations.push({ id: target.id, type: 'heal' });
         newCharacters = newCharacters.map(char => {
           if (char.id === target.id) {
@@ -626,6 +785,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       }
 
       if (skill.damage) {
+        console.log(`💥 [USE_SKILL] ダメージ効果:`, skill.damage);
         animations.push({ id: target.id, type: 'damage' });
         
         let newHp: number;
@@ -638,6 +798,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         }
 
         if (newHp === 0) {
+          console.log(`💀 [USE_SKILL] 対象撃破:`, target.name);
           animations.push(
             { id: target.id, type: 'ko' },
             { id: target.team, type: 'crystal-gain' }
@@ -650,6 +811,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           }
 
           if (target.type === 'master') {
+            console.log(`👑 [USE_SKILL] ゲーム終了`);
             newGamePhase = 'result';
           }
         }
@@ -666,6 +828,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         if (target.type === 'monster' && !target.isEvolved && target.monsterType) {
           const evolvedType = getEvolvedMonsterType(target.monsterType);
           if (evolvedType) {
+            console.log(`🌟 [USE_SKILL] 進化効果:`, evolvedType);
             animations.push({ id: target.id, type: 'evolve' });
           }
         }
@@ -701,6 +864,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'REMOVE_DEFEATED_CHARACTERS': {
+      console.log(`💀 [REMOVE_DEFEATED_CHARACTERS] 撃破キャラクター除去:`, action.targetId);
+
       const defeatedCharacter = state.characters.find(char => char.id === action.targetId);
       const updatedCharacters = state.characters.filter(char => char.id !== action.targetId);
 
@@ -717,6 +882,11 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       if (defeatedCharacter) {
         const crystalGain = defeatedCharacter.cost;
         
+        console.log(`💎 [REMOVE_DEFEATED_CHARACTERS] クリスタル獲得:`, { 
+          character: defeatedCharacter.name, 
+          cost: crystalGain 
+        });
+        
         if (defeatedCharacter.team === 'player') {
           guestCrystals = Math.min(8, guestCrystals + crystalGain);
         } else {
@@ -726,6 +896,11 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
       const hostMasterAlive = updatedCharacters.some(char => char.team === 'player' && char.type === 'master');
       const guestMasterAlive = updatedCharacters.some(char => char.team === 'enemy' && char.type === 'master');
+
+      console.log(`👑 [REMOVE_DEFEATED_CHARACTERS] マスター生存状況:`, { 
+        hostMasterAlive, 
+        guestMasterAlive 
+      });
 
       return {
         ...state,
@@ -737,6 +912,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'CANCEL_ACTION': {
+      console.log(`❌ [CANCEL_ACTION] アクションキャンセル`);
+
       return {
         ...state,
         pendingAction: { type: null },
@@ -744,6 +921,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'SURRENDER': {
+      console.log(`🏳️ [SURRENDER] 降参:`, action.team);
+
       // 棋譜に記録
       addGameHistoryMove(
         state.currentTurn,
@@ -768,9 +947,13 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'END_TURN': {
+      console.log(`🔄 [END_TURN] ターン終了処理開始`);
+
       if (state.gamePhase === 'preparation') return state;
 
       const newCurrentTeam: Team = state.currentTeam === 'player' ? 'enemy' : 'player';
+      
+      console.log(`🔄 [END_TURN] チーム切り替え:`, { from: state.currentTeam, to: newCurrentTeam });
       
       const refreshedCharacters = state.characters.map(character => {
         if (character.team === newCurrentTeam) {
@@ -791,6 +974,12 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         : state.enemyCrystals;
 
       const newCurrentTurn = newCurrentTeam === 'player' ? state.currentTurn + 1 : state.currentTurn;
+
+      console.log(`🔄 [END_TURN] ターン情報更新:`, { 
+        newTurn: newCurrentTurn,
+        playerCrystals: newPlayerCrystals,
+        enemyCrystals: newEnemyCrystals
+      });
 
       const animations: AnimationSequence[] = [{ id: newCurrentTeam, type: 'turn-start' }];
       
@@ -824,10 +1013,17 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'START_LOCAL_GAME': {
+      console.log(`🎮 [START_LOCAL_GAME] ローカルゲーム開始:`, {
+        hostDeck: action.hostDeck,
+        guestDeck: action.guestDeck,
+        timestamp: new Date().toISOString()
+      });
+
       const newState = createInitialGameState(action.hostDeck, action.guestDeck);
       
       // 🔧 ゲーム開始時の棋譜記録を1つだけ作成
       setTimeout(() => {
+        console.log(`📋 [START_LOCAL_GAME] 棋譜記録作成`);
         addGameHistoryMove(
           0,
           'player',
@@ -856,6 +1052,11 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'UPDATE_PREVIEW': {
+      console.log(`👁️ [UPDATE_PREVIEW] プレビュー更新:`, {
+        hostDeck: action.hostDeck,
+        guestDeck: action.guestDeck
+      });
+
       if (state.gamePhase !== 'preparation' && state.gamePhase !== 'result') return state;
       
       const newState = createInitialGameState(action.hostDeck, action.guestDeck);
@@ -871,6 +1072,11 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'SET_SAVED_DECKS': {
+      console.log(`💾 [SET_SAVED_DECKS] デッキ保存:`, {
+        hostDeck: action.hostDeck,
+        guestDeck: action.guestDeck
+      });
+
       return {
         ...state,
         savedDecks: {
@@ -881,6 +1087,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'RESET_GAME': {
+      console.log(`🔄 [RESET_GAME] ゲームリセット`);
+
       const newState = createInitialGameState(state.savedDecks?.host, state.savedDecks?.guest);
       
       return {
@@ -893,11 +1101,14 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     default:
+      console.warn(`⚠️ [GameReducer] 未知のアクション:`, action.type);
       return state;
   }
 }
 
 export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  console.log(`🏗️ [GameProvider] プロバイダー初期化`);
+
   const [state, dispatch] = useReducer(gameReducer, {
     ...createInitialGameState(),
     gameRecords: [],
@@ -913,6 +1124,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   });
 
   React.useEffect(() => {
+    console.log(`🏗️ [GameProvider] 初期デッキ設定`);
     dispatch({ 
       type: 'SET_SAVED_DECKS', 
       hostDeck: savedDecks.host!, 
@@ -927,8 +1139,14 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     if (state.pendingAnimations.length > 0) {
+      console.log(`🎬 [GameProvider] アニメーション実行開始:`, {
+        count: state.pendingAnimations.length,
+        animations: state.pendingAnimations
+      });
+
       const playAnimations = async () => {
         for (const animation of state.pendingAnimations) {
+          console.log(`🎬 [Animation] 実行:`, animation);
           dispatch({ type: 'SET_ANIMATION_TARGET', target: animation });
           await new Promise(resolve => setTimeout(resolve, ANIMATION_DURATION));
           
@@ -948,6 +1166,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             dispatch({ type: 'EVOLVE_CHARACTER', characterId: animation.id });
           }
         }
+        console.log(`🎬 [GameProvider] アニメーション実行完了`);
         dispatch({ type: 'SET_ANIMATION_TARGET', target: null });
         dispatch({ type: 'SET_PENDING_ANIMATIONS', animations: [] });
       };
@@ -1032,10 +1251,11 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // 🆕 棋譜アクションをボードに反映する関数
   const applyBoardAction = (boardAction: BoardAction): boolean => {
     try {
+      console.log(`🎯 [applyBoardAction] 実行:`, boardAction);
       dispatch({ type: 'APPLY_BOARD_ACTION', boardAction });
       return true;
     } catch (error) {
-      console.error('ボードアクション適用エラー:', error);
+      console.error('❌ [applyBoardAction] エラー:', error);
       return false;
     }
   };
@@ -1043,6 +1263,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // 🆕 棋譜レコードを作成する関数
   const createGameRecord = (actions: BoardAction[], description: string): string => {
     const recordId = `record_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    console.log(`📋 [createGameRecord] 作成:`, { recordId, description, actionsCount: actions.length });
     dispatch({ 
       type: 'CREATE_GAME_RECORD', 
       actions, 
@@ -1053,9 +1274,11 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // 🆕 棋譜レコードを実行する関数
   const executeGameRecord = async (recordId: string): Promise<boolean> => {
+    console.log(`🎬 [executeGameRecord] 実行開始:`, recordId);
+    
     const record = state.gameRecords.find(r => r.id === recordId);
     if (!record) {
-      console.error('棋譜レコードが見つかりません:', recordId);
+      console.error('❌ [executeGameRecord] 棋譜レコードが見つかりません:', recordId);
       return false;
     }
 
@@ -1065,13 +1288,15 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       for (let i = 0; i < record.actions.length; i++) {
         const action = record.actions[i];
         
+        console.log(`🎬 [executeGameRecord] アクション実行 ${i + 1}/${record.actions.length}:`, action);
+        
         // 実行前に少し待機
         await new Promise(resolve => setTimeout(resolve, 500));
         
         // アクションを実行
         const success = applyBoardAction(action);
         if (!success) {
-          console.error('アクション実行失敗:', action);
+          console.error('❌ [executeGameRecord] アクション実行失敗:', action);
           dispatch({ type: 'SET_EXECUTION_STATE', isExecuting: false, index: 0 });
           return false;
         }
@@ -1084,10 +1309,10 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
       
       dispatch({ type: 'SET_EXECUTION_STATE', isExecuting: false, index: 0 });
-      console.log('✅ 棋譜実行完了:', record.description);
+      console.log('✅ [executeGameRecord] 棋譜実行完了:', record.description);
       return true;
     } catch (error) {
-      console.error('棋譜実行エラー:', error);
+      console.error('❌ [executeGameRecord] 棋譜実行エラー:', error);
       dispatch({ type: 'SET_EXECUTION_STATE', isExecuting: false, index: 0 });
       return false;
     }
