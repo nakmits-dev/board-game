@@ -456,8 +456,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'START_LOCAL_GAME': {
-      console.log('🎮 ローカルゲーム開始');
-
       const newState = createInitialGameState(action.hostDeck, action.guestDeck);
       
       return {
@@ -517,6 +515,8 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
 export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(gameReducer, createInitialGameState());
+  
+  // 🔧 デフォルトデッキを設定（初期化時のみ）
   const [savedDecks, setSavedDecks] = React.useState<{
     host?: { master: keyof typeof masterData; monsters: MonsterType[] };
     guest?: { master: keyof typeof masterData; monsters: MonsterType[] };
@@ -525,6 +525,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     guest: { master: 'red', monsters: ['bear', 'wolf', 'golem'] }
   });
 
+  // 🔧 初期化時にデフォルトデッキを設定（1回のみ）
   React.useEffect(() => {
     dispatch({ 
       type: 'SET_SAVED_DECKS', 
@@ -536,7 +537,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       hostDeck: savedDecks.host, 
       guestDeck: savedDecks.guest 
     });
-  }, []);
+  }, []); // 空の依存配列で初回のみ実行
 
   useEffect(() => {
     if (state.pendingAnimations.length > 0) {

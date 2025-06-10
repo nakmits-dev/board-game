@@ -77,7 +77,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     });
   };
 
-  // 初期状態を設定
+  // 🔧 初期状態を設定（プロップスから受け取った編成を使用）
   const getInitialState = () => {
     if (initialPlayerDeck && initialEnemyDeck) {
       // 既存の編成がある場合はそれを使用
@@ -98,7 +98,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
   const [playerAssignments, setPlayerAssignments] = useState<PositionAssignment[]>(initialState.player);
   const [enemyAssignments, setEnemyAssignments] = useState<PositionAssignment[]>(initialState.enemy);
   
-  // 初期値が変更された場合に状態を更新
+  // 🔧 プロップスが変更された場合に状態を更新
   useEffect(() => {
     const newState = getInitialState();
     setPlayerAssignments(newState.player);
@@ -200,6 +200,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     return !!playerMaster && !!enemyMaster;
   };
 
+  // 🔧 完了ボタンの処理を修正（編成内容を保存して戻る）
   const handleComplete = () => {
     if (!canStartGame()) return;
     
@@ -214,7 +215,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
       .filter(a => a.type === 'monster' && a.id)
       .map(a => a.id as MonsterType);
     
-    // 編成内容を保存して戻る
+    // 🔧 編成内容を保存して戻る（ゲーム開始はしない）
     onClose(
       { master: playerMaster, monsters: playerMonsters },
       { master: enemyMaster, monsters: enemyMonsters }
@@ -716,8 +717,8 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
                           <CharacterCard
                             character={character}
                             currentTeam="player"
-                            playerCrystals={0}
-                            enemyCrystals={0}
+                            hostCrystals={0}
+                            guestCrystals={0}
                             variant="panel"
                           />
                         </div>
@@ -741,8 +742,8 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
                           <CharacterCard
                             character={character}
                             currentTeam="player"
-                            playerCrystals={0}
-                            enemyCrystals={0}
+                            hostCrystals={0}
+                            guestCrystals={0}
                             variant="panel"
                           />
                         </div>
