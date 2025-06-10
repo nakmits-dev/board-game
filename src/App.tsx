@@ -43,23 +43,10 @@ const GameContent = () => {
     hostDeck: { master: keyof typeof masterData; monsters: MonsterType[] },
     guestDeck: { master: keyof typeof masterData; monsters: MonsterType[] }
   ) => {
-    // 編成内容を保存
-    dispatch({ type: 'SET_SAVED_DECKS', hostDeck, guestDeck });
-    dispatch({ type: 'UPDATE_PREVIEW', hostDeck, guestDeck });
+    // 🔧 編成内容を保存してDeckBuilderを閉じるだけ
+    handleCloseDeckBuilder(hostDeck, guestDeck);
     
-    // DeckBuilderを閉じる
-    setShowDeckBuilder(false);
-    
-    if (gamePhase === 'result') {
-      dispatch({ type: 'RESET_GAME' });
-    }
-    
-    // ローカルゲーム開始
-    dispatch({ 
-      type: 'START_LOCAL_GAME', 
-      hostDeck, 
-      guestDeck 
-    });
+    // 🔧 ゲーム開始処理は handleGameStart で行う
   };
 
   const handleGameStart = () => {
@@ -69,7 +56,7 @@ const GameContent = () => {
       dispatch({ type: 'RESET_GAME' });
     }
     
-    // 保存されたデッキでゲーム開始
+    // 🔧 保存されたデッキでゲーム開始（1回のみ実行）
     dispatch({ 
       type: 'START_LOCAL_GAME', 
       hostDeck: savedDecks.host!, 
