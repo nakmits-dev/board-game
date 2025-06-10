@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useGame } from '../context/GameContext';
-import { Flag, Clock, Play, Pause } from 'lucide-react';
+import { Flag, Play, Pause } from 'lucide-react';
 
 const TurnOrder: React.FC = () => {
   const { state, dispatch } = useGame();
@@ -83,10 +83,6 @@ const TurnOrder: React.FC = () => {
     setIsPaused(!isPaused);
   };
 
-  const formatTime = (seconds: number) => {
-    return `${seconds}s`;
-  };
-
   const getProgressPercentage = () => {
     return (timeLeft / 30) * 100;
   };
@@ -95,12 +91,6 @@ const TurnOrder: React.FC = () => {
     if (timeLeft <= 5) return 'bg-red-500';
     if (timeLeft <= 10) return 'bg-yellow-500';
     return currentTeam === 'player' ? 'bg-blue-500' : 'bg-red-500';
-  };
-
-  const getTextColor = () => {
-    if (timeLeft <= 5) return 'text-red-600';
-    if (timeLeft <= 10) return 'text-yellow-600';
-    return currentTeam === 'player' ? 'text-blue-600' : 'text-red-600';
   };
 
   if (gamePhase === 'preparation' || gamePhase === 'result') return null;
@@ -125,29 +115,24 @@ const TurnOrder: React.FC = () => {
         {/* ターン情報とタイマー */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <h3 className={`text-xl font-bold ${getTextColor()}`}>
-              {currentTeam === 'player' ? '青チームのターン' : '赤チームのターン'}
+            <h3 className={`text-xl font-bold ${
+              currentTeam === 'player' ? 'text-blue-600' : 'text-red-600'
+            }`}>
+              {currentTeam === 'player' ? '青チーム' : '赤チーム'}
             </h3>
             
-            {/* よりコンパクトなタイマー表示 */}
-            <div className="flex items-center gap-1 bg-gray-50 rounded px-2 py-1">
-              <Clock size={12} className={getTextColor()} />
-              <span className={`text-sm font-mono ${getTextColor()} ${isWarning ? 'animate-pulse' : ''}`}>
-                {formatTime(timeLeft)}
-              </span>
-              
-              <button
-                onClick={togglePause}
-                className={`p-0.5 rounded transition-colors ${
-                  isPaused 
-                    ? 'bg-green-100 text-green-600 hover:bg-green-200' 
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-                title={isPaused ? '再開' : '一時停止'}
-              >
-                {isPaused ? <Play size={10} /> : <Pause size={10} />}
-              </button>
-            </div>
+            {/* ストップボタンのみ */}
+            <button
+              onClick={togglePause}
+              className={`p-1.5 rounded transition-colors ${
+                isPaused 
+                  ? 'bg-green-100 text-green-600 hover:bg-green-200' 
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+              title={isPaused ? '再開' : '一時停止'}
+            >
+              {isPaused ? <Play size={14} /> : <Pause size={14} />}
+            </button>
           </div>
 
           {/* Action Buttons */}
@@ -175,7 +160,7 @@ const TurnOrder: React.FC = () => {
           </div>
         </div>
         
-        {/* プログレスバー */}
+        {/* プログレスバーのみ（色の変化で時間を表現） */}
         <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
           <div 
             className={`h-full transition-all duration-1000 ease-linear ${getBarColor()} ${
