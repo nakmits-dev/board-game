@@ -6,7 +6,7 @@ import CharacterCard from './CharacterCard';
 
 const CharacterPanel: React.FC = () => {
   const { state, dispatch } = useGame();
-  const { selectedCharacter, currentTeam, playerCrystals, enemyCrystals } = state;
+  const { selectedCharacter, currentTeam, playerCrystals, enemyCrystals, selectedSkill } = state;
 
   const handleSkillClick = (skill: Skill) => {
     if (!selectedCharacter || selectedCharacter.team !== currentTeam) return;
@@ -15,7 +15,10 @@ const CharacterPanel: React.FC = () => {
     const availableCrystals = currentTeam === 'player' ? playerCrystals : enemyCrystals;
     if (availableCrystals < skill.crystalCost) return;
 
-    dispatch({ type: 'SELECT_SKILL', skill });
+    dispatch({ 
+      type: 'SELECT_CHARACTER', 
+      character: { ...selectedCharacter, selectedSkill: skill } 
+    });
   };
 
   return (
