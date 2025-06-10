@@ -1,10 +1,15 @@
 import React, { useState } from 'react';
 import { useGame } from '../context/GameContext';
+import { useGameActions } from '../hooks/useGameActions';
+import { useGameRecords } from '../hooks/useGameRecords';
 import { BoardAction } from '../types/gameTypes';
 import { Play, RotateCcw, Plus, List, Trash2, Clock } from 'lucide-react';
 
 const BoardActionInput: React.FC = () => {
-  const { state, applyBoardAction, createGameRecord, executeGameRecord } = useGame();
+  const { state, dispatch } = useGame();
+  const { applyBoardAction } = useGameActions(state, dispatch);
+  const { createGameRecord, executeGameRecord, gameRecords, isExecutingRecord } = useGameRecords(state, dispatch);
+  
   const [action, setAction] = useState<'move' | 'attack' | 'skill' | 'end_turn'>('move');
   const [fromX, setFromX] = useState<number>(0);
   const [fromY, setFromY] = useState<number>(0);
@@ -196,9 +201,9 @@ const BoardActionInput: React.FC = () => {
         <div className="flex gap-2">
           <button
             onClick={handleApplyAction}
-            disabled={state.isExecutingRecord}
+            disabled={isExecutingRecord}
             className={`flex items-center gap-2 px-4 py-2 font-medium rounded-lg transition-colors ${
-              state.isExecutingRecord
+              isExecutingRecord
                 ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
                 : 'bg-blue-600 hover:bg-blue-700 text-white'
             }`}
@@ -301,12 +306,12 @@ const BoardActionInput: React.FC = () => {
       )}
 
       {/* 保存された棋譜一覧 */}
-      {state.gameRecords.length > 0 && (
+      {gameRecords.length > 0 && (
         <div className="border-t pt-6">
           <h4 className="text-md font-semibold text-gray-700 mb-3">保存された棋譜</h4>
           
           <div className="space-y-2">
-            {state.gameRecords.map((record) => (
+            {gameRecords.map((record) => (
               <div key={record.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div>
                   <p className="font-medium text-gray-800">{record.description}</p>
@@ -317,14 +322,14 @@ const BoardActionInput: React.FC = () => {
                 
                 <button
                   onClick={() => handleExecuteRecord(record.id)}
-                  disabled={state.isExecutingRecord}
+                  disabled={isExecutingRecord}
                   className={`flex items-center gap-2 px-3 py-2 font-medium rounded-lg transition-colors ${
-                    state.isExecutingRecord
+                    isExecutingRecord
                       ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
                       : 'bg-orange-600 hover:bg-orange-700 text-white'
                   }`}
                 >
-                  {state.isExecutingRecord ? (
+                  {isExecutingRecord ? (
                     <>
                       <Clock size={16} className="animate-spin" />
                       実行中...
@@ -349,7 +354,7 @@ const BoardActionInput: React.FC = () => {
           <span className={state.currentTeam === 'player' ? 'text-blue-600' : 'text-red-600'}>
             {state.currentTeam === 'player' ? '青チーム' : '赤チーム'}
           </span>
-          {state.isExecutingRecord && (
+          {isExecutingRecord && (
             <span className="ml-2 text-orange-600 font-medium">
               (棋譜実行中: {state.executionIndex}手目)
             </span>
