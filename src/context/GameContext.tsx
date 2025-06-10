@@ -639,16 +639,16 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
       const newState = createInitialGameState(action.hostDeck, action.guestDeck);
       
-      // 🔧 ゲーム開始時の棋譜記録を1つだけ作成
-      setTimeout(() => {
-        console.log(`📋 [START_LOCAL_GAME] 棋譜記録作成`);
-        addGameHistoryMove(
-          0,
-          'player',
-          'game_start',
-          'ローカルゲーム開始 - 青チームのターン'
-        );
-      }, 100);
+      // 🔧 ゲーム開始時の棋譜記録は削除（GameHistoryコンポーネントでリセットされるため）
+      // setTimeout(() => {
+      //   console.log(`📋 [START_LOCAL_GAME] 棋譜記録作成`);
+      //   addGameHistoryMove(
+      //     0,
+      //     'player',
+      //     'game_start',
+      //     'ローカルゲーム開始 - 青チームのターン'
+      //   );
+      // }, 100);
       
       return {
         ...newState,

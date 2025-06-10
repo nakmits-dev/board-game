@@ -22,6 +22,7 @@ class GameHistoryManager {
   private static instance: GameHistoryManager;
   private history: HistoryMove[] = [];
   private listeners: ((history: HistoryMove[]) => void)[] = [];
+  private lastResetPhase: string | null = null; // 🔧 最後にリセットしたフェーズを記録
 
   static getInstance(): GameHistoryManager {
     if (!GameHistoryManager.instance) {
@@ -60,9 +61,26 @@ class GameHistoryManager {
     this.listeners = this.listeners.filter(l => l !== listener);
   }
 
-  reset() {
-    console.log('📋 [GameHistoryManager] 棋譜リセット');
+  // 🔧 フェーズベースのリセット（重複防止）
+  resetIfNeeded(currentPhase: string, gameId?: string) {
+    const resetKey = `${currentPhase}_${gameId || 'default'}`;
+    
+    if (this.lastResetPhase === resetKey) {
+      console.log('📋 [GameHistoryManager] リセット重複スキップ:', resetKey);
+      return;
+    }
+
+    console.log('📋 [GameHistoryManager] 棋譜リセット実行:', resetKey);
     this.history = [];
+    this.lastResetPhase = resetKey;
+    this.listeners.forEach(listener => listener([]));
+  }
+
+  // 🔧 強制リセット（従来の動作）
+  forceReset() {
+    console.log('📋 [GameHistoryManager] 強制リセット');
+    this.history = [];
+    this.lastResetPhase = null;
     this.listeners.forEach(listener => listener([]));
   }
 }
@@ -87,10 +105,12 @@ const GameHistory: React.FC<GameHistoryProps> = ({ className = '' }) => {
     };
   }, [historyManager]);
 
-  // 🎯 ゲームリセット時に棋譜をクリア
+  // 🔧 ゲームフェーズ変更時のリセット処理（重複防止）
   useEffect(() => {
     if (state.gamePhase === 'preparation') {
-      historyManager.reset();
+      // ゲームIDを生成（ターン数とタイムスタンプから）
+      const gameId = `${state.currentTurn}_${Date.now()}`;
+      historyManager.resetIfNeeded('preparation', gameId);
     }
   }, [state.gamePhase, historyManager]);
 
@@ -259,6 +279,12 @@ export const addGameHistoryMove = (
   };
 
   historyManager.addMove(move);
+};
+
+// 🔧 強制リセット用のエクスポート関数
+export const forceResetGameHistory = () => {
+  const historyManager = GameHistoryManager.getInstance();
+  historyManager.forceReset();
 };
 
 export default GameHistory;
