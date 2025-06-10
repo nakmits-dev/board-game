@@ -64,18 +64,24 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
         // キャラクター選択
         dispatch({ type: 'SELECT_CHARACTER', character });
       }
-    } else if (selectedCharacter && !selectedSkill) {
-      // 移動
-      if (isValidMove(selectedCharacter.id, position)) {
-        dispatch({
-          type: 'MOVE_CHARACTER',
-          characterId: selectedCharacter.id,
-          position
-        });
-      }
     } else {
-      // 選択解除
-      dispatch({ type: 'SELECT_CHARACTER', character: null });
+      // 空いているマスの処理
+      if (selectedCharacter && !selectedSkill) {
+        // 移動可能な場合は移動
+        if (isValidMove(selectedCharacter.id, position)) {
+          dispatch({
+            type: 'MOVE_CHARACTER',
+            characterId: selectedCharacter.id,
+            position
+          });
+        } else {
+          // 移動できない場合は選択解除
+          dispatch({ type: 'SELECT_CHARACTER', character: null });
+        }
+      } else {
+        // 選択解除
+        dispatch({ type: 'SELECT_CHARACTER', character: null });
+      }
     }
   };
 
@@ -93,16 +99,18 @@ const BoardCell: React.FC<BoardCellProps> = ({ position }) => {
     cellClassName += " ring-2 ring-yellow-300 bg-yellow-50/30";
   }
 
-  // 有効なアクションのハイライト
+  // 有効なアクションのハイライト（移動可能な場合のみ）
   if (selectedCharacter && gamePhase === 'action') {
     if (selectedSkill) {
       if (character && isValidSkillTarget(selectedCharacter.id, character.id, selectedSkill.id)) {
         cellClassName += " ring-1 ring-purple-400/50 bg-purple-400/10 hover:bg-purple-400/20";
       }
     } else {
+      // 移動可能な空いているマスのみハイライト
       if (!character && isValidMove(selectedCharacter.id, position)) {
         cellClassName += " ring-1 ring-green-400/50 bg-green-400/10 hover:bg-green-400/20";
       }
+      // 攻撃可能なキャラクターのハイライト
       if (character && isValidAttack(selectedCharacter.id, character.id)) {
         cellClassName += " ring-1 ring-red-400/50 bg-red-400/10 hover:bg-red-400/20";
       }

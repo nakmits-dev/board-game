@@ -7,6 +7,7 @@ import { addGameHistoryMove } from '../components/GameHistory';
 
 type GameAction =
   | { type: 'SELECT_CHARACTER'; character: Character | null }
+  | { type: 'SELECT_SKILL'; skill: Skill | null }
   | { type: 'MOVE_CHARACTER'; characterId: string; position: Position }
   | { type: 'ATTACK_CHARACTER'; attackerId: string; targetId: string }
   | { type: 'USE_SKILL'; casterId: string; targetId: string; skillId: string }
@@ -40,6 +41,14 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         selectedCharacter: action.character,
         selectedAction: null,
         selectedSkill: null,
+      };
+    }
+
+    case 'SELECT_SKILL': {
+      return {
+        ...state,
+        selectedSkill: action.skill,
+        selectedAction: action.skill ? 'skill' : null,
       };
     }
 
