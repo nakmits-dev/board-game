@@ -44,7 +44,7 @@ const ActionControls: React.FC = () => {
           <h2 className={`text-2xl font-bold ${
             winner === 'player' ? 'text-blue-600' : 'text-red-600'
           }`}>
-            {winner === 'player' ? 'あなたの勝利！' : '相手の勝利！'}
+            {winner === 'player' ? '青チームの勝利！' : '赤チームの勝利！'}
           </h2>
         </div>
       </div>
