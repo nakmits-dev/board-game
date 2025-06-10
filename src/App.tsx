@@ -4,7 +4,6 @@ import GameBoard from './components/GameBoard';
 import CharacterPanel from './components/CharacterPanel';
 import ActionControls from './components/ActionControls';
 import TurnOrder from './components/TurnOrder';
-import TurnTimer from './components/TurnTimer';
 import CrystalDisplay from './components/CrystalDisplay';
 import DeckBuilder from './components/DeckBuilder';
 import StartingTeamSelector from './components/StartingTeamSelector';
@@ -150,11 +149,8 @@ const GameContent = () => {
                 </div>
               </div>
             ) : (
-              <div className="space-y-4">
-                {/* ターンタイマー */}
-                <TurnTimer />
-                
-                {/* ターン情報 */}
+              <div className="mb-4">
+                {/* ターン情報（タイマー統合済み） */}
                 <TurnOrder />
               </div>
             )}
