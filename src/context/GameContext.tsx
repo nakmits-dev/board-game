@@ -144,7 +144,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           const damage = Math.max(0, character.attack - target.defense);
           const newHp = Math.max(0, target.hp - damage);
           
-          // 🔧 アニメーション順序を正しく設定：攻撃 → ダメージ → 気絶 → クリスタル取得
+          // 🔧 アニメーション順序を正しく設定：攻撃 → ダメージ → 気絶
           animations.push(
             { id: character.id, type: 'attack' },
             { id: target.id, type: 'damage' }
@@ -153,22 +153,23 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           if (newHp === 0) {
             animations.push({ id: target.id, type: 'ko' });
 
-            // 🔧 マスターが倒された場合でもクリスタル取得とアニメーションは実行
-            // 勝利判定は気絶アニメーション後に別途実行
-            // クリスタル取得ルール変更：倒された側がクリスタルを取得
-            if (target.team === 'player') {
-              newPlayerCrystals = Math.min(8, newPlayerCrystals + target.cost);
-              animations.push({ id: 'player-crystal', type: 'crystal-gain' });
-            } else {
-              newEnemyCrystals = Math.min(8, newEnemyCrystals + target.cost);
-              animations.push({ id: 'enemy-crystal', type: 'crystal-gain' });
-            }
+            // 🔧 マスターが倒された場合はクリスタル取得と進化を停止
+            if (target.type !== 'master') {
+              // モンスターが倒された場合のみクリスタル取得と進化処理
+              if (target.team === 'player') {
+                newPlayerCrystals = Math.min(8, newPlayerCrystals + target.cost);
+                animations.push({ id: 'player-crystal', type: 'crystal-gain' });
+              } else {
+                newEnemyCrystals = Math.min(8, newEnemyCrystals + target.cost);
+                animations.push({ id: 'enemy-crystal', type: 'crystal-gain' });
+              }
 
-            // 進化処理（攻撃側のキャラクターが進化可能な場合）
-            if (character.type === 'monster' && !character.isEvolved && character.monsterType) {
-              const evolvedType = getEvolvedMonsterType(character.monsterType);
-              if (evolvedType) {
-                animations.push({ id: character.id, type: 'evolve' });
+              // 進化処理（攻撃側のキャラクターが進化可能な場合）
+              if (character.type === 'monster' && !character.isEvolved && character.monsterType) {
+                const evolvedType = getEvolvedMonsterType(character.monsterType);
+                if (evolvedType) {
+                  animations.push({ id: character.id, type: 'evolve' });
+                }
               }
             }
           }
@@ -295,15 +296,16 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         if (newHp === 0) {
           animations.push({ id: target.id, type: 'ko' });
 
-          // 🔧 マスターが倒された場合でもクリスタル取得とアニメーションは実行
-          // 勝利判定は気絶アニメーション後に別途実行
-          // クリスタル取得ルール変更：倒された側がクリスタルを取得
-          if (target.team === 'player') {
-            newPlayerCrystals = Math.min(8, newPlayerCrystals + target.cost);
-            animations.push({ id: 'player-crystal', type: 'crystal-gain' });
-          } else {
-            newEnemyCrystals = Math.min(8, newEnemyCrystals + target.cost);
-            animations.push({ id: 'enemy-crystal', type: 'crystal-gain' });
+          // 🔧 マスターが倒された場合はクリスタル取得と進化を停止
+          if (target.type !== 'master') {
+            // モンスターが倒された場合のみクリスタル取得処理
+            if (target.team === 'player') {
+              newPlayerCrystals = Math.min(8, newPlayerCrystals + target.cost);
+              animations.push({ id: 'player-crystal', type: 'crystal-gain' });
+            } else {
+              newEnemyCrystals = Math.min(8, newEnemyCrystals + target.cost);
+              animations.push({ id: 'enemy-crystal', type: 'crystal-gain' });
+            }
           }
         }
 
