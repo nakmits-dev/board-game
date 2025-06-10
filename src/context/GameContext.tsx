@@ -1,11 +1,8 @@
 import React, { createContext, useContext, useReducer, ReactNode, useEffect } from 'react';
-import { GameState, Character, Position, ActionType, Skill, Team, AnimationSequence, MonsterType, BoardAction, GameRecord } from '../types/gameTypes';
+import { GameState, Character, Position, ActionType, Skill, Team, AnimationSequence, MonsterType } from '../types/gameTypes';
 import { createInitialGameState, getEvolvedMonsterType, monsterData } from '../data/initialGameState';
 import { skillData } from '../data/skillData';
 import { masterData } from '../data/cardData';
-import { addGameHistoryMove } from '../components/GameHistory';
-import { GameValidationService } from '../services/GameValidationService';
-import { ActionResult } from '../services/GameActionService';
 
 type GameAction =
   | { type: 'SELECT_CHARACTER'; character: Character | null }
@@ -24,10 +21,7 @@ type GameAction =
   | { type: 'SET_PENDING_ANIMATIONS'; animations: AnimationSequence[] }
   | { type: 'REMOVE_DEFEATED_CHARACTERS'; targetId: string; killerTeam?: Team }
   | { type: 'EVOLVE_CHARACTER'; characterId: string }
-  | { type: 'SURRENDER'; team: Team }
-  | { type: 'APPLY_ACTION_RESULT'; result: ActionResult }
-  | { type: 'UPDATE_GAME_RECORDS'; records: GameRecord[] }
-  | { type: 'SET_EXECUTION_STATE'; isExecuting: boolean; index?: number };
+  | { type: 'SURRENDER'; team: Team };
 
 interface GameContextType {
   state: GameState;
@@ -48,38 +42,6 @@ const ANIMATION_DURATION = 300;
 
 function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
-    case 'APPLY_ACTION_RESULT': {
-      const { result } = action;
-      
-      return {
-        ...state,
-        characters: result.characters,
-        selectedCharacter: null,
-        selectedAction: null,
-        selectedSkill: null,
-        pendingAction: { type: null },
-        pendingAnimations: result.animations,
-        playerCrystals: result.playerCrystals || state.playerCrystals,
-        enemyCrystals: result.enemyCrystals || state.enemyCrystals,
-        gamePhase: result.gamePhase,
-      };
-    }
-
-    case 'UPDATE_GAME_RECORDS': {
-      return {
-        ...state,
-        gameRecords: action.records
-      };
-    }
-
-    case 'SET_EXECUTION_STATE': {
-      return {
-        ...state,
-        isExecutingRecord: action.isExecuting,
-        executionIndex: action.index || 0
-      };
-    }
-
     case 'SELECT_CHARACTER': {
       if (!action.character) {
         return {
@@ -175,14 +137,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
               }
             : char
         );
-
-        // 棋譜に記録
-        addGameHistoryMove(
-          state.currentTurn,
-          state.currentTeam,
-          'move',
-          `${character.name}が(${state.pendingAction.position.x},${state.pendingAction.position.y})に移動`
-        );
       } else if (state.pendingAction.type === 'attack' && state.pendingAction.targetId) {
         const target = state.characters.find(char => char.id === state.pendingAction.targetId);
         if (target) {
@@ -227,14 +181,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             }
             return char;
           });
-
-          // 棋譜に記録
-          addGameHistoryMove(
-            state.currentTurn,
-            state.currentTeam,
-            'attack',
-            `${character.name}が${target.name}を攻撃（ダメージ: ${damage}）`
-          );
         }
       }
 
@@ -388,14 +334,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         return char;
       });
 
-      // 棋譜に記録
-      addGameHistoryMove(
-        state.currentTurn,
-        state.currentTeam,
-        'skill',
-        `${state.selectedCharacter.name}が${target.name}に${skill.name}を使用`
-      );
-
       return {
         ...state,
         characters: newCharacters,
@@ -454,14 +392,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'SURRENDER': {
-      // 棋譜に記録
-      addGameHistoryMove(
-        state.currentTurn,
-        action.team,
-        'surrender',
-        `${action.team === 'player' ? '青チーム' : '赤チーム'}が降参`
-      );
-
       return {
         ...state,
         gamePhase: 'result',
@@ -510,14 +440,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         animations.push({ id: 'enemy-crystal', type: 'crystal-gain' });
       }
 
-      // 棋譜に記録
-      addGameHistoryMove(
-        state.currentTurn,
-        state.currentTeam,
-        'end_turn',
-        `${state.currentTeam === 'player' ? '青チーム' : '赤チーム'}のターン終了`
-      );
-
       return {
         ...state,
         characters: refreshedCharacters,
@@ -551,9 +473,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           host: action.hostDeck,
           guest: action.guestDeck
         },
-        gameRecords: [],
-        isExecutingRecord: false,
-        executionIndex: 0,
       };
     }
 
@@ -588,9 +507,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       return {
         ...newState,
         savedDecks: state.savedDecks,
-        gameRecords: [],
-        isExecutingRecord: false,
-        executionIndex: 0,
       };
     }
 
@@ -600,12 +516,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 }
 
 export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [state, dispatch] = useReducer(gameReducer, {
-    ...createInitialGameState(),
-    gameRecords: [],
-    isExecutingRecord: false,
-    executionIndex: 0,
-  });
+  const [state, dispatch] = useReducer(gameReducer, createInitialGameState());
   const [savedDecks, setSavedDecks] = React.useState<{
     host?: { master: keyof typeof masterData; monsters: MonsterType[] };
     guest?: { master: keyof typeof masterData; monsters: MonsterType[] };
@@ -659,34 +570,70 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [state.pendingAnimations]);
 
   const isValidMove = (position: Position): boolean => {
-    return GameValidationService.isValidMove(
-      state.characters,
-      state.selectedCharacter,
-      position,
-      state.currentTeam,
-      state.gamePhase
+    if (!state.selectedCharacter || state.selectedCharacter.remainingActions <= 0) return false;
+    if (state.gamePhase === 'preparation') return false;
+    if (state.selectedCharacter.team !== state.currentTeam) return false;
+
+    const { x: srcX, y: srcY } = state.selectedCharacter.position;
+    const { x: destX, y: destY } = position;
+
+    const dx = Math.abs(srcX - destX);
+    const dy = Math.abs(srcY - destY);
+    
+    if (dx > 1 || dy > 1) return false;
+    if (destX < 0 || destX > 2 || destY < 0 || destY > 3) return false;
+
+    const isOccupied = state.characters.some(
+      char => char.position.x === destX && char.position.y === destY
     );
+
+    return !isOccupied;
   };
 
   const isValidAttack = (targetId: string): boolean => {
-    return GameValidationService.isValidAttack(
-      state.characters,
-      state.selectedCharacter,
-      targetId,
-      state.currentTeam,
-      state.gamePhase
-    );
+    if (!state.selectedCharacter || state.selectedCharacter.remainingActions <= 0) return false;
+    if (state.gamePhase === 'preparation') return false;
+    if (state.selectedCharacter.team !== state.currentTeam) return false;
+
+    const target = state.characters.find(char => char.id === targetId);
+    if (!target || target.team === state.selectedCharacter.team) return false;
+
+    const { x: srcX, y: srcY } = state.selectedCharacter.position;
+    const { x: destX, y: destY } = target.position;
+
+    const dx = Math.abs(srcX - destX);
+    const dy = Math.abs(srcY - destY);
+
+    return dx <= 1 && dy <= 1;
   };
 
   const isValidSkillTarget = (targetId: string): boolean => {
-    return GameValidationService.isValidSkillTarget(
-      state.characters,
-      state.selectedCharacter,
-      state.selectedSkill,
-      targetId,
-      state.currentTeam,
-      state.gamePhase
-    );
+    if (!state.selectedCharacter || !state.selectedSkill || state.selectedCharacter.remainingActions <= 0) return false;
+    if (state.gamePhase === 'preparation') return false;
+    if (state.selectedCharacter.team !== state.currentTeam) return false;
+
+    const target = state.characters.find(char => char.id === targetId);
+    if (!target) return false;
+
+    const { x: srcX, y: srcY } = state.selectedCharacter.position;
+    const { x: destX, y: destY } = target.position;
+
+    const dx = Math.abs(srcX - destX);
+    const dy = Math.abs(srcY - destY);
+    const distance = Math.max(dx, dy);
+
+    if (state.selectedSkill.healing && target.team !== state.selectedCharacter.team) return false;
+    if (state.selectedSkill.damage && target.team === state.selectedCharacter.team) return false;
+    if (state.selectedSkill.effects?.some(effect => effect.type === 'evolve')) {
+      if (target.team !== state.selectedCharacter.team) return false;
+      if (target.type !== 'monster' || target.isEvolved) return false;
+      if (target.type === 'monster' && target.monsterType) {
+        const evolvedType = getEvolvedMonsterType(target.monsterType);
+        if (!evolvedType) return false;
+      }
+    }
+
+    return distance <= state.selectedSkill.range;
   };
 
   const getCharacterAt = (position: Position): Character | undefined => {
