@@ -95,11 +95,6 @@ export class GameValidationService {
   // 🎯 ゲーム開始の妥当性をチェック
   static canStartGame(savedDecks: any): boolean {
     const result = !!(savedDecks.host && savedDecks.guest);
-    console.log(`🎮 [GameValidationService] ゲーム開始可能チェック:`, { 
-      result, 
-      hasHost: !!savedDecks.host, 
-      hasGuest: !!savedDecks.guest 
-    });
     return result;
   }
 }

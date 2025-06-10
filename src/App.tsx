@@ -22,7 +22,6 @@ const GameContent = () => {
   const [showTutorial, setShowTutorial] = useState(false);
 
   const handleShowDeckBuilder = () => {
-    console.log(`🎮 [App] DeckBuilder表示`);
     setShowDeckBuilder(true);
   };
 
@@ -30,8 +29,6 @@ const GameContent = () => {
     hostDeck?: { master: keyof typeof masterData; monsters: MonsterType[] },
     guestDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }
   ) => {
-    console.log(`🎮 [App] DeckBuilder終了:`, { hostDeck, guestDeck });
-    
     // 編成内容を保存
     if (hostDeck && guestDeck) {
       dispatch({ type: 'SET_SAVED_DECKS', hostDeck, guestDeck });
@@ -46,8 +43,6 @@ const GameContent = () => {
     hostDeck: { master: keyof typeof masterData; monsters: MonsterType[] },
     guestDeck: { master: keyof typeof masterData; monsters: MonsterType[] }
   ) => {
-    console.log(`🎮 [App] ローカルゲーム開始処理:`, { hostDeck, guestDeck });
-    
     // 🔧 編成内容を保存してDeckBuilderを閉じるだけ
     handleCloseDeckBuilder(hostDeck, guestDeck);
     
@@ -55,31 +50,20 @@ const GameContent = () => {
   };
 
   const handleGameStart = () => {
-    console.log(`🎮 [App] ゲーム開始ボタンクリック:`, {
-      gamePhase,
-      savedDecks
-    });
-    
     // 🔧 チェックを1回だけ実行
     const hasValidDecks = !!(savedDecks.host && savedDecks.guest);
-    console.log(`🎮 [App] ゲーム開始可能チェック:`, { 
-      hasValidDecks, 
-      hasHost: !!savedDecks.host, 
-      hasGuest: !!savedDecks.guest 
-    });
     
     if (!hasValidDecks) {
-      console.warn(`⚠️ [App] ゲーム開始不可: デッキが不完全`);
+      console.warn('⚠️ ゲーム開始不可: デッキが不完全');
       return;
     }
     
     if (gamePhase === 'result') {
-      console.log(`🎮 [App] ゲームリセット実行`);
       dispatch({ type: 'RESET_GAME' });
     }
     
     // 🔧 保存されたデッキでゲーム開始（1回のみ実行）
-    console.log(`🎮 [App] START_LOCAL_GAME ディスパッチ実行`);
+    console.log('🎮 ゲーム開始');
     dispatch({ 
       type: 'START_LOCAL_GAME', 
       hostDeck: savedDecks.host!, 
@@ -89,15 +73,6 @@ const GameContent = () => {
 
   // 🔧 ボタンの活性化状態を計算（レンダリング時のみ）
   const isGameStartEnabled = !!(savedDecks.host && savedDecks.guest);
-
-  // ゲームフェーズの変更を監視
-  useEffect(() => {
-    console.log(`🎮 [App] ゲームフェーズ変更:`, {
-      gamePhase,
-      currentTeam: state.currentTeam,
-      currentTurn: state.currentTurn
-    });
-  }, [gamePhase, state.currentTeam, state.currentTurn]);
 
   if (showDeckBuilder) {
     return (
@@ -204,8 +179,6 @@ const GameContent = () => {
 };
 
 function App() {
-  console.log(`🎮 [App] アプリケーション初期化`);
-  
   return (
     <GameProvider>
       <GameContent />

@@ -23,8 +23,6 @@ export class GameActionService {
     currentTeam: Team,
     currentTurn: number
   ): ActionResult {
-    console.log(`🚶 [GameActionService] 移動処理:`, { from, to, currentTeam });
-
     const character = characters.find(char => 
       char.position.x === from.x && 
       char.position.y === from.y &&
@@ -99,8 +97,6 @@ export class GameActionService {
     playerCrystals: number,
     enemyCrystals: number
   ): ActionResult {
-    console.log(`⚔️ [GameActionService] 攻撃処理:`, { from, to, currentTeam });
-
     const attacker = characters.find(char => 
       char.position.x === from.x && 
       char.position.y === from.y &&
@@ -203,8 +199,6 @@ export class GameActionService {
     playerCrystals: number,
     enemyCrystals: number
   ): ActionResult {
-    console.log(`✨ [GameActionService] スキル処理:`, { from, to, currentTeam });
-
     const caster = characters.find(char => 
       char.position.x === from.x && 
       char.position.y === from.y &&
@@ -362,8 +356,6 @@ export class GameActionService {
     playerCrystals: number,
     enemyCrystals: number
   ): ActionResult {
-    console.log(`🔄 [GameActionService] ターン終了処理:`, { currentTeam, currentTurn });
-
     const newCurrentTeam: Team = currentTeam === 'player' ? 'enemy' : 'player';
     
     const refreshedCharacters = characters.map(character => {

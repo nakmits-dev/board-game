@@ -14,10 +14,8 @@ export const useGameActions = (
   
   const applyBoardAction = useCallback((boardAction: BoardAction): boolean => {
     try {
-      console.log(`🎯 [useGameActions] ボードアクション適用:`, boardAction);
-
       if (state.gamePhase !== 'action') {
-        console.warn('⚠️ [useGameActions] ゲームが進行中ではありません');
+        console.warn('⚠️ ゲームが進行中ではありません');
         return false;
       }
 
@@ -72,7 +70,7 @@ export const useGameActions = (
           break;
 
         default:
-          console.error('❌ [useGameActions] 未知のアクション:', boardAction.action);
+          console.error('❌ 未知のアクション:', boardAction.action);
           return false;
       }
 
@@ -83,12 +81,12 @@ export const useGameActions = (
           result
         });
       } else {
-        console.error('❌ [useGameActions] アクション実行失敗:', result.message);
+        console.error('❌ アクション実行失敗:', result.message);
       }
 
       return result.success;
     } catch (error) {
-      console.error('❌ [useGameActions] エラー:', error);
+      console.error('❌ エラー:', error);
       return false;
     }
   }, [state, dispatch]);

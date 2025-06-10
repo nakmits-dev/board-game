@@ -22,8 +22,6 @@ export const useGameRecords = (
   const { applyBoardAction } = useGameActions(state, dispatch);
 
   const createGameRecord = useCallback((actions: BoardAction[], description: string): string => {
-    console.log(`📋 [useGameRecords] 棋譜作成:`, { description, actionsCount: actions.length });
-    
     const recordId = gameRecordService.createRecord(actions, description);
     
     // 状態を更新
@@ -36,11 +34,11 @@ export const useGameRecords = (
   }, [dispatch]);
 
   const executeGameRecord = useCallback(async (recordId: string): Promise<boolean> => {
-    console.log(`🎬 [useGameRecords] 棋譜実行開始:`, recordId);
+    console.log('🎬 棋譜実行開始:', recordId);
     
     const record = gameRecordService.getRecord(recordId);
     if (!record) {
-      console.error('❌ [useGameRecords] 棋譜レコードが見つかりません:', recordId);
+      console.error('❌ 棋譜レコードが見つかりません:', recordId);
       return false;
     }
 
@@ -50,15 +48,13 @@ export const useGameRecords = (
       for (let i = 0; i < record.actions.length; i++) {
         const action = record.actions[i];
         
-        console.log(`🎬 [useGameRecords] アクション実行 ${i + 1}/${record.actions.length}:`, action);
-        
         // 実行前に少し待機
         await new Promise(resolve => setTimeout(resolve, 500));
         
         // アクションを実行
         const success = applyBoardAction(action);
         if (!success) {
-          console.error('❌ [useGameRecords] アクション実行失敗:', action);
+          console.error('❌ アクション実行失敗:', action);
           dispatch({ type: 'SET_EXECUTION_STATE', isExecuting: false, index: 0 });
           return false;
         }
@@ -71,10 +67,10 @@ export const useGameRecords = (
       }
       
       dispatch({ type: 'SET_EXECUTION_STATE', isExecuting: false, index: 0 });
-      console.log('✅ [useGameRecords] 棋譜実行完了:', record.description);
+      console.log('✅ 棋譜実行完了:', record.description);
       return true;
     } catch (error) {
-      console.error('❌ [useGameRecords] 棋譜実行エラー:', error);
+      console.error('❌ 棋譜実行エラー:', error);
       dispatch({ type: 'SET_EXECUTION_STATE', isExecuting: false, index: 0 });
       return false;
     }

@@ -35,11 +35,9 @@ class GameHistoryManager {
     // 重複チェック（同じタイムスタンプの棋譜は追加しない）
     const exists = this.history.some(h => h.timestamp === move.timestamp);
     if (exists) {
-      console.log('📋 [GameHistoryManager] 重複棋譜スキップ:', move.description);
       return;
     }
 
-    console.log('📋 [GameHistoryManager] 棋譜追加:', move.description);
     this.history.push(move);
     
     // タイムスタンプ順でソート（新しいものが後）
@@ -66,11 +64,10 @@ class GameHistoryManager {
     const resetKey = `${currentPhase}_${gameId || 'default'}`;
     
     if (this.lastResetPhase === resetKey) {
-      console.log('📋 [GameHistoryManager] リセット重複スキップ:', resetKey);
       return;
     }
 
-    console.log('📋 [GameHistoryManager] 棋譜リセット実行:', resetKey);
+    console.log('📋 棋譜リセット');
     this.history = [];
     this.lastResetPhase = resetKey;
     this.listeners.forEach(listener => listener([]));
@@ -78,7 +75,6 @@ class GameHistoryManager {
 
   // 🔧 強制リセット（従来の動作）
   forceReset() {
-    console.log('📋 [GameHistoryManager] 強制リセット');
     this.history = [];
     this.lastResetPhase = null;
     this.listeners.forEach(listener => listener([]));
