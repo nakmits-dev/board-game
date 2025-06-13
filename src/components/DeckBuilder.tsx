@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MonsterType, MasterCard, Position } from '../types/gameTypes';
 import { monsterData, masterData, generateTeamWithCost8 } from '../data/cardData';
+import { TEAM_POSITIONS } from '../data/initialGameState';
 import { skillData } from '../data/skillData';
 import { Shield, Sword, Sparkle, Heart, Crown, Gitlab as GitLab, Play, X, Filter, Star, Shuffle, ArrowLeft, Trash2, Eye, EyeOff, HelpCircle } from 'lucide-react';
 import CharacterCard from './CharacterCard';
@@ -35,21 +36,16 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
   const [secretMode, setSecretMode] = useState(false);
   const cardSelectionRef = useRef<HTMLDivElement>(null);
   
-  // 空の初期状態を作成する関数
+  // 🔧 統一された座標を使用して空の初期状態を作成
   const createEmptyAssignments = (isPlayer: boolean = true): PositionAssignment[] => {
-    return isPlayer 
-      ? [
-          { position: { x: 0, y: 3 }, type: 'monster' },
-          { position: { x: 1, y: 3 }, type: 'master' },
-          { position: { x: 2, y: 3 }, type: 'monster' },
-          { position: { x: 1, y: 2 }, type: 'monster' },
-        ]
-      : [
-          { position: { x: 0, y: 0 }, type: 'monster' },
-          { position: { x: 1, y: 0 }, type: 'master' },
-          { position: { x: 2, y: 0 }, type: 'monster' },
-          { position: { x: 1, y: 1 }, type: 'monster' },
-        ];
+    const positions = isPlayer ? TEAM_POSITIONS.player : TEAM_POSITIONS.enemy;
+    
+    return [
+      { position: positions.master, type: 'master' },
+      { position: positions.monsters[0], type: 'monster' },
+      { position: positions.monsters[1], type: 'monster' },
+      { position: positions.monsters[2], type: 'monster' },
+    ];
   };
 
   // 既存の編成から初期状態を作成する関数
@@ -238,20 +234,20 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     const playerTeam = generateTeamWithCost8();
     const enemyTeam = generateTeamWithCost8();
     
-    // プレイヤーチーム設定
+    // 🔧 統一された座標を使用してプレイヤーチーム設定
     setPlayerAssignments([
-      { position: { x: 0, y: 3 }, type: 'monster', id: playerTeam.monsters[0] },
-      { position: { x: 1, y: 3 }, type: 'master', id: playerTeam.master },
-      { position: { x: 2, y: 3 }, type: 'monster', id: playerTeam.monsters[1] },
-      { position: { x: 1, y: 2 }, type: 'monster', id: playerTeam.monsters[2] },
+      { position: TEAM_POSITIONS.player.master, type: 'master', id: playerTeam.master },
+      { position: TEAM_POSITIONS.player.monsters[0], type: 'monster', id: playerTeam.monsters[0] },
+      { position: TEAM_POSITIONS.player.monsters[1], type: 'monster', id: playerTeam.monsters[1] },
+      { position: TEAM_POSITIONS.player.monsters[2], type: 'monster', id: playerTeam.monsters[2] },
     ]);
     
-    // 敵チーム設定
+    // 🔧 統一された座標を使用して敵チーム設定
     setEnemyAssignments([
-      { position: { x: 0, y: 0 }, type: 'monster', id: enemyTeam.monsters[0] },
-      { position: { x: 1, y: 0 }, type: 'master', id: enemyTeam.master },
-      { position: { x: 2, y: 0 }, type: 'monster', id: enemyTeam.monsters[1] },
-      { position: { x: 1, y: 1 }, type: 'monster', id: enemyTeam.monsters[2] },
+      { position: TEAM_POSITIONS.enemy.master, type: 'master', id: enemyTeam.master },
+      { position: TEAM_POSITIONS.enemy.monsters[0], type: 'monster', id: enemyTeam.monsters[0] },
+      { position: TEAM_POSITIONS.enemy.monsters[1], type: 'monster', id: enemyTeam.monsters[1] },
+      { position: TEAM_POSITIONS.enemy.monsters[2], type: 'monster', id: enemyTeam.monsters[2] },
     ]);
   };
 

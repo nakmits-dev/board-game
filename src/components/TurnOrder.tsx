@@ -9,7 +9,7 @@ const TurnOrder: React.FC = () => {
   
   // タイマー関連の状態
   const [timeLeft, setTimeLeft] = useState(30);
-  const [isPaused, setIsPaused] = useState(false);
+  const [isPaused, setIsPaused] = useState(true); // 🔧 デフォルトで一時停止
   const [isWarning, setIsWarning] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastTeamRef = useRef<'player' | 'enemy' | null>(null);
@@ -21,7 +21,7 @@ const TurnOrder: React.FC = () => {
       // チームが変わった場合のみリセット
       if (lastTeamRef.current !== currentTeam) {
         setTimeLeft(30);
-        setIsPaused(false);
+        // 🔧 ターン交代時は一時停止状態を引き継ぐ（リセットしない）
         setIsWarning(false);
         hasTriggeredEndTurn.current = false; // 🔧 フラグもリセット
         lastTeamRef.current = currentTeam;

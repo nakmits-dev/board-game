@@ -156,12 +156,13 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             // 🔧 マスターが倒された場合はクリスタル取得と進化を停止
             if (target.type !== 'master') {
               // モンスターが倒された場合のみクリスタル取得と進化処理
+              // 🔧 クリスタル取得を即座に実行（アニメーションと同期）
               if (target.team === 'player') {
-                newPlayerCrystals = Math.min(8, newPlayerCrystals + target.cost);
-                animations.push({ id: 'player-crystal', type: 'crystal-gain' });
-              } else {
                 newEnemyCrystals = Math.min(8, newEnemyCrystals + target.cost);
                 animations.push({ id: 'enemy-crystal', type: 'crystal-gain' });
+              } else {
+                newPlayerCrystals = Math.min(8, newPlayerCrystals + target.cost);
+                animations.push({ id: 'player-crystal', type: 'crystal-gain' });
               }
 
               // 進化処理（攻撃側のキャラクターが進化可能な場合）
@@ -299,12 +300,13 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           // 🔧 マスターが倒された場合はクリスタル取得と進化を停止
           if (target.type !== 'master') {
             // モンスターが倒された場合のみクリスタル取得処理
+            // 🔧 クリスタル取得を即座に実行（アニメーションと同期）
             if (target.team === 'player') {
-              newPlayerCrystals = Math.min(8, newPlayerCrystals + target.cost);
-              animations.push({ id: 'player-crystal', type: 'crystal-gain' });
-            } else {
               newEnemyCrystals = Math.min(8, newEnemyCrystals + target.cost);
               animations.push({ id: 'enemy-crystal', type: 'crystal-gain' });
+            } else {
+              newPlayerCrystals = Math.min(8, newPlayerCrystals + target.cost);
+              animations.push({ id: 'player-crystal', type: 'crystal-gain' });
             }
           }
         }
@@ -347,28 +349,11 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'REMOVE_DEFEATED_CHARACTERS': {
-      const defeatedCharacter = state.characters.find(char => char.id === action.targetId);
       const updatedCharacters = state.characters.filter(char => char.id !== action.targetId);
-
-      let hostCrystals = state.playerCrystals;
-      let guestCrystals = state.enemyCrystals;
-
-      // 🔧 クリスタル取得処理は既に他の場所で行われているため、ここでは重複処理を削除
-      // if (defeatedCharacter) {
-      //   const crystalGain = defeatedCharacter.cost;
-      //   
-      //   if (defeatedCharacter.team === 'player') {
-      //     guestCrystals = Math.min(8, guestCrystals + crystalGain);
-      //   } else {
-      //     hostCrystals = Math.min(8, hostCrystals + crystalGain);
-      //   }
-      // }
 
       return {
         ...state,
         characters: updatedCharacters,
-        playerCrystals: hostCrystals,
-        enemyCrystals: guestCrystals,
       };
     }
 
@@ -669,7 +654,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 export const useGame = (): GameContextType => {
   const context = useContext(GameContext);
   if (context === undefined) {
-    throw new Error('useGame must be used within a GameProvider');
+    throw new error('useGame must be used within a GameProvider');
   }
   return context;
 };

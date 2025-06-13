@@ -119,7 +119,27 @@ const generateTeamWithCost8 = (): { master: keyof typeof masterData; monsters: M
   };
 };
 
-export { createMonster, createMaster, getEvolvedMonsterType, monsterData, generateTeamWithCost8 };
+// 🔧 統一された配置座標定義
+const TEAM_POSITIONS = {
+  player: {
+    master: { x: 1, y: 3 },
+    monsters: [
+      { x: 0, y: 3 }, // モンスター1
+      { x: 2, y: 3 }, // モンスター2  
+      { x: 1, y: 2 }  // モンスター3
+    ]
+  },
+  enemy: {
+    master: { x: 1, y: 0 },
+    monsters: [
+      { x: 0, y: 0 }, // モンスター1
+      { x: 2, y: 0 }, // モンスター2
+      { x: 1, y: 1 }  // モンスター3
+    ]
+  }
+} as const;
+
+export { createMonster, createMaster, getEvolvedMonsterType, monsterData, generateTeamWithCost8, TEAM_POSITIONS };
 
 export const createInitialGameState = (
   hostDeck?: { master: keyof typeof masterData; monsters: MonsterType[] },
@@ -129,72 +149,40 @@ export const createInitialGameState = (
 
   // デッキが指定されている場合のみキャラクターを配置
   if (hostDeck && guestDeck) {
-    // ホストチーム - 指定された配置
-    // マスターを中央前に配置
-    characters.push(createMaster(hostDeck.master, { x: 1, y: 3 }, 'player'));
-
-    // モンスターを指定された位置に配置
-    // 左：1番目のモンスター、右：2番目のモンスター、上：3番目のモンスター
-    const hostPositions = [
-      { x: 0, y: 3 }, // 左：1番目のモンスター
-      { x: 2, y: 3 }, // 右：2番目のモンスター  
-      { x: 1, y: 2 }  // 上：3番目のモンスター
-    ];
+    // 🔧 統一された座標を使用してホストチーム配置
+    characters.push(createMaster(hostDeck.master, TEAM_POSITIONS.player.master, 'player'));
     
     hostDeck.monsters.forEach((monster, index) => {
-      if (index < hostPositions.length) {
-        characters.push(createMonster(monster, hostPositions[index], 'player'));
+      if (index < TEAM_POSITIONS.player.monsters.length) {
+        characters.push(createMonster(monster, TEAM_POSITIONS.player.monsters[index], 'player'));
       }
     });
 
-    // ゲストチーム - ホストと同じ配置（左右反転なし）
-    // マスターを中央前に配置
-    characters.push(createMaster(guestDeck.master, { x: 1, y: 0 }, 'enemy'));
-
-    // モンスターを同じ配置
-    // 左：1番目のモンスター、右：2番目のモンスター、下：3番目のモンスター
-    const guestPositions = [
-      { x: 0, y: 0 }, // 左：1番目のモンスター
-      { x: 2, y: 0 }, // 右：2番目のモンスター
-      { x: 1, y: 1 }  // 下：3番目のモンスター
-    ];
+    // 🔧 統一された座標を使用してゲストチーム配置
+    characters.push(createMaster(guestDeck.master, TEAM_POSITIONS.enemy.master, 'enemy'));
     
     guestDeck.monsters.forEach((monster, index) => {
-      if (index < guestPositions.length) {
-        characters.push(createMonster(monster, guestPositions[index], 'enemy'));
+      if (index < TEAM_POSITIONS.enemy.monsters.length) {
+        characters.push(createMonster(monster, TEAM_POSITIONS.enemy.monsters[index], 'enemy'));
       }
     });
   } else {
-    // デフォルト編成（ブルーマスター + ウルフ、ベアー、ゴーレム）
-    // 🔧 青チームの初期配置変更：ベアーとウルフの位置を逆に
+    // デフォルト編成
     const defaultHostDeck = { master: 'blue' as keyof typeof masterData, monsters: ['wolf', 'bear', 'golem'] as MonsterType[] };
     const defaultGuestDeck = { master: 'red' as keyof typeof masterData, monsters: ['bear', 'wolf', 'golem'] as MonsterType[] };
     
-    // ホストチーム
-    characters.push(createMaster(defaultHostDeck.master, { x: 1, y: 3 }, 'player'));
-    const hostPositions = [
-      { x: 0, y: 3 }, // 左：ウルフ（変更）
-      { x: 2, y: 3 }, // 右：ベアー（変更）
-      { x: 1, y: 2 }  // 上：ゴーレム
-    ];
-    
+    // 🔧 統一された座標を使用
+    characters.push(createMaster(defaultHostDeck.master, TEAM_POSITIONS.player.master, 'player'));
     defaultHostDeck.monsters.forEach((monster, index) => {
-      if (index < hostPositions.length) {
-        characters.push(createMonster(monster, hostPositions[index], 'player'));
+      if (index < TEAM_POSITIONS.player.monsters.length) {
+        characters.push(createMonster(monster, TEAM_POSITIONS.player.monsters[index], 'player'));
       }
     });
 
-    // ゲストチーム
-    characters.push(createMaster(defaultGuestDeck.master, { x: 1, y: 0 }, 'enemy'));
-    const guestPositions = [
-      { x: 2, y: 0 }, // 右：ベアー
-      { x: 0, y: 0 }, // 左：ウルフ
-      { x: 1, y: 1 }  // 下：ゴーレム
-    ];
-    
+    characters.push(createMaster(defaultGuestDeck.master, TEAM_POSITIONS.enemy.master, 'enemy'));
     defaultGuestDeck.monsters.forEach((monster, index) => {
-      if (index < guestPositions.length) {
-        characters.push(createMonster(monster, guestPositions[index], 'enemy'));
+      if (index < TEAM_POSITIONS.enemy.monsters.length) {
+        characters.push(createMonster(monster, TEAM_POSITIONS.enemy.monsters[index], 'enemy'));
       }
     });
   }
