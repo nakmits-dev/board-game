@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { DeckProvider } from './context/DeckContext';
 import { GameProvider } from './context/GameContext';
 import GameBoard from './components/GameBoard';
 import CharacterPanel from './components/CharacterPanel';
@@ -9,12 +10,12 @@ import DeckBuilder from './components/DeckBuilder';
 import ShareButton from './components/ShareButton';
 import Tutorial from './components/Tutorial';
 import { useGame } from './context/GameContext';
-import { MonsterType } from './types/gameTypes';
-import { masterData } from './data/cardData';
+import { useDeck } from './context/DeckContext';
 import { HelpCircle } from 'lucide-react';
 
 const GameContent = () => {
-  const { state, dispatch, savedDecks } = useGame();
+  const { state, dispatch } = useGame();
+  const { state: deckState, isGameReady } = useDeck();
   const { gamePhase } = state;
   const [showDeckBuilder, setShowDeckBuilder] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
@@ -23,33 +24,12 @@ const GameContent = () => {
     setShowDeckBuilder(true);
   };
 
-  const handleCloseDeckBuilder = (
-    hostDeck?: { master: keyof typeof masterData; monsters: MonsterType[] },
-    guestDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }
-  ) => {
-    // 編成内容を保存
-    if (hostDeck && guestDeck) {
-      dispatch({ type: 'SET_SAVED_DECKS', hostDeck, guestDeck });
-      
-      // 準備画面でのプレビューを更新
-      dispatch({ type: 'UPDATE_PREVIEW', hostDeck, guestDeck });
-    }
+  const handleCloseDeckBuilder = () => {
     setShowDeckBuilder(false);
   };
 
-  const handleStartLocalGame = (
-    hostDeck: { master: keyof typeof masterData; monsters: MonsterType[] },
-    guestDeck: { master: keyof typeof masterData; monsters: MonsterType[] }
-  ) => {
-    // 編成内容を保存してDeckBuilderを閉じる
-    handleCloseDeckBuilder(hostDeck, guestDeck);
-  };
-
   const handleGameStart = () => {
-    // チェックを1回だけ実行
-    const hasValidDecks = !!(savedDecks.host && savedDecks.guest);
-    
-    if (!hasValidDecks) {
+    if (!isGameReady()) {
       return;
     }
     
@@ -63,22 +43,14 @@ const GameContent = () => {
     // 保存されたデッキでゲーム開始
     dispatch({ 
       type: 'START_LOCAL_GAME', 
-      hostDeck: savedDecks.host!, 
-      guestDeck: savedDecks.guest!,
       startingTeam: actualStartingTeam
     });
   };
 
-  // ボタンの活性化状態を計算
-  const isGameStartEnabled = !!(savedDecks.host && savedDecks.guest);
-
   if (showDeckBuilder) {
     return (
       <DeckBuilder 
-        onStartGame={handleStartLocalGame} 
         onClose={handleCloseDeckBuilder}
-        initialHostDeck={savedDecks.host}
-        initialGuestDeck={savedDecks.guest}
       />
     );
   }
@@ -120,12 +92,12 @@ const GameContent = () => {
                 </button>
                 <button
                   className={`px-6 py-3 font-bold rounded-lg shadow-lg transform transition ${
-                    isGameStartEnabled
+                    isGameReady()
                       ? 'bg-blue-600 hover:bg-blue-700 text-white hover:scale-105'
                       : 'bg-gray-400 text-gray-200 cursor-not-allowed'
                   }`}
                   onClick={handleGameStart}
-                  disabled={!isGameStartEnabled}
+                  disabled={!isGameReady()}
                 >
                   {gamePhase === 'preparation' ? 'ゲーム開始' : 'もう一度プレイ'}
                 </button>
@@ -170,9 +142,11 @@ const GameContent = () => {
 
 function App() {
   return (
-    <GameProvider>
-      <GameContent />
-    </GameProvider>
+    <DeckProvider>
+      <GameProvider>
+        <GameContent />
+      </GameProvider>
+    </DeckProvider>
   );
 }
 
