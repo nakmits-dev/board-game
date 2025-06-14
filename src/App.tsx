@@ -53,11 +53,7 @@ const GameContent = () => {
       return;
     }
     
-    if (gamePhase === 'result') {
-      dispatch({ type: 'RESET_GAME' });
-      return;
-    }
-    
+    // 🔧 結果画面からの場合は即座にゲーム開始（リセット不要）
     // 🎲 毎回ランダムに開始チームを決定
     const actualStartingTeam: 'player' | 'enemy' = Math.random() < 0.5 ? 'player' : 'enemy';
     
