@@ -5,10 +5,18 @@ import { TEAM_POSITIONS } from '../data/initialGameState';
 import { skillData } from '../data/skillData';
 import { Shield, Sword, Sparkle, Heart, Crown, Gitlab as GitLab, Play, X, Filter, Star, Shuffle, ArrowLeft, Trash2, Eye, EyeOff, HelpCircle } from 'lucide-react';
 import CharacterCard from './CharacterCard';
-import { useDeck, DeckData } from '../context/DeckContext';
 
 interface DeckBuilderProps {
-  onClose: () => void;
+  onStartGame: (
+    hostDeck: { master: keyof typeof masterData; monsters: MonsterType[] },
+    guestDeck: { master: keyof typeof masterData; monsters: MonsterType[] }
+  ) => void;
+  onClose: (
+    hostDeck?: { master: keyof typeof masterData; monsters: MonsterType[] },
+    guestDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }
+  ) => void;
+  initialHostDeck?: { master: keyof typeof masterData; monsters: MonsterType[] };
+  initialGuestDeck?: { master: keyof typeof masterData; monsters: MonsterType[] };
 }
 
 interface PositionAssignment {
@@ -17,8 +25,12 @@ interface PositionAssignment {
   id?: string;
 }
 
-const DeckBuilder: React.FC<DeckBuilderProps> = ({ onClose }) => {
-  const { state: deckState, setBothDecks, resetToDefault } = useDeck();
+const DeckBuilder: React.FC<DeckBuilderProps> = ({ 
+  onStartGame, 
+  onClose, 
+  initialHostDeck, 
+  initialGuestDeck 
+}) => {
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
   const [costFilter, setCostFilter] = useState<number | null>(null);
   const [secretMode, setSecretMode] = useState(false);
@@ -38,7 +50,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onClose }) => {
 
   // 既存の編成から初期状態を作成する関数
   const createAssignmentsFromDeck = (
-    deck: DeckData,
+    deck: { master: keyof typeof masterData; monsters: MonsterType[] },
     isPlayer: boolean = true
   ): PositionAssignment[] => {
     const positions = createEmptyAssignments(isPlayer);
@@ -61,13 +73,13 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onClose }) => {
     });
   };
 
-  // 初期状態を設定（DeckContextから受け取った編成を使用）
+  // 初期状態を設定（プロップスから受け取った編成を使用）
   const getInitialState = () => {
-    if (deckState.hostDeck && deckState.guestDeck) {
+    if (initialHostDeck && initialGuestDeck) {
       // 既存の編成がある場合はそれを使用
       return {
-        player: createAssignmentsFromDeck(deckState.hostDeck, true),
-        enemy: createAssignmentsFromDeck(deckState.guestDeck, false)
+        player: createAssignmentsFromDeck(initialHostDeck, true),
+        enemy: createAssignmentsFromDeck(initialGuestDeck, false)
       };
     } else {
       // 新規の場合はオールクリア状態
@@ -81,12 +93,12 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onClose }) => {
   const [playerAssignments, setPlayerAssignments] = useState<PositionAssignment[]>(() => getInitialState().player);
   const [enemyAssignments, setEnemyAssignments] = useState<PositionAssignment[]>(() => getInitialState().enemy);
   
-  // DeckContextの状態が変更された場合に状態を更新
+  // プロップスが変更された場合に状態を更新
   useEffect(() => {
     const newState = getInitialState();
     setPlayerAssignments(newState.player);
     setEnemyAssignments(newState.enemy);
-  }, [deckState.hostDeck, deckState.guestDeck]);
+  }, [initialHostDeck, initialGuestDeck]);
   
   const getTotalCost = (assignments: PositionAssignment[]) => {
     return assignments.reduce((total, assignment) => {
@@ -160,9 +172,6 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onClose }) => {
     
     setAssignmentsForPosition(selectedPosition, newAssignments);
     setSelectedPosition(null);
-    
-    // DeckContextを更新
-    updateDeckContext();
   };
 
   const clearCard = (position: Position) => {
@@ -176,29 +185,6 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onClose }) => {
     });
     
     setAssignmentsForPosition(position, newAssignments);
-    
-    // DeckContextを更新
-    updateDeckContext();
-  };
-
-  const updateDeckContext = () => {
-    const playerMaster = playerAssignments.find(a => a.type === 'master')?.id as keyof typeof masterData;
-    const enemyMaster = enemyAssignments.find(a => a.type === 'master')?.id as keyof typeof masterData;
-    
-    const playerMonsters = playerAssignments
-      .filter(a => a.type === 'monster' && a.id)
-      .map(a => a.id as MonsterType);
-    
-    const enemyMonsters = enemyAssignments
-      .filter(a => a.type === 'monster' && a.id)
-      .map(a => a.id as MonsterType);
-    
-    if (playerMaster && enemyMaster) {
-      setBothDecks(
-        { master: playerMaster, monsters: playerMonsters },
-        { master: enemyMaster, monsters: enemyMonsters }
-      );
-    }
   };
 
   const canStartGame = () => {
@@ -212,11 +198,22 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onClose }) => {
   const handleComplete = () => {
     if (!canStartGame()) return;
     
-    // 最終的にDeckContextを更新
-    updateDeckContext();
+    const playerMaster = playerAssignments.find(a => a.type === 'master')?.id as keyof typeof masterData;
+    const enemyMaster = enemyAssignments.find(a => a.type === 'master')?.id as keyof typeof masterData;
     
-    // 編成画面を閉じる
-    onClose();
+    const playerMonsters = playerAssignments
+      .filter(a => a.type === 'monster' && a.id)
+      .map(a => a.id as MonsterType);
+    
+    const enemyMonsters = enemyAssignments
+      .filter(a => a.type === 'monster' && a.id)
+      .map(a => a.id as MonsterType);
+    
+    // 編成内容を保存して戻る（ゲーム開始はしない）
+    onClose(
+      { master: playerMaster, monsters: playerMonsters },
+      { master: enemyMaster, monsters: enemyMonsters }
+    );
   };
 
   // 進化前のモンスターのみを取得する関数
@@ -252,9 +249,6 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onClose }) => {
       { position: TEAM_POSITIONS.enemy.monsters[1], type: 'monster', id: enemyTeam.monsters[1] },
       { position: TEAM_POSITIONS.enemy.monsters[2], type: 'monster', id: enemyTeam.monsters[2] },
     ]);
-    
-    // DeckContextを更新
-    setBothDecks(playerTeam, enemyTeam);
   };
 
   // オールクリア機能
@@ -497,7 +491,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({ onClose }) => {
         <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-4 sm:mb-6">
           <div className="flex items-center justify-between mb-4">
             <button
-              onClick={onClose}
+              onClick={() => onClose()}
               className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <ArrowLeft size={20} />

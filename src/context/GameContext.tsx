@@ -3,7 +3,6 @@ import { GameState, Character, Position, ActionType, Skill, Team, AnimationSeque
 import { createInitialGameState, getEvolvedMonsterType, monsterData } from '../data/initialGameState';
 import { skillData } from '../data/skillData';
 import { masterData } from '../data/cardData';
-import { useDeck, DeckData } from './DeckContext';
 
 type GameAction =
   | { type: 'SELECT_CHARACTER'; character: Character | null }
@@ -15,17 +14,17 @@ type GameAction =
   | { type: 'USE_SKILL'; targetId: string }
   | { type: 'END_TURN' }
   | { type: 'FORCE_END_TURN' }
-  | { type: 'START_LOCAL_GAME'; startingTeam?: 'player' | 'enemy' }
+  | { type: 'START_LOCAL_GAME'; hostDeck: { master: keyof typeof masterData; monsters: MonsterType[] }; guestDeck: { master: keyof typeof masterData; monsters: MonsterType[] }; startingTeam?: 'player' | 'enemy' }
   | { type: 'RESET_GAME' }
-  | { type: 'UPDATE_PREVIEW' }
+  | { type: 'UPDATE_PREVIEW'; hostDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }; guestDeck?: { master: keyof typeof masterData; monsters: MonsterType[] } }
+  | { type: 'SET_SAVED_DECKS'; hostDeck: { master: keyof typeof masterData; monsters: MonsterType[] }; guestDeck: { master: keyof typeof masterData; monsters: MonsterType[] } }
   | { type: 'SET_ANIMATION_TARGET'; target: { id: string; type: 'move' | 'attack' | 'damage' | 'heal' | 'ko' | 'crystal-gain' | 'turn-start' | 'evolve' } | null }
   | { type: 'SET_PENDING_ANIMATIONS'; animations: AnimationSequence[] }
   | { type: 'REMOVE_DEFEATED_CHARACTERS'; targetId: string; killerTeam?: Team }
   | { type: 'EVOLVE_CHARACTER'; characterId: string }
   | { type: 'CHECK_GAME_END' }
   | { type: 'SURRENDER'; team: Team }
-  | { type: 'UPDATE_CRYSTALS'; playerCrystals: number; enemyCrystals: number }
-  | { type: 'SET_CHARACTERS'; characters: Character[] };
+  | { type: 'UPDATE_CRYSTALS'; playerCrystals: number; enemyCrystals: number };
 
 interface GameContextType {
   state: GameState;
@@ -34,6 +33,10 @@ interface GameContextType {
   isValidAttack: (targetId: string) => boolean;
   isValidSkillTarget: (targetId: string) => boolean;
   getCharacterAt: (position: Position) => Character | undefined;
+  savedDecks: {
+    host?: { master: keyof typeof masterData; monsters: MonsterType[] };
+    guest?: { master: keyof typeof masterData; monsters: MonsterType[] };
+  };
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -42,13 +45,6 @@ const ANIMATION_DURATION = 300;
 
 function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
-    case 'SET_CHARACTERS': {
-      return {
-        ...state,
-        characters: action.characters,
-      };
-    }
-
     case 'SELECT_CHARACTER': {
       if (!action.character) {
         return {
@@ -444,41 +440,58 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'START_LOCAL_GAME': {
+      const newState = createInitialGameState(action.hostDeck, action.guestDeck);
+      
       // 開始チームを決定
       const startingTeam = action.startingTeam || 'player';
       
       return {
-        ...state,
+        ...newState,
         gamePhase: 'action',
         currentTeam: startingTeam,
-        characters: state.characters.map(char => ({
+        characters: newState.characters.map(char => ({
           ...char,
           remainingActions: char.team === startingTeam ? char.actions : 0,
         })),
         pendingAnimations: [{ id: startingTeam, type: 'turn-start' }],
+        savedDecks: {
+          host: action.hostDeck,
+          guest: action.guestDeck
+        },
       };
     }
 
     case 'UPDATE_PREVIEW': {
       if (state.gamePhase !== 'preparation' && state.gamePhase !== 'result') return state;
       
-      return state; // プレビュー更新は DeckContext で管理
+      const newState = createInitialGameState(action.hostDeck, action.guestDeck);
+      
+      return {
+        ...state,
+        characters: newState.characters,
+        savedDecks: {
+          host: action.hostDeck,
+          guest: action.guestDeck
+        }
+      };
+    }
+
+    case 'SET_SAVED_DECKS': {
+      return {
+        ...state,
+        savedDecks: {
+          host: action.hostDeck,
+          guest: action.guestDeck
+        }
+      };
     }
 
     case 'RESET_GAME': {
+      const newState = createInitialGameState(state.savedDecks?.host, state.savedDecks?.guest);
+      
       return {
-        ...state,
-        gamePhase: 'preparation',
-        currentTeam: 'player',
-        currentTurn: 0,
-        selectedCharacter: null,
-        selectedAction: null,
-        selectedSkill: null,
-        pendingAction: { type: null },
-        playerCrystals: 0,
-        enemyCrystals: 0,
-        pendingAnimations: [],
-        animationTarget: null,
+        ...newState,
+        savedDecks: state.savedDecks,
       };
     }
 
@@ -488,25 +501,33 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 }
 
 export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { state: deckState } = useDeck();
-  const [state, dispatch] = useReducer(gameReducer, () => 
-    createInitialGameState(deckState.hostDeck, deckState.guestDeck)
-  );
+  const [state, dispatch] = useReducer(gameReducer, createInitialGameState());
+  
+  // 🔧 デフォルトデッキを設定（初期化時のみ）
+  const [savedDecks, setSavedDecks] = React.useState<{
+    host?: { master: keyof typeof masterData; monsters: MonsterType[] };
+    guest?: { master: keyof typeof masterData; monsters: MonsterType[] };
+  }>({
+    host: { master: 'blue', monsters: ['wolf', 'bear', 'golem'] },
+    guest: { master: 'red', monsters: ['bear', 'wolf', 'golem'] }
+  });
 
-  // デッキが変更された時にゲーム状態を更新
-  useEffect(() => {
-    if (deckState.hostDeck && deckState.guestDeck && (state.gamePhase === 'preparation' || state.gamePhase === 'result')) {
-      const newGameState = createInitialGameState(deckState.hostDeck, deckState.guestDeck);
-      
-      // 適切にreducerを通してキャラクターを更新
-      dispatch({ type: 'SET_CHARACTERS', characters: newGameState.characters });
-      dispatch({ type: 'SET_PENDING_ANIMATIONS', animations: [] });
-      dispatch({ type: 'SET_ANIMATION_TARGET', target: null });
-    }
-  }, [deckState.hostDeck, deckState.guestDeck, state.gamePhase]);
+  // 🔧 初期化時にデフォルトデッキを設定（1回のみ）
+  React.useEffect(() => {
+    dispatch({ 
+      type: 'SET_SAVED_DECKS', 
+      hostDeck: savedDecks.host!, 
+      guestDeck: savedDecks.guest! 
+    });
+    dispatch({ 
+      type: 'UPDATE_PREVIEW', 
+      hostDeck: savedDecks.host, 
+      guestDeck: savedDecks.guest 
+    });
+  }, []); // 空の依存配列で初回のみ実行
 
   useEffect(() => {
-    if (Array.isArray(state.pendingAnimations) && state.pendingAnimations.length > 0) {
+    if (state.pendingAnimations.length > 0) {
       const playAnimations = async () => {
         for (const animation of state.pendingAnimations) {
           dispatch({ type: 'SET_ANIMATION_TARGET', target: animation });
@@ -647,11 +668,6 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const getCharacterAt = (position: Position): Character | undefined => {
-    // 🔧 state.charactersがundefinedの場合の安全な処理
-    if (!state.characters) {
-      return undefined;
-    }
-    
     return state.characters.find(
       char => char.position.x === position.x && char.position.y === position.y
     );
@@ -666,6 +682,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         isValidAttack, 
         isValidSkillTarget,
         getCharacterAt,
+        savedDecks: state.savedDecks || savedDecks
       }}
     >
       {children}
