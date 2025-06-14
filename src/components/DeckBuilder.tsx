@@ -45,6 +45,25 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     return position.y >= 2 ? 'player' : 'enemy';
   };
 
+  // 🔧 配置可能な座標かどうかを判定
+  const isValidPlacementPosition = (position: Position): boolean => {
+    // プレイヤーチームの配置可能座標
+    const playerPositions = [
+      TEAM_POSITIONS.player.master,
+      ...TEAM_POSITIONS.player.monsters
+    ];
+    
+    // 敵チームの配置可能座標
+    const enemyPositions = [
+      TEAM_POSITIONS.enemy.master,
+      ...TEAM_POSITIONS.enemy.monsters
+    ];
+    
+    const allValidPositions = [...playerPositions, ...enemyPositions];
+    
+    return allValidPositions.some(validPos => arePositionsEqual(validPos, position));
+  };
+
   // 🔧 座標から配置情報を作成する関数
   const createEmptyAssignments = (isPlayer: boolean = true): PositionAssignment[] => {
     const positions = isPlayer ? TEAM_POSITIONS.player : TEAM_POSITIONS.enemy;
@@ -268,6 +287,16 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
 
   // 🔧 座標ベースのボードセル描画
   const renderBoardCell = (position: Position) => {
+    // 配置可能な座標でない場合は空のセルを返す
+    if (!isValidPlacementPosition(position)) {
+      return (
+        <div 
+          key={`empty-${position.x}-${position.y}`}
+          className="w-16 h-16 sm:w-20 sm:h-20"
+        />
+      );
+    }
+
     const isPlayerTeam = getTeamForPosition(position) === 'player';
     const assignments = getAssignmentsForPosition(position);
     const assignment = getAssignmentAt(position, assignments);
@@ -400,6 +429,26 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     );
   };
 
+  // 🔧 座標ベースのボード描画（3x4グリッド）
+  const renderBoard = () => {
+    const BOARD_WIDTH = 3;
+    const BOARD_HEIGHT = 4;
+    
+    return (
+      <div className="grid grid-rows-4 gap-1">
+        {/* 各行を座標で管理 */}
+        {Array.from({ length: BOARD_HEIGHT }, (_, y) => (
+          <div key={`row-${y}`} className="grid grid-cols-3 gap-1">
+            {Array.from({ length: BOARD_WIDTH }, (_, x) => {
+              const position: Position = { x, y };
+              return renderBoardCell(position);
+            })}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   const createCharacterForCard = (type: 'master' | 'monster', id: string, data: any) => {
     const skill = data.skillId ? skillData[data.skillId] : undefined;
     
@@ -490,26 +539,6 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     const padding = 48; // p-6の上下パディング
     
     return `${Math.min(totalHeight + padding, window.innerHeight * 0.6)}px`;
-  };
-
-  // 🔧 座標ベースのボード描画（3x4グリッド）
-  const renderBoard = () => {
-    const BOARD_WIDTH = 3;
-    const BOARD_HEIGHT = 4;
-    
-    return (
-      <div className="grid grid-rows-4 gap-1">
-        {/* 各行を座標で管理 */}
-        {Array.from({ length: BOARD_HEIGHT }, (_, y) => (
-          <div key={`row-${y}`} className="grid grid-cols-3 gap-1">
-            {Array.from({ length: BOARD_WIDTH }, (_, x) => {
-              const position: Position = { x, y };
-              return renderBoardCell(position);
-            })}
-          </div>
-        ))}
-      </div>
-    );
   };
 
   return (
