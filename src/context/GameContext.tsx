@@ -33,6 +33,9 @@ interface GameContextType {
   isValidAttack: (targetId: string) => boolean;
   isValidSkillTarget: (targetId: string) => boolean;
   getCharacterAt: (position: Position) => Character | undefined;
+  isPositionValid: (position: Position) => boolean;
+  getAdjacentPositions: (position: Position) => Position[];
+  getDistance: (pos1: Position, pos2: Position) => number;
   savedDecks: {
     host?: { master: keyof typeof masterData; monsters: MonsterType[] };
     guest?: { master: keyof typeof masterData; monsters: MonsterType[] };
@@ -42,6 +45,46 @@ interface GameContextType {
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
 const ANIMATION_DURATION = 300;
+
+// 🔧 ボード管理用のユーティリティ関数
+const BOARD_WIDTH = 3;
+const BOARD_HEIGHT = 4;
+
+const isPositionValid = (position: Position): boolean => {
+  return position.x >= 0 && position.x < BOARD_WIDTH && 
+         position.y >= 0 && position.y < BOARD_HEIGHT;
+};
+
+const getAdjacentPositions = (position: Position): Position[] => {
+  const adjacent: Position[] = [];
+  
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dy = -1; dy <= 1; dy++) {
+      if (dx === 0 && dy === 0) continue; // 自分自身は除外
+      
+      const newPos: Position = {
+        x: position.x + dx,
+        y: position.y + dy
+      };
+      
+      if (isPositionValid(newPos)) {
+        adjacent.push(newPos);
+      }
+    }
+  }
+  
+  return adjacent;
+};
+
+const getDistance = (pos1: Position, pos2: Position): number => {
+  const dx = Math.abs(pos1.x - pos2.x);
+  const dy = Math.abs(pos1.y - pos2.y);
+  return Math.max(dx, dy); // チェビシェフ距離（8方向移動）
+};
+
+const arePositionsEqual = (pos1: Position, pos2: Position): boolean => {
+  return pos1.x === pos2.x && pos1.y === pos2.y;
+};
 
 function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
@@ -600,27 +643,28 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [state.pendingAnimations]);
 
+  // 🔧 座標ベースの移動判定
   const isValidMove = (position: Position): boolean => {
     if (!state.selectedCharacter || state.selectedCharacter.remainingActions <= 0) return false;
     if (state.gamePhase === 'preparation') return false;
     if (state.selectedCharacter.team !== state.currentTeam) return false;
 
-    const { x: srcX, y: srcY } = state.selectedCharacter.position;
-    const { x: destX, y: destY } = position;
+    // 座標が有効範囲内かチェック
+    if (!isPositionValid(position)) return false;
 
-    const dx = Math.abs(srcX - destX);
-    const dy = Math.abs(srcY - destY);
-    
-    if (dx > 1 || dy > 1) return false;
-    if (destX < 0 || destX > 2 || destY < 0 || destY > 3) return false;
+    // 隣接する位置かチェック（8方向移動）
+    const distance = getDistance(state.selectedCharacter.position, position);
+    if (distance > 1) return false;
 
+    // 既に他のキャラクターがいるかチェック
     const isOccupied = state.characters.some(
-      char => char.position.x === destX && char.position.y === destY
+      char => arePositionsEqual(char.position, position)
     );
 
     return !isOccupied;
   };
 
+  // 🔧 座標ベースの攻撃判定
   const isValidAttack = (targetId: string): boolean => {
     if (!state.selectedCharacter || state.selectedCharacter.remainingActions <= 0) return false;
     if (state.gamePhase === 'preparation') return false;
@@ -629,15 +673,12 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const target = state.characters.find(char => char.id === targetId);
     if (!target || target.team === state.selectedCharacter.team) return false;
 
-    const { x: srcX, y: srcY } = state.selectedCharacter.position;
-    const { x: destX, y: destY } = target.position;
-
-    const dx = Math.abs(srcX - destX);
-    const dy = Math.abs(srcY - destY);
-
-    return dx <= 1 && dy <= 1;
+    // 隣接する位置かチェック（8方向攻撃）
+    const distance = getDistance(state.selectedCharacter.position, target.position);
+    return distance <= 1;
   };
 
+  // 🔧 座標ベースのスキル対象判定
   const isValidSkillTarget = (targetId: string): boolean => {
     if (!state.selectedCharacter || !state.selectedSkill || state.selectedCharacter.remainingActions <= 0) return false;
     if (state.gamePhase === 'preparation') return false;
@@ -646,13 +687,10 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const target = state.characters.find(char => char.id === targetId);
     if (!target) return false;
 
-    const { x: srcX, y: srcY } = state.selectedCharacter.position;
-    const { x: destX, y: destY } = target.position;
+    // 距離チェック
+    const distance = getDistance(state.selectedCharacter.position, target.position);
 
-    const dx = Math.abs(srcX - destX);
-    const dy = Math.abs(srcY - destY);
-    const distance = Math.max(dx, dy);
-
+    // スキルの種類による対象チェック
     if (state.selectedSkill.healing && target.team !== state.selectedCharacter.team) return false;
     if (state.selectedSkill.damage && target.team === state.selectedCharacter.team) return false;
     if (state.selectedSkill.effects?.some(effect => effect.type === 'evolve')) {
@@ -667,9 +705,10 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return distance <= state.selectedSkill.range;
   };
 
+  // 🔧 座標ベースのキャラクター検索
   const getCharacterAt = (position: Position): Character | undefined => {
     return state.characters.find(
-      char => char.position.x === position.x && char.position.y === position.y
+      char => arePositionsEqual(char.position, position)
     );
   };
 
@@ -682,6 +721,9 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         isValidAttack, 
         isValidSkillTarget,
         getCharacterAt,
+        isPositionValid,
+        getAdjacentPositions,
+        getDistance,
         savedDecks: state.savedDecks || savedDecks
       }}
     >
