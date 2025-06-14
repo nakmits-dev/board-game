@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MonsterType, MasterCard, Position } from '../types/gameTypes';
 import { monsterData, masterData, generateTeamWithCost8 } from '../data/cardData';
-import { TEAM_POSITIONS } from '../data/initialGameState';
 import { skillData } from '../data/skillData';
 import { Shield, Sword, Sparkle, Heart, Crown, Gitlab as GitLab, Play, X, Filter, Star, Shuffle, ArrowLeft, Trash2, Eye, EyeOff, HelpCircle } from 'lucide-react';
 import CharacterCard from './CharacterCard';
@@ -52,7 +51,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     ]
   };
 
-  // 🔧 XY座標ベースで空の初期状態を作成
+  // 🔧 XY座標ベースで空の初期状態を作成（空のマスも含む）
   const createEmptyAssignments = (isPlayer: boolean = true): PositionAssignment[] => {
     return isPlayer ? [...VALID_POSITIONS.player] : [...VALID_POSITIONS.enemy];
   };
@@ -77,6 +76,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
         if (currentMonsterIndex < deck.monsters.length) {
           return { ...pos, id: deck.monsters[currentMonsterIndex] };
         }
+        // 🔧 モンスターがない場合は空のマスとして返す
         return pos;
       }
     });
@@ -292,7 +292,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
 
   const baseMonsters = getBaseMonsters();
 
-  // 🔧 XY座標ベースでボードセルをレンダリング
+  // 🔧 XY座標ベースでボードセルをレンダリング（空のマスも含む）
   const renderBoardCell = (position: Position) => {
     // 配置可能なポジションかどうかをチェック
     if (!isValidPosition(position)) {
@@ -411,6 +411,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
             </div>
           </div>
         ) : (
+          // 🔧 空のマスの表示（配置可能なポジション）
           <div className="text-center">
             <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center mb-1 ${
               assignment?.type === 'master' 
