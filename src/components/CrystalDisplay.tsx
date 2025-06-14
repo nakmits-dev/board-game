@@ -11,6 +11,30 @@ const CrystalDisplay: React.FC = () => {
   const isSkillMode = selectedCharacter && selectedSkill;
   const currentCrystals = currentTeam === 'player' ? playerCrystals : enemyCrystals;
 
+  // 🔧 複数クリスタル取得時の同時アニメーション判定
+  const isMultipleCrystalAnimation = (crystalIndex: number, team: 'player' | 'enemy') => {
+    if (!animationTarget || animationTarget.type !== 'crystal-gain') return false;
+    
+    const targetTeam = team === 'player' ? 'player-crystal' : 'enemy-crystal';
+    
+    // 通常の単一クリスタルアニメーション
+    if (animationTarget.id === targetTeam) {
+      return crystalIndex === (team === 'player' ? playerCrystals : enemyCrystals) - 1;
+    }
+    
+    // 複数クリスタル取得時の同時アニメーション
+    if (animationTarget.id.startsWith(targetTeam + '-')) {
+      const costStr = animationTarget.id.split('-')[2];
+      const cost = parseInt(costStr);
+      const currentTeamCrystals = team === 'player' ? playerCrystals : enemyCrystals;
+      
+      // 取得したクリスタル分だけアニメーション
+      return crystalIndex >= currentTeamCrystals - cost && crystalIndex < currentTeamCrystals;
+    }
+    
+    return false;
+  };
+
   return (
     <>
       {/* プレイヤーのクリスタル（右） */}
@@ -21,6 +45,8 @@ const CrystalDisplay: React.FC = () => {
             i < playerCrystals && 
             i >= playerCrystals - skillCost;
 
+          const isAnimating = isMultipleCrystalAnimation(i, 'player');
+
           return (
             <div
               key={`player-crystal-${i}`}
@@ -30,7 +56,7 @@ const CrystalDisplay: React.FC = () => {
                     ? 'bg-gradient-to-br from-blue-400 to-blue-600 shadow-md shadow-blue-500/30'
                     : 'bg-gradient-to-br from-blue-300 to-blue-500'
                   : 'bg-slate-700'
-              } ${i === playerCrystals - 1 && animationTarget?.id === 'player-crystal' ? 'crystal-gain' : ''} ${
+              } ${isAnimating ? 'crystal-gain' : ''} ${
                 isHighlighted 
                   ? 'animate-[pulse_1s_ease-in-out_infinite] ring-1 ring-yellow-300/50 scale-110 z-10' 
                   : ''
@@ -60,6 +86,8 @@ const CrystalDisplay: React.FC = () => {
             i < enemyCrystals && 
             i >= enemyCrystals - skillCost;
 
+          const isAnimating = isMultipleCrystalAnimation(i, 'enemy');
+
           return (
             <div
               key={`enemy-crystal-${i}`}
@@ -69,7 +97,7 @@ const CrystalDisplay: React.FC = () => {
                     ? 'bg-gradient-to-br from-red-400 to-red-600 shadow-md shadow-red-500/30'
                     : 'bg-gradient-to-br from-red-300 to-red-500'
                   : 'bg-slate-700'
-              } ${i === enemyCrystals - 1 && animationTarget?.id === 'enemy-crystal' ? 'crystal-gain' : ''} ${
+              } ${isAnimating ? 'crystal-gain' : ''} ${
                 isHighlighted 
                   ? 'animate-[pulse_1s_ease-in-out_infinite] ring-1 ring-yellow-300/50 scale-110 z-10' 
                   : ''

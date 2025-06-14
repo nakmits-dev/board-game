@@ -164,14 +164,9 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             if (target.type !== 'master') {
               // モンスターが倒された場合のみクリスタル取得処理
               // 🔧 撃破された側がクリスタルを取得
-              // 🔧 複数クリスタル取得時は個数分アニメーション追加（間隔をあけて）
-              for (let i = 0; i < target.cost; i++) {
-                if (target.team === 'player') {
-                  animations.push({ id: 'player-crystal', type: 'crystal-gain' });
-                } else {
-                  animations.push({ id: 'enemy-crystal', type: 'crystal-gain' });
-                }
-              }
+              // 🔧 複数クリスタル取得時は同時にアニメーション実行
+              const crystalTeam = target.team === 'player' ? 'player-crystal' : 'enemy-crystal';
+              animations.push({ id: `${crystalTeam}-${target.cost}`, type: 'crystal-gain' });
 
               // 進化処理（攻撃側のキャラクターが進化可能な場合）
               if (character.type === 'monster' && !character.isEvolved && character.monsterType) {
@@ -307,16 +302,9 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           if (target.type !== 'master') {
             // モンスターが倒された場合のみクリスタル取得処理
             // 🔧 撃破された側がクリスタルを取得
-            // 🔧 複数クリスタル取得時は個数分アニメーション追加（間隔をあけて）
-            for (let i = 0; i < target.cost; i++) {
-              if (target.team === 'player') {
-                newPlayerCrystals = Math.min(8, newPlayerCrystals + 1);
-                animations.push({ id: 'player-crystal', type: 'crystal-gain' });
-              } else {
-                newEnemyCrystals = Math.min(8, newEnemyCrystals + 1);
-                animations.push({ id: 'enemy-crystal', type: 'crystal-gain' });
-              }
-            }
+            // 🔧 複数クリスタル取得時は同時にアニメーション実行
+            const crystalTeam = target.team === 'player' ? 'player-crystal' : 'enemy-crystal';
+            animations.push({ id: `${crystalTeam}-${target.cost}`, type: 'crystal-gain' });
           }
         }
 
@@ -431,9 +419,9 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       const animations: AnimationSequence[] = [{ id: newCurrentTeam, type: 'turn-start' }];
       
       if (newCurrentTeam === 'player' && newPlayerCrystals > state.playerCrystals) {
-        animations.push({ id: 'player-crystal', type: 'crystal-gain' });
+        animations.push({ id: 'player-crystal-1', type: 'crystal-gain' });
       } else if (newCurrentTeam === 'enemy' && newEnemyCrystals > state.enemyCrystals) {
-        animations.push({ id: 'enemy-crystal', type: 'crystal-gain' });
+        animations.push({ id: 'enemy-crystal-1', type: 'crystal-gain' });
       }
 
       return {
@@ -579,6 +567,29 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           } else if (animation.type === 'evolve') {
             await new Promise(resolve => setTimeout(resolve, 100));
             dispatch({ type: 'EVOLVE_CHARACTER', characterId: animation.id });
+          } else if (animation.type === 'crystal-gain' && animation.id.includes('-')) {
+            // 🔧 複数クリスタル取得時の同時アニメーション処理
+            const [crystalTeam, costStr] = animation.id.split('-');
+            const cost = parseInt(costStr);
+            
+            if (cost > 1) {
+              // 複数クリスタルの場合、同時にアニメーション実行
+              const simultaneousAnimations = [];
+              for (let i = 0; i < cost; i++) {
+                simultaneousAnimations.push(
+                  new Promise(resolve => {
+                    setTimeout(() => {
+                      dispatch({ 
+                        type: 'SET_ANIMATION_TARGET', 
+                        target: { id: crystalTeam.replace('-crystal', '-crystal'), type: 'crystal-gain' } 
+                      });
+                      setTimeout(resolve, ANIMATION_DURATION);
+                    }, i * 50); // 50ms間隔でずらして同時感を演出
+                  })
+                );
+              }
+              await Promise.all(simultaneousAnimations);
+            }
           }
         }
         dispatch({ type: 'SET_ANIMATION_TARGET', target: null });
