@@ -36,7 +36,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
   const [secretMode, setSecretMode] = useState(false);
   const cardSelectionRef = useRef<HTMLDivElement>(null);
   
-  // 🔧 統一された座標を使用して空の初期状態を作成
+  // 🔧 TEAM_POSITIONSを使用して空の初期状態を作成
   const createEmptyAssignments = (isPlayer: boolean = true): PositionAssignment[] => {
     const positions = isPlayer ? TEAM_POSITIONS.player : TEAM_POSITIONS.enemy;
     
@@ -234,7 +234,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     const playerTeam = generateTeamWithCost8();
     const enemyTeam = generateTeamWithCost8();
     
-    // 🔧 統一された座標を使用してプレイヤーチーム設定
+    // 🔧 TEAM_POSITIONSを使用してプレイヤーチーム設定
     setPlayerAssignments([
       { position: TEAM_POSITIONS.player.master, type: 'master', id: playerTeam.master },
       { position: TEAM_POSITIONS.player.monsters[0], type: 'monster', id: playerTeam.monsters[0] },
@@ -242,7 +242,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
       { position: TEAM_POSITIONS.player.monsters[2], type: 'monster', id: playerTeam.monsters[2] },
     ]);
     
-    // 🔧 統一された座標を使用して敵チーム設定
+    // 🔧 TEAM_POSITIONSを使用して敵チーム設定
     setEnemyAssignments([
       { position: TEAM_POSITIONS.enemy.master, type: 'master', id: enemyTeam.master },
       { position: TEAM_POSITIONS.enemy.monsters[0], type: 'monster', id: enemyTeam.monsters[0] },
@@ -260,13 +260,35 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
 
   const baseMonsters = getBaseMonsters();
 
+  // 🔧 ボード上の全ポジションを定義（対戦ボードと同じ座標）
+  const getAllBoardPositions = (): Position[] => {
+    const positions: Position[] = [];
+    for (let y = 0; y < 4; y++) {
+      for (let x = 0; x < 3; x++) {
+        positions.push({ x, y });
+      }
+    }
+    return positions;
+  };
+
   const renderBoardCell = (position: Position) => {
     const isPlayerTeam = getTeamForPosition(position) === 'player';
     const assignments = getAssignmentsForPosition(position);
     const assignment = getAssignmentAt(position, assignments);
     const isSelected = selectedPosition?.x === position.x && selectedPosition?.y === position.y;
     
-    if (!assignment) return null;
+    // 🔧 配置可能なポジションかどうかをチェック
+    const isValidPosition = assignment !== undefined;
+    
+    if (!isValidPosition) {
+      // 配置不可能なポジションは空のセルを表示
+      return (
+        <div
+          key={`${position.x}-${position.y}`}
+          className="w-16 h-16 sm:w-20 sm:h-20 border border-slate-200 bg-slate-50"
+        />
+      );
+    }
     
     const hasCard = !!assignment.id;
     const cardData = hasCard 
@@ -591,29 +613,14 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
           <div className="flex justify-center">
             <div className="bg-white rounded-xl p-2 sm:p-4 border border-blue-100">
               <div className="grid grid-rows-4 gap-1">
-                {/* Enemy area */}
-                <div className="grid grid-cols-3 gap-1">
-                  {[0, 1, 2].map(x => 
-                    renderBoardCell({ x, y: 0 })
-                  )}
-                </div>
-                <div className="grid grid-cols-3 gap-1">
-                  <div className="w-16 h-16 sm:w-20 sm:h-20"></div>
-                  {renderBoardCell({ x: 1, y: 1 })}
-                  <div className="w-16 h-16 sm:w-20 sm:h-20"></div>
-                </div>
-                
-                {/* Player area */}
-                <div className="grid grid-cols-3 gap-1">
-                  <div className="w-16 h-16 sm:w-20 sm:h-20"></div>
-                  {renderBoardCell({ x: 1, y: 2 })}
-                  <div className="w-16 h-16 sm:w-20 sm:h-20"></div>
-                </div>
-                <div className="grid grid-cols-3 gap-1">
-                  {[0, 1, 2].map(x => 
-                    renderBoardCell({ x, y: 3 })
-                  )}
-                </div>
+                {/* 🔧 対戦ボードと同じ座標システムを使用 */}
+                {[0, 1, 2, 3].map(y => (
+                  <div key={`row-${y}`} className="grid grid-cols-3 gap-1">
+                    {[0, 1, 2].map(x => 
+                      renderBoardCell({ x, y })
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           </div>
