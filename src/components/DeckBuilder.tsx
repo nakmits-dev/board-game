@@ -205,32 +205,32 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     return !!playerMaster && !!enemyMaster;
   };
 
-  // 🔧 完了ボタン押下時の反映ロジック修正
+  // 🔧 完了ボタン押下時の反映ロジック修正（前詰めを防ぐ）
   const handleComplete = () => {
     if (!canStartGame()) return;
     
     const playerMaster = playerAssignments.find(a => a.type === 'master')?.id as keyof typeof masterData;
     const enemyMaster = enemyAssignments.find(a => a.type === 'master')?.id as keyof typeof masterData;
     
-    // 🔧 対戦画面の配置順序と完全一致するモンスター配列を作成
+    // 🔧 座標とインデックスの対応を固定（前詰めしない）
     const createMonsterArray = (assignments: PositionAssignment[], validPositions: typeof VALID_POSITIONS.player) => {
-      const monsters: MonsterType[] = [];
+      const monsters: (MonsterType | undefined)[] = [];
       
       // 配置順序: [0,3], [2,3], [1,2] または [0,0], [2,0], [1,1]
       const monsterPositions = validPositions.filter(pos => pos.type === 'monster');
       
-      monsterPositions.forEach(pos => {
+      monsterPositions.forEach((pos, index) => {
         const assignment = assignments.find(a => 
           a.position.x === pos.position.x && 
-          a.position.y === pos.position.y &&
-          a.id
+          a.position.y === pos.position.y
         );
-        if (assignment?.id) {
-          monsters.push(assignment.id as MonsterType);
-        }
+        
+        // 🔧 空のマスの場合はundefinedを配列に入れる（前詰めしない）
+        monsters[index] = assignment?.id as MonsterType | undefined;
       });
       
-      return monsters;
+      // 🔧 undefinedを除外して最終的な配列を作成
+      return monsters.filter((monster): monster is MonsterType => monster !== undefined);
     };
     
     const playerMonsters = createMonsterArray(playerAssignments, VALID_POSITIONS.player);
@@ -620,7 +620,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
         {/* 🔧 XY座標ベースのボードレイアウト */}
         <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-4 sm:mb-6">
           <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-4 text-center">
-            ボード編成 (XY座標管理)
+            ボード編成 (座標固定配置)
           </h2>
           <div className="flex justify-center">
             <div className="bg-white rounded-xl p-2 sm:p-4 border border-blue-100">
