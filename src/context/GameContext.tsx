@@ -551,19 +551,46 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(gameReducer, createInitialGameState());
   
-  // 🔧 デフォルトボードを設定（初期化時のみ）
-  const [savedBoard, setSavedBoard] = React.useState<{
-    host?: BoardCell[][];
-    guest?: BoardCell[][];
-  }>({});
-
   // 🔧 初期化時にデフォルトボードを設定（1回のみ）
   React.useEffect(() => {
-    if (!savedBoard.host || !savedBoard.guest) {
-      const defaultBoard = createEmptyBoard();
-      setSavedBoard({
-        host: defaultBoard.cells,
-        guest: defaultBoard.cells
+    // 初期状態のキャラクターからボードを作成
+    if (state.characters.length > 0 && (!state.savedBoard?.host || !state.savedBoard?.guest)) {
+      // 初期キャラクターからボードを抽出
+      const hostBoard = createEmptyBoard().cells;
+      const guestBoard = createEmptyBoard().cells;
+      
+      // プレイヤーキャラクターをホストボードに配置
+      state.characters.filter(char => char.team === 'player').forEach(char => {
+        const { x, y } = char.position;
+        if (y < BOARD_HEIGHT && x < BOARD_WIDTH) {
+          hostBoard[y][x] = {
+            position: char.position,
+            character: char,
+            isValidPlacement: true,
+            team: char.team,
+            cellType: char.type
+          };
+        }
+      });
+      
+      // 敵キャラクターをゲストボードに配置
+      state.characters.filter(char => char.team === 'enemy').forEach(char => {
+        const { x, y } = char.position;
+        if (y < BOARD_HEIGHT && x < BOARD_WIDTH) {
+          guestBoard[y][x] = {
+            position: char.position,
+            character: char,
+            isValidPlacement: true,
+            team: char.team,
+            cellType: char.type
+          };
+        }
+      });
+      
+      dispatch({ 
+        type: 'SET_SAVED_BOARD', 
+        hostBoard, 
+        guestBoard 
       });
     }
   }, []); // 空の依存配列で初回のみ実行
@@ -735,7 +762,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         getAdjacentPositions,
         getDistance,
         getAllBoardPositions,
-        savedBoard: state.savedBoard || savedBoard
+        savedBoard: state.savedBoard || { host: undefined, guest: undefined }
       }}
     >
       {children}
