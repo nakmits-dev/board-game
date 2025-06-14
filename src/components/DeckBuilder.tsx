@@ -36,7 +36,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
   const [secretMode, setSecretMode] = useState(false);
   const cardSelectionRef = useRef<HTMLDivElement>(null);
   
-  // 🔧 XY座標ベースで配置可能ポジションを定義
+  // 🔧 XY座標ベースで配置可能ポジションを定義（対戦画面と完全一致）
   const VALID_POSITIONS = {
     player: [
       { position: { x: 1, y: 3 }, type: 'master' as const },  // プレイヤーマスター
@@ -205,14 +205,14 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     return !!playerMaster && !!enemyMaster;
   };
 
-  // 🔧 XY座標順でモンスター配列を作成
+  // 🔧 XY座標順でモンスター配列を作成（対戦画面と完全一致）
   const handleComplete = () => {
     if (!canStartGame()) return;
     
     const playerMaster = playerAssignments.find(a => a.type === 'master')?.id as keyof typeof masterData;
     const enemyMaster = enemyAssignments.find(a => a.type === 'master')?.id as keyof typeof masterData;
     
-    // 🔧 XY座標順でモンスターを配列に変換
+    // 🔧 XY座標順でモンスターを配列に変換（対戦画面の配置順序と完全一致）
     const playerMonsters: MonsterType[] = [];
     const enemyMonsters: MonsterType[] = [];
     
@@ -267,7 +267,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     const playerTeam = generateTeamWithCost8();
     const enemyTeam = generateTeamWithCost8();
     
-    // プレイヤーチーム設定
+    // プレイヤーチーム設定（対戦画面と同じ座標）
     setPlayerAssignments([
       { position: { x: 1, y: 3 }, type: 'master', id: playerTeam.master },
       { position: { x: 0, y: 3 }, type: 'monster', id: playerTeam.monsters[0] },
@@ -275,7 +275,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
       { position: { x: 1, y: 2 }, type: 'monster', id: playerTeam.monsters[2] },
     ]);
     
-    // 敵チーム設定
+    // 敵チーム設定（対戦画面と同じ座標）
     setEnemyAssignments([
       { position: { x: 1, y: 0 }, type: 'master', id: enemyTeam.master },
       { position: { x: 0, y: 0 }, type: 'monster', id: enemyTeam.monsters[0] },
