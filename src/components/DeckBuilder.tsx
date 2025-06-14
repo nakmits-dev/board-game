@@ -517,18 +517,6 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
             </div>
           </div>
           
-          {/* シークレットモードの説明 */}
-          {secretMode && (
-            <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
-              <div className="flex items-center gap-2 text-purple-800">
-                <EyeOff size={16} />
-                <span className="text-sm font-medium">
-                  シークレットモード: お互いの編成が？マークで隠されます
-                </span>
-              </div>
-            </div>
-          )}
-          
           {/* Cost Display - 1行にまとめる */}
           <div className="flex justify-center items-center gap-4 sm:gap-6 mb-4 sm:mb-6">
             <div className="bg-blue-100 rounded-lg px-3 sm:px-4 py-2">
