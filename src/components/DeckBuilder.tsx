@@ -35,7 +35,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
   const [secretMode, setSecretMode] = useState(false);
   const cardSelectionRef = useRef<HTMLDivElement>(null);
   
-  // 🔧 XY座標ベースで配置可能ポジションを定義（対戦画面と完全一致）
+  // 🔧 対戦画面と完全一致する座標定義
   const VALID_POSITIONS = {
     player: [
       { position: { x: 1, y: 3 }, type: 'master' as const },  // プレイヤーマスター
@@ -51,12 +51,12 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     ]
   };
 
-  // 🔧 XY座標ベースで空の初期状態を作成（空のマスも含む）
+  // 🔧 空の初期状態を作成（空のマスも含む）
   const createEmptyAssignments = (isPlayer: boolean = true): PositionAssignment[] => {
     return isPlayer ? [...VALID_POSITIONS.player] : [...VALID_POSITIONS.enemy];
   };
 
-  // 🔧 XY座標ベースで既存の編成から初期状態を作成
+  // 🔧 既存の編成から初期状態を作成
   const createAssignmentsFromDeck = (
     deck: { master: keyof typeof masterData; monsters: MonsterType[] },
     isPlayer: boolean = true
@@ -67,7 +67,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
       if (pos.type === 'master') {
         return { ...pos, id: deck.master };
       } else {
-        // 🔧 XY座標順でモンスターを配置（座標の小さい順）
+        // 🔧 モンスター配列のインデックス順で配置
         const monsterPositions = validPositions.filter(p => p.type === 'monster');
         const currentMonsterIndex = monsterPositions.findIndex(p => 
           p.position.x === pos.position.x && p.position.y === pos.position.y
@@ -205,44 +205,40 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     return !!playerMaster && !!enemyMaster;
   };
 
-  // 🔧 XY座標順でモンスター配列を作成（対戦画面と完全一致）
+  // 🔧 完了ボタン押下時の反映ロジック修正
   const handleComplete = () => {
     if (!canStartGame()) return;
     
     const playerMaster = playerAssignments.find(a => a.type === 'master')?.id as keyof typeof masterData;
     const enemyMaster = enemyAssignments.find(a => a.type === 'master')?.id as keyof typeof masterData;
     
-    // 🔧 XY座標順でモンスターを配列に変換（対戦画面の配置順序と完全一致）
-    const playerMonsters: MonsterType[] = [];
-    const enemyMonsters: MonsterType[] = [];
-    
-    // プレイヤーチームのモンスター（XY座標順）
-    VALID_POSITIONS.player
-      .filter(pos => pos.type === 'monster')
-      .forEach(pos => {
-        const assignment = playerAssignments.find(a => 
+    // 🔧 対戦画面の配置順序と完全一致するモンスター配列を作成
+    const createMonsterArray = (assignments: PositionAssignment[], validPositions: typeof VALID_POSITIONS.player) => {
+      const monsters: MonsterType[] = [];
+      
+      // 配置順序: [0,3], [2,3], [1,2] または [0,0], [2,0], [1,1]
+      const monsterPositions = validPositions.filter(pos => pos.type === 'monster');
+      
+      monsterPositions.forEach(pos => {
+        const assignment = assignments.find(a => 
           a.position.x === pos.position.x && 
           a.position.y === pos.position.y &&
           a.id
         );
         if (assignment?.id) {
-          playerMonsters.push(assignment.id as MonsterType);
+          monsters.push(assignment.id as MonsterType);
         }
       });
+      
+      return monsters;
+    };
     
-    // 敵チームのモンスター（XY座標順）
-    VALID_POSITIONS.enemy
-      .filter(pos => pos.type === 'monster')
-      .forEach(pos => {
-        const assignment = enemyAssignments.find(a => 
-          a.position.x === pos.position.x && 
-          a.position.y === pos.position.y &&
-          a.id
-        );
-        if (assignment?.id) {
-          enemyMonsters.push(assignment.id as MonsterType);
-        }
-      });
+    const playerMonsters = createMonsterArray(playerAssignments, VALID_POSITIONS.player);
+    const enemyMonsters = createMonsterArray(enemyAssignments, VALID_POSITIONS.enemy);
+    
+    console.log('🔧 完了時のデッキ情報:');
+    console.log('プレイヤー:', { master: playerMaster, monsters: playerMonsters });
+    console.log('敵:', { master: enemyMaster, monsters: enemyMonsters });
     
     onClose(
       { master: playerMaster, monsters: playerMonsters },
@@ -262,12 +258,12 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     ) as MonsterType[];
   };
 
-  // 🔧 XY座標ベースでランダム選択
+  // 🔧 ランダム選択時も正しい順序で配置
   const handleRandomSelection = () => {
     const playerTeam = generateTeamWithCost8();
     const enemyTeam = generateTeamWithCost8();
     
-    // プレイヤーチーム設定（対戦画面と同じ座標）
+    // プレイヤーチーム設定
     setPlayerAssignments([
       { position: { x: 1, y: 3 }, type: 'master', id: playerTeam.master },
       { position: { x: 0, y: 3 }, type: 'monster', id: playerTeam.monsters[0] },
@@ -275,7 +271,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
       { position: { x: 1, y: 2 }, type: 'monster', id: playerTeam.monsters[2] },
     ]);
     
-    // 敵チーム設定（対戦画面と同じ座標）
+    // 敵チーム設定
     setEnemyAssignments([
       { position: { x: 1, y: 0 }, type: 'master', id: enemyTeam.master },
       { position: { x: 0, y: 0 }, type: 'monster', id: enemyTeam.monsters[0] },
@@ -548,7 +544,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
             </div>
           </div>
           
-          {/* 🔧 コスト表示 - XY座標管理の説明追加 */}
+          {/* 🔧 コスト表示 */}
           <div className="flex justify-center items-center gap-4 sm:gap-6 mb-4 sm:mb-6">
             <div className="bg-blue-100 rounded-lg px-3 sm:px-4 py-2">
               <span className="text-sm font-bold text-blue-800">
