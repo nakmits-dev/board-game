@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MonsterType, MasterCard, Position } from '../types/gameTypes';
 import { monsterData, masterData, generateTeamWithCost8 } from '../data/cardData';
-import { TEAM_POSITIONS } from '../data/initialGameState';
+import { PLACEMENT_POSITIONS } from '../utils/boardUtils';
 import { skillData } from '../data/skillData';
 import { Shield, Sword, Sparkle, Heart, Crown, Gitlab as GitLab, Play, X, Filter, Star, Shuffle, ArrowLeft, Trash2, Eye, EyeOff, HelpCircle } from 'lucide-react';
 import CharacterCard from './CharacterCard';
@@ -23,7 +23,7 @@ interface PositionAssignment {
   position: Position;
   type: 'master' | 'monster';
   id?: string;
-  slotIndex?: number; // 🔧 配列内のインデックスを追加
+  slotIndex?: number; // 🔧 配列内のインデックスを保持
 }
 
 const DeckBuilder: React.FC<DeckBuilderProps> = ({ 
@@ -50,14 +50,14 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
   const isValidPlacementPosition = (position: Position): boolean => {
     // プレイヤーチームの配置可能座標
     const playerPositions = [
-      TEAM_POSITIONS.player.master,
-      ...TEAM_POSITIONS.player.monsters
+      PLACEMENT_POSITIONS.player.master,
+      ...PLACEMENT_POSITIONS.player.monsters
     ];
     
     // 敵チームの配置可能座標
     const enemyPositions = [
-      TEAM_POSITIONS.enemy.master,
-      ...TEAM_POSITIONS.enemy.monsters
+      PLACEMENT_POSITIONS.enemy.master,
+      ...PLACEMENT_POSITIONS.enemy.monsters
     ];
     
     const allValidPositions = [...playerPositions, ...enemyPositions];
@@ -67,7 +67,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
 
   // 🔧 座標から配置情報を作成する関数（配列インデックスを保持）
   const createEmptyAssignments = (isPlayer: boolean = true): PositionAssignment[] => {
-    const positions = isPlayer ? TEAM_POSITIONS.player : TEAM_POSITIONS.enemy;
+    const positions = isPlayer ? PLACEMENT_POSITIONS.player : PLACEMENT_POSITIONS.enemy;
     
     return [
       { position: positions.master, type: 'master', slotIndex: -1 }, // マスターは特別扱い
@@ -218,6 +218,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     return !!playerMaster && !!enemyMaster;
   };
 
+  // 🔧 座標ベースでの編成完了処理（配列順序を保持）
   const handleComplete = () => {
     if (!canStartGame()) return;
     
@@ -271,18 +272,18 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     
     // 🔧 座標ベースでプレイヤーチーム設定
     setPlayerAssignments([
-      { position: TEAM_POSITIONS.player.master, type: 'master', id: playerTeam.master, slotIndex: -1 },
-      { position: TEAM_POSITIONS.player.monsters[0], type: 'monster', id: playerTeam.monsters[0], slotIndex: 0 },
-      { position: TEAM_POSITIONS.player.monsters[1], type: 'monster', id: playerTeam.monsters[1], slotIndex: 1 },
-      { position: TEAM_POSITIONS.player.monsters[2], type: 'monster', id: playerTeam.monsters[2], slotIndex: 2 },
+      { position: PLACEMENT_POSITIONS.player.master, type: 'master', id: playerTeam.master, slotIndex: -1 },
+      { position: PLACEMENT_POSITIONS.player.monsters[0], type: 'monster', id: playerTeam.monsters[0], slotIndex: 0 },
+      { position: PLACEMENT_POSITIONS.player.monsters[1], type: 'monster', id: playerTeam.monsters[1], slotIndex: 1 },
+      { position: PLACEMENT_POSITIONS.player.monsters[2], type: 'monster', id: playerTeam.monsters[2], slotIndex: 2 },
     ]);
     
     // 🔧 座標ベースで敵チーム設定
     setEnemyAssignments([
-      { position: TEAM_POSITIONS.enemy.master, type: 'master', id: enemyTeam.master, slotIndex: -1 },
-      { position: TEAM_POSITIONS.enemy.monsters[0], type: 'monster', id: enemyTeam.monsters[0], slotIndex: 0 },
-      { position: TEAM_POSITIONS.enemy.monsters[1], type: 'monster', id: enemyTeam.monsters[1], slotIndex: 1 },
-      { position: TEAM_POSITIONS.enemy.monsters[2], type: 'monster', id: enemyTeam.monsters[2], slotIndex: 2 },
+      { position: PLACEMENT_POSITIONS.enemy.master, type: 'master', id: enemyTeam.master, slotIndex: -1 },
+      { position: PLACEMENT_POSITIONS.enemy.monsters[0], type: 'monster', id: enemyTeam.monsters[0], slotIndex: 0 },
+      { position: PLACEMENT_POSITIONS.enemy.monsters[1], type: 'monster', id: enemyTeam.monsters[1], slotIndex: 1 },
+      { position: PLACEMENT_POSITIONS.enemy.monsters[2], type: 'monster', id: enemyTeam.monsters[2], slotIndex: 2 },
     ]);
   };
 
