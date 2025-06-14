@@ -36,7 +36,16 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
   const [secretMode, setSecretMode] = useState(false);
   const cardSelectionRef = useRef<HTMLDivElement>(null);
   
-  // 🔧 統一された座標を使用して空の初期状態を作成
+  // 🔧 座標ベースのユーティリティ関数
+  const arePositionsEqual = (pos1: Position, pos2: Position): boolean => {
+    return pos1.x === pos2.x && pos1.y === pos2.y;
+  };
+
+  const getTeamForPosition = (position: Position): 'player' | 'enemy' => {
+    return position.y >= 2 ? 'player' : 'enemy';
+  };
+
+  // 🔧 座標から配置情報を作成する関数
   const createEmptyAssignments = (isPlayer: boolean = true): PositionAssignment[] => {
     const positions = isPlayer ? TEAM_POSITIONS.player : TEAM_POSITIONS.enemy;
     
@@ -62,7 +71,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
         // モンスターの配置順序を正しく設定
         const monsterPositions = positions.filter(p => p.type === 'monster');
         const currentMonsterIndex = monsterPositions.findIndex(p => 
-          p.position.x === pos.position.x && p.position.y === pos.position.y
+          arePositionsEqual(p.position, pos.position)
         );
         
         if (currentMonsterIndex < deck.monsters.length) {
@@ -111,12 +120,9 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     }, 0);
   };
 
+  // 🔧 座標ベースの配置情報取得
   const getAssignmentAt = (position: Position, assignments: PositionAssignment[]) => {
-    return assignments.find(a => a.position.x === position.x && a.position.y === position.y);
-  };
-
-  const getTeamForPosition = (position: Position): 'player' | 'enemy' => {
-    return position.y >= 2 ? 'player' : 'enemy';
+    return assignments.find(a => arePositionsEqual(a.position, position));
   };
 
   const getAssignmentsForPosition = (position: Position) => {
@@ -164,7 +170,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     
     const assignments = getAssignmentsForPosition(selectedPosition);
     const newAssignments = assignments.map(assignment => {
-      if (assignment.position.x === selectedPosition.x && assignment.position.y === selectedPosition.y) {
+      if (arePositionsEqual(assignment.position, selectedPosition)) {
         return { ...assignment, id };
       }
       return assignment;
@@ -177,7 +183,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
   const clearCard = (position: Position) => {
     const assignments = getAssignmentsForPosition(position);
     const newAssignments = assignments.map(assignment => {
-      if (assignment.position.x === position.x && assignment.position.y === position.y) {
+      if (arePositionsEqual(assignment.position, position)) {
         const { id, ...rest } = assignment;
         return rest;
       }
@@ -234,7 +240,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     const playerTeam = generateTeamWithCost8();
     const enemyTeam = generateTeamWithCost8();
     
-    // 🔧 統一された座標を使用してプレイヤーチーム設定
+    // 🔧 座標ベースでプレイヤーチーム設定
     setPlayerAssignments([
       { position: TEAM_POSITIONS.player.master, type: 'master', id: playerTeam.master },
       { position: TEAM_POSITIONS.player.monsters[0], type: 'monster', id: playerTeam.monsters[0] },
@@ -242,7 +248,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
       { position: TEAM_POSITIONS.player.monsters[2], type: 'monster', id: playerTeam.monsters[2] },
     ]);
     
-    // 🔧 統一された座標を使用して敵チーム設定
+    // 🔧 座標ベースで敵チーム設定
     setEnemyAssignments([
       { position: TEAM_POSITIONS.enemy.master, type: 'master', id: enemyTeam.master },
       { position: TEAM_POSITIONS.enemy.monsters[0], type: 'monster', id: enemyTeam.monsters[0] },
@@ -260,11 +266,12 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
 
   const baseMonsters = getBaseMonsters();
 
+  // 🔧 座標ベースのボードセル描画
   const renderBoardCell = (position: Position) => {
     const isPlayerTeam = getTeamForPosition(position) === 'player';
     const assignments = getAssignmentsForPosition(position);
     const assignment = getAssignmentAt(position, assignments);
-    const isSelected = selectedPosition?.x === position.x && selectedPosition?.y === position.y;
+    const isSelected = selectedPosition && arePositionsEqual(selectedPosition, position);
     
     if (!assignment) return null;
     
@@ -485,6 +492,26 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     return `${Math.min(totalHeight + padding, window.innerHeight * 0.6)}px`;
   };
 
+  // 🔧 座標ベースのボード描画（3x4グリッド）
+  const renderBoard = () => {
+    const BOARD_WIDTH = 3;
+    const BOARD_HEIGHT = 4;
+    
+    return (
+      <div className="grid grid-rows-4 gap-1">
+        {/* 各行を座標で管理 */}
+        {Array.from({ length: BOARD_HEIGHT }, (_, y) => (
+          <div key={`row-${y}`} className="grid grid-cols-3 gap-1">
+            {Array.from({ length: BOARD_WIDTH }, (_, x) => {
+              const position: Position = { x, y };
+              return renderBoardCell(position);
+            })}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-blue-50 p-2 sm:p-4">
       <div className="max-w-6xl mx-auto">
@@ -590,31 +617,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
           <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-4 text-center">ボード編成</h2>
           <div className="flex justify-center">
             <div className="bg-white rounded-xl p-2 sm:p-4 border border-blue-100">
-              <div className="grid grid-rows-4 gap-1">
-                {/* Enemy area */}
-                <div className="grid grid-cols-3 gap-1">
-                  {[0, 1, 2].map(x => 
-                    renderBoardCell({ x, y: 0 })
-                  )}
-                </div>
-                <div className="grid grid-cols-3 gap-1">
-                  <div className="w-16 h-16 sm:w-20 sm:h-20"></div>
-                  {renderBoardCell({ x: 1, y: 1 })}
-                  <div className="w-16 h-16 sm:w-20 sm:h-20"></div>
-                </div>
-                
-                {/* Player area */}
-                <div className="grid grid-cols-3 gap-1">
-                  <div className="w-16 h-16 sm:w-20 sm:h-20"></div>
-                  {renderBoardCell({ x: 1, y: 2 })}
-                  <div className="w-16 h-16 sm:w-20 sm:h-20"></div>
-                </div>
-                <div className="grid grid-cols-3 gap-1">
-                  {[0, 1, 2].map(x => 
-                    renderBoardCell({ x, y: 3 })
-                  )}
-                </div>
-              </div>
+              {renderBoard()}
             </div>
           </div>
           
