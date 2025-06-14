@@ -59,7 +59,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
       if (pos.type === 'master') {
         return { ...pos, id: deck.master };
       } else {
-        // モンスターの配置順序を正しく設定
+        // 🔧 モンスターの配置順序を正しく設定（TEAM_POSITIONSの順序に従う）
         const monsterPositions = positions.filter(p => p.type === 'monster');
         const currentMonsterIndex = monsterPositions.findIndex(p => 
           p.position.x === pos.position.x && p.position.y === pos.position.y
@@ -195,19 +195,42 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     return !!playerMaster && !!enemyMaster;
   };
 
+  // 🔧 完了ボタン押下時の処理を修正（座標順序を保持）
   const handleComplete = () => {
     if (!canStartGame()) return;
     
     const playerMaster = playerAssignments.find(a => a.type === 'master')?.id as keyof typeof masterData;
     const enemyMaster = enemyAssignments.find(a => a.type === 'master')?.id as keyof typeof masterData;
     
-    const playerMonsters = playerAssignments
-      .filter(a => a.type === 'monster' && a.id)
-      .map(a => a.id as MonsterType);
+    // 🔧 TEAM_POSITIONSの順序に従ってモンスターを配列に変換
+    const playerMonsters: MonsterType[] = [];
+    const enemyMonsters: MonsterType[] = [];
     
-    const enemyMonsters = enemyAssignments
-      .filter(a => a.type === 'monster' && a.id)
-      .map(a => a.id as MonsterType);
+    // プレイヤーチームのモンスター（TEAM_POSITIONS.player.monsters の順序で）
+    TEAM_POSITIONS.player.monsters.forEach(monsterPos => {
+      const assignment = playerAssignments.find(a => 
+        a.type === 'monster' && 
+        a.position.x === monsterPos.x && 
+        a.position.y === monsterPos.y &&
+        a.id
+      );
+      if (assignment?.id) {
+        playerMonsters.push(assignment.id as MonsterType);
+      }
+    });
+    
+    // 敵チームのモンスター（TEAM_POSITIONS.enemy.monsters の順序で）
+    TEAM_POSITIONS.enemy.monsters.forEach(monsterPos => {
+      const assignment = enemyAssignments.find(a => 
+        a.type === 'monster' && 
+        a.position.x === monsterPos.x && 
+        a.position.y === monsterPos.y &&
+        a.id
+      );
+      if (assignment?.id) {
+        enemyMonsters.push(assignment.id as MonsterType);
+      }
+    });
     
     // 編成内容を保存して戻る（ゲーム開始はしない）
     onClose(
