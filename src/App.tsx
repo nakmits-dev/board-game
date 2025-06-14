@@ -18,8 +18,6 @@ const GameContent = () => {
   const { gamePhase } = state;
   const [showDeckBuilder, setShowDeckBuilder] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
-  // 🔧 チーム編成完了フラグを追加
-  const [hasCompletedTeamSetup, setHasCompletedTeamSetup] = useState(false);
 
   const handleShowDeckBuilder = () => {
     setShowDeckBuilder(true);
@@ -35,9 +33,6 @@ const GameContent = () => {
       
       // 準備画面でのプレビューを更新
       dispatch({ type: 'UPDATE_PREVIEW', hostBoard, guestBoard });
-      
-      // 🔧 チーム編成が完了したことをマーク
-      setHasCompletedTeamSetup(true);
     }
     setShowDeckBuilder(false);
   };
@@ -60,8 +55,6 @@ const GameContent = () => {
     
     if (gamePhase === 'result') {
       dispatch({ type: 'RESET_GAME' });
-      // 🔧 リセット時はチーム編成完了フラグもリセット
-      setHasCompletedTeamSetup(false);
       return;
     }
     
@@ -79,18 +72,6 @@ const GameContent = () => {
 
   // ボタンの活性化状態を計算
   const isGameStartEnabled = !!(savedBoard.host && savedBoard.guest);
-
-  // 🔧 ボタンテキストを動的に決定
-  const getGameButtonText = () => {
-    if (gamePhase === 'result') {
-      return 'もう一度プレイ';
-    } else if (gamePhase === 'preparation') {
-      // チーム編成を完了している場合は「ゲーム開始」
-      // 初期状態やリセット後は「ゲーム開始」
-      return 'ゲーム開始';
-    }
-    return 'ゲーム開始';
-  };
 
   if (showDeckBuilder) {
     return (
@@ -147,7 +128,7 @@ const GameContent = () => {
                   onClick={handleGameStart}
                   disabled={!isGameStartEnabled}
                 >
-                  {getGameButtonText()}
+                  ゲーム開始
                 </button>
               </div>
             ) : (
