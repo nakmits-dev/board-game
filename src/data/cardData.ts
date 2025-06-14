@@ -128,7 +128,7 @@ export const monsterData: Record<string, MonsterCard> = {
   },
   'yellow-dragon': {
     name: 'イエロードラゴン',
-    hp: 4,
+    hp: 3,
     attack: 1,
     defense: 0,
     actions: 3,
@@ -138,7 +138,7 @@ export const monsterData: Record<string, MonsterCard> = {
   },
   'green-dragon': {
     name: 'グリーンドラゴン',
-    hp: 4,
+    hp: 3,
     attack: 2,
     defense: 0,
     actions: 1,
@@ -148,7 +148,7 @@ export const monsterData: Record<string, MonsterCard> = {
   },
   'white-dragon': {
     name: 'ホワイトドラゴン',
-    hp: 4,
+    hp: 3,
     attack: 2,
     defense: 0,
     actions: 1,
@@ -158,7 +158,7 @@ export const monsterData: Record<string, MonsterCard> = {
   },
   'black-dragon': {
     name: 'ブラックドラゴン',
-    hp: 4,
+    hp: 3,
     attack: 2,
     defense: 0,
     actions: 1,
