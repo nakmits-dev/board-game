@@ -506,7 +506,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [deckState.hostDeck, deckState.guestDeck, state.gamePhase]);
 
   useEffect(() => {
-    if (state.pendingAnimations.length > 0) {
+    if (Array.isArray(state.pendingAnimations) && state.pendingAnimations.length > 0) {
       const playAnimations = async () => {
         for (const animation of state.pendingAnimations) {
           dispatch({ type: 'SET_ANIMATION_TARGET', target: animation });
