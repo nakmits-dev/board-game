@@ -23,6 +23,7 @@ interface PositionAssignment {
   position: Position;
   type: 'master' | 'monster';
   id?: string;
+  slotIndex?: number; // 🔧 配列内のインデックスを追加
 }
 
 const DeckBuilder: React.FC<DeckBuilderProps> = ({ 
@@ -64,19 +65,19 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     return allValidPositions.some(validPos => arePositionsEqual(validPos, position));
   };
 
-  // 🔧 座標から配置情報を作成する関数
+  // 🔧 座標から配置情報を作成する関数（配列インデックスを保持）
   const createEmptyAssignments = (isPlayer: boolean = true): PositionAssignment[] => {
     const positions = isPlayer ? TEAM_POSITIONS.player : TEAM_POSITIONS.enemy;
     
     return [
-      { position: positions.master, type: 'master' },
-      { position: positions.monsters[0], type: 'monster' },
-      { position: positions.monsters[1], type: 'monster' },
-      { position: positions.monsters[2], type: 'monster' },
+      { position: positions.master, type: 'master', slotIndex: -1 }, // マスターは特別扱い
+      { position: positions.monsters[0], type: 'monster', slotIndex: 0 },
+      { position: positions.monsters[1], type: 'monster', slotIndex: 1 },
+      { position: positions.monsters[2], type: 'monster', slotIndex: 2 },
     ];
   };
 
-  // 既存の編成から初期状態を作成する関数
+  // 既存の編成から初期状態を作成する関数（配列インデックスを保持）
   const createAssignmentsFromDeck = (
     deck: { master: keyof typeof masterData; monsters: MonsterType[] },
     isPlayer: boolean = true
@@ -87,14 +88,11 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
       if (pos.type === 'master') {
         return { ...pos, id: deck.master };
       } else {
-        // モンスターの配置順序を正しく設定
-        const monsterPositions = positions.filter(p => p.type === 'monster');
-        const currentMonsterIndex = monsterPositions.findIndex(p => 
-          arePositionsEqual(p.position, pos.position)
-        );
+        // 🔧 配列インデックスを使用してモンスターを正確に配置
+        const monsterIndex = pos.slotIndex!;
         
-        if (currentMonsterIndex < deck.monsters.length) {
-          return { ...pos, id: deck.monsters[currentMonsterIndex] };
+        if (monsterIndex < deck.monsters.length && deck.monsters[monsterIndex]) {
+          return { ...pos, id: deck.monsters[monsterIndex] };
         }
         return pos;
       }
@@ -226,18 +224,30 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     const playerMaster = playerAssignments.find(a => a.type === 'master')?.id as keyof typeof masterData;
     const enemyMaster = enemyAssignments.find(a => a.type === 'master')?.id as keyof typeof masterData;
     
-    const playerMonsters = playerAssignments
-      .filter(a => a.type === 'monster' && a.id)
-      .map(a => a.id as MonsterType);
+    // 🔧 配列インデックス順でモンスターを取得（欠番を許可）
+    const playerMonsters: MonsterType[] = [];
+    const enemyMonsters: MonsterType[] = [];
     
-    const enemyMonsters = enemyAssignments
-      .filter(a => a.type === 'monster' && a.id)
-      .map(a => a.id as MonsterType);
+    // プレイヤーモンスターを配列順で取得
+    for (let i = 0; i < 3; i++) {
+      const assignment = playerAssignments.find(a => a.type === 'monster' && a.slotIndex === i);
+      if (assignment?.id) {
+        playerMonsters[i] = assignment.id as MonsterType;
+      }
+    }
+    
+    // 敵モンスターを配列順で取得
+    for (let i = 0; i < 3; i++) {
+      const assignment = enemyAssignments.find(a => a.type === 'monster' && a.slotIndex === i);
+      if (assignment?.id) {
+        enemyMonsters[i] = assignment.id as MonsterType;
+      }
+    }
     
     // 編成内容を保存して戻る（ゲーム開始はしない）
     onClose(
-      { master: playerMaster, monsters: playerMonsters },
-      { master: enemyMaster, monsters: enemyMonsters }
+      { master: playerMaster, monsters: playerMonsters.filter(Boolean) }, // undefinedを除去
+      { master: enemyMaster, monsters: enemyMonsters.filter(Boolean) }   // undefinedを除去
     );
   };
 
@@ -261,18 +271,18 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     
     // 🔧 座標ベースでプレイヤーチーム設定
     setPlayerAssignments([
-      { position: TEAM_POSITIONS.player.master, type: 'master', id: playerTeam.master },
-      { position: TEAM_POSITIONS.player.monsters[0], type: 'monster', id: playerTeam.monsters[0] },
-      { position: TEAM_POSITIONS.player.monsters[1], type: 'monster', id: playerTeam.monsters[1] },
-      { position: TEAM_POSITIONS.player.monsters[2], type: 'monster', id: playerTeam.monsters[2] },
+      { position: TEAM_POSITIONS.player.master, type: 'master', id: playerTeam.master, slotIndex: -1 },
+      { position: TEAM_POSITIONS.player.monsters[0], type: 'monster', id: playerTeam.monsters[0], slotIndex: 0 },
+      { position: TEAM_POSITIONS.player.monsters[1], type: 'monster', id: playerTeam.monsters[1], slotIndex: 1 },
+      { position: TEAM_POSITIONS.player.monsters[2], type: 'monster', id: playerTeam.monsters[2], slotIndex: 2 },
     ]);
     
     // 🔧 座標ベースで敵チーム設定
     setEnemyAssignments([
-      { position: TEAM_POSITIONS.enemy.master, type: 'master', id: enemyTeam.master },
-      { position: TEAM_POSITIONS.enemy.monsters[0], type: 'monster', id: enemyTeam.monsters[0] },
-      { position: TEAM_POSITIONS.enemy.monsters[1], type: 'monster', id: enemyTeam.monsters[1] },
-      { position: TEAM_POSITIONS.enemy.monsters[2], type: 'monster', id: enemyTeam.monsters[2] },
+      { position: TEAM_POSITIONS.enemy.master, type: 'master', id: enemyTeam.master, slotIndex: -1 },
+      { position: TEAM_POSITIONS.enemy.monsters[0], type: 'monster', id: enemyTeam.monsters[0], slotIndex: 0 },
+      { position: TEAM_POSITIONS.enemy.monsters[1], type: 'monster', id: enemyTeam.monsters[1], slotIndex: 1 },
+      { position: TEAM_POSITIONS.enemy.monsters[2], type: 'monster', id: enemyTeam.monsters[2], slotIndex: 2 },
     ]);
   };
 

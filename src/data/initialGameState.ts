@@ -119,22 +119,22 @@ const generateTeamWithCost8 = (): { master: keyof typeof masterData; monsters: M
   };
 };
 
-// 🔧 統一された配置座標定義
+// 🔧 統一された配置座標定義（チーム編成と対戦画面で完全一致）
 const TEAM_POSITIONS = {
   player: {
     master: { x: 1, y: 3 },
     monsters: [
-      { x: 0, y: 3 }, // モンスター1
-      { x: 2, y: 3 }, // モンスター2  
-      { x: 1, y: 2 }  // モンスター3
+      { x: 0, y: 3 }, // モンスター1（左）
+      { x: 2, y: 3 }, // モンスター2（右）  
+      { x: 1, y: 2 }  // モンスター3（前）
     ]
   },
   enemy: {
     master: { x: 1, y: 0 },
     monsters: [
-      { x: 0, y: 0 }, // モンスター1
-      { x: 2, y: 0 }, // モンスター2
-      { x: 1, y: 1 }  // モンスター3
+      { x: 0, y: 0 }, // モンスター1（左）
+      { x: 2, y: 0 }, // モンスター2（右）
+      { x: 1, y: 1 }  // モンスター3（前）
     ]
   }
 } as const;
@@ -149,20 +149,22 @@ export const createInitialGameState = (
 
   // デッキが指定されている場合のみキャラクターを配置
   if (hostDeck && guestDeck) {
-    // 🔧 統一された座標を使用してホストチーム配置
+    // 🔧 プレイヤーチーム配置（座標完全一致）
     characters.push(createMaster(hostDeck.master, TEAM_POSITIONS.player.master, 'player'));
     
+    // 🔧 モンスターを配列順序通りに配置（欠番があっても位置を維持）
     hostDeck.monsters.forEach((monster, index) => {
-      if (index < TEAM_POSITIONS.player.monsters.length) {
+      if (index < TEAM_POSITIONS.player.monsters.length && monster) {
         characters.push(createMonster(monster, TEAM_POSITIONS.player.monsters[index], 'player'));
       }
     });
 
-    // 🔧 統一された座標を使用してゲストチーム配置
+    // 🔧 敵チーム配置（座標完全一致）
     characters.push(createMaster(guestDeck.master, TEAM_POSITIONS.enemy.master, 'enemy'));
     
+    // 🔧 モンスターを配列順序通りに配置（欠番があっても位置を維持）
     guestDeck.monsters.forEach((monster, index) => {
-      if (index < TEAM_POSITIONS.enemy.monsters.length) {
+      if (index < TEAM_POSITIONS.enemy.monsters.length && monster) {
         characters.push(createMonster(monster, TEAM_POSITIONS.enemy.monsters[index], 'enemy'));
       }
     });
@@ -171,7 +173,7 @@ export const createInitialGameState = (
     const defaultHostDeck = { master: 'blue' as keyof typeof masterData, monsters: ['wolf', 'bear', 'golem'] as MonsterType[] };
     const defaultGuestDeck = { master: 'red' as keyof typeof masterData, monsters: ['bear', 'wolf', 'golem'] as MonsterType[] };
     
-    // 🔧 統一された座標を使用
+    // 🔧 デフォルト編成も同じ座標システムを使用
     characters.push(createMaster(defaultHostDeck.master, TEAM_POSITIONS.player.master, 'player'));
     defaultHostDeck.monsters.forEach((monster, index) => {
       if (index < TEAM_POSITIONS.player.monsters.length) {
