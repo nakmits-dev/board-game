@@ -23,7 +23,8 @@ type GameAction =
   | { type: 'REMOVE_DEFEATED_CHARACTERS'; targetId: string; killerTeam?: Team }
   | { type: 'EVOLVE_CHARACTER'; characterId: string }
   | { type: 'CHECK_GAME_END' }
-  | { type: 'SURRENDER'; team: Team };
+  | { type: 'SURRENDER'; team: Team }
+  | { type: 'UPDATE_CRYSTALS'; playerCrystals: number; enemyCrystals: number };
 
 interface GameContextType {
   state: GameState;
@@ -113,6 +114,14 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       };
     }
 
+    case 'UPDATE_CRYSTALS': {
+      return {
+        ...state,
+        playerCrystals: action.playerCrystals,
+        enemyCrystals: action.enemyCrystals,
+      };
+    }
+
     case 'CONFIRM_ACTION': {
       if (!state.selectedCharacter || !state.pendingAction.type) return state;
       
@@ -123,8 +132,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       const character = state.selectedCharacter;
       let newCharacters = [...state.characters];
       let animations: AnimationSequence[] = [];
-      let newPlayerCrystals = state.playerCrystals;
-      let newEnemyCrystals = state.enemyCrystals;
 
       if (state.pendingAction.type === 'move' && state.pendingAction.position) {
         animations.push({ id: character.id, type: 'move' });
@@ -157,16 +164,11 @@ function gameReducer(state: GameState, action: GameAction): GameState {
             if (target.type !== 'master') {
               // モンスターが倒された場合のみクリスタル取得処理
               // 🔧 撃破された側がクリスタルを取得
-              if (target.team === 'player') {
-                newPlayerCrystals = Math.min(8, newPlayerCrystals + target.cost);
-                // 🔧 複数クリスタル取得時は個数分アニメーション追加
-                for (let i = 0; i < target.cost; i++) {
+              // 🔧 複数クリスタル取得時は個数分アニメーション追加（間隔をあけて）
+              for (let i = 0; i < target.cost; i++) {
+                if (target.team === 'player') {
                   animations.push({ id: 'player-crystal', type: 'crystal-gain' });
-                }
-              } else {
-                newEnemyCrystals = Math.min(8, newEnemyCrystals + target.cost);
-                // 🔧 複数クリスタル取得時は個数分アニメーション追加
-                for (let i = 0; i < target.cost; i++) {
+                } else {
                   animations.push({ id: 'enemy-crystal', type: 'crystal-gain' });
                 }
               }
@@ -201,8 +203,6 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         selectedSkill: null,
         pendingAction: { type: null },
         pendingAnimations: animations,
-        playerCrystals: newPlayerCrystals,
-        enemyCrystals: newEnemyCrystals,
       };
     }
 
@@ -307,16 +307,13 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           if (target.type !== 'master') {
             // モンスターが倒された場合のみクリスタル取得処理
             // 🔧 撃破された側がクリスタルを取得
-            if (target.team === 'player') {
-              newPlayerCrystals = Math.min(8, newPlayerCrystals + target.cost);
-              // 🔧 複数クリスタル取得時は個数分アニメーション追加
-              for (let i = 0; i < target.cost; i++) {
+            // 🔧 複数クリスタル取得時は個数分アニメーション追加（間隔をあけて）
+            for (let i = 0; i < target.cost; i++) {
+              if (target.team === 'player') {
+                newPlayerCrystals = Math.min(8, newPlayerCrystals + 1);
                 animations.push({ id: 'player-crystal', type: 'crystal-gain' });
-              }
-            } else {
-              newEnemyCrystals = Math.min(8, newEnemyCrystals + target.cost);
-              // 🔧 複数クリスタル取得時は個数分アニメーション追加
-              for (let i = 0; i < target.cost; i++) {
+              } else {
+                newEnemyCrystals = Math.min(8, newEnemyCrystals + 1);
                 animations.push({ id: 'enemy-crystal', type: 'crystal-gain' });
               }
             }
@@ -550,11 +547,30 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           
           if (animation.type === 'ko') {
             await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // 🔧 撃破されたキャラクターのクリスタル取得処理
+            const defeatedCharacter = state.characters.find(char => char.id === animation.id);
+            if (defeatedCharacter && defeatedCharacter.type !== 'master') {
+              // 撃破された側がクリスタルを取得
+              const newPlayerCrystals = defeatedCharacter.team === 'player' 
+                ? Math.min(8, state.playerCrystals + defeatedCharacter.cost)
+                : state.playerCrystals;
+              
+              const newEnemyCrystals = defeatedCharacter.team === 'enemy'
+                ? Math.min(8, state.enemyCrystals + defeatedCharacter.cost)
+                : state.enemyCrystals;
+              
+              dispatch({ 
+                type: 'UPDATE_CRYSTALS', 
+                playerCrystals: newPlayerCrystals, 
+                enemyCrystals: newEnemyCrystals 
+              });
+            }
+            
             dispatch({ type: 'REMOVE_DEFEATED_CHARACTERS', targetId: animation.id });
             
             // 🔧 気絶アニメーション後に勝利判定をチェック
             // マスターが倒された場合の勝利判定
-            const defeatedCharacter = state.characters.find(char => char.id === animation.id);
             if (defeatedCharacter?.type === 'master') {
               // 少し遅延してから勝利判定
               await new Promise(resolve => setTimeout(resolve, 200));
