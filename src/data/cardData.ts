@@ -118,8 +118,8 @@ export const monsterData: Record<string, MonsterCard> = {
   },
   'blue-dragon': {
     name: 'ブルードラゴン',
-    hp: 2,
-    attack: 2,
+    hp: 3,
+    attack: 1,
     defense: 1,
     actions: 1,
     image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%95%E3%82%99%E3%83%AB%E3%83%BC%E3%83%88%E3%82%99%E3%83%A9%E3%82%B3%E3%82%99%E3%83%B3.png?alt=media&token=9fd92c08-291d-47de-a114-cfb193cbb7a8',
@@ -128,18 +128,18 @@ export const monsterData: Record<string, MonsterCard> = {
   },
   'yellow-dragon': {
     name: 'イエロードラゴン',
-    hp: 4,
+    hp: 3,
     attack: 1,
     defense: 0,
-    actions: 2,
+    actions: 3,
     image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%82%A4%E3%82%A8%E3%83%AD%E3%83%BC%E3%83%88%E3%82%99%E3%83%A9%E3%82%B3%E3%82%99%E3%83%B3.png?alt=media&token=3336ee4b-1641-4d24-bcd0-b115d481f55c',
     skillId: '',
     cost: 3
   },
   'green-dragon': {
     name: 'グリーンドラゴン',
-    hp: 3,
-    attack: 2,
+    hp: 4,
+    attack: 1,
     defense: 0,
     actions: 1,
     image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%82%AF%E3%82%99%E3%83%AA%E3%83%BC%E3%83%B3%E3%83%88%E3%82%99%E3%83%A9%E3%82%B3%E3%82%99%E3%83%B3.png?alt=media&token=b52f9674-b161-4dae-9ff5-8abda7198a49',
@@ -148,8 +148,8 @@ export const monsterData: Record<string, MonsterCard> = {
   },
   'white-dragon': {
     name: 'ホワイトドラゴン',
-    hp: 3,
-    attack: 2,
+    hp: 4,
+    attack: 1,
     defense: 0,
     actions: 1,
     image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%9B%E3%83%AF%E3%82%A4%E3%83%88%E3%83%88%E3%82%99%E3%83%A9%E3%82%B3%E3%82%99%E3%83%B3.png?alt=media&token=bcf40507-a495-412c-be66-5b1a9a5c49c5',
@@ -158,8 +158,8 @@ export const monsterData: Record<string, MonsterCard> = {
   },
   'black-dragon': {
     name: 'ブラックドラゴン',
-    hp: 3,
-    attack: 2,
+    hp: 4,
+    attack: 1,
     defense: 0,
     actions: 1,
     image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%95%E3%82%99%E3%83%A9%E3%83%83%E3%82%AF%E3%83%88%E3%82%99%E3%83%A9%E3%82%B3%E3%82%99%E3%83%B3.png?alt=media&token=0b8446bf-a0a0-40fc-9f87-ba8a493e9036',
@@ -177,7 +177,7 @@ export const masterData: Record<string, MasterCard> = {
     defense: 0,
     actions: 1,
     image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%83%9E%E3%82%B9%E3%82%BF%E3%83%BC.png?alt=media&token=16df62e1-4321-4e44-9f9d-9b3ca7a87881',
-    skillId: '',
+    skillId: 'rage-strike',
     cost: 1
   },
   'red': {
