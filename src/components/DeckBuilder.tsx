@@ -65,6 +65,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
           p.position.x === pos.position.x && p.position.y === pos.position.y
         );
         
+        // 🔧 モンスターが3体未満の場合も対応
         if (currentMonsterIndex < deck.monsters.length) {
           return { ...pos, id: deck.monsters[currentMonsterIndex] };
         }
@@ -187,6 +188,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     setAssignmentsForPosition(position, newAssignments);
   };
 
+  // 🔧 ゲーム開始可能条件を修正（マスターのみ必須、モンスターは0体以上）
   const canStartGame = () => {
     // 両チームにマスターが配置されているかチェック
     const playerMaster = playerAssignments.find(a => a.type === 'master')?.id;
@@ -195,14 +197,14 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     return !!playerMaster && !!enemyMaster;
   };
 
-  // 🔧 完了ボタン押下時の処理を修正（座標順序を保持）
+  // 🔧 完了ボタン押下時の処理を修正（座標順序を保持、モンスター0体でも対応）
   const handleComplete = () => {
     if (!canStartGame()) return;
     
     const playerMaster = playerAssignments.find(a => a.type === 'master')?.id as keyof typeof masterData;
     const enemyMaster = enemyAssignments.find(a => a.type === 'master')?.id as keyof typeof masterData;
     
-    // 🔧 TEAM_POSITIONSの順序に従ってモンスターを配列に変換
+    // 🔧 TEAM_POSITIONSの順序に従ってモンスターを配列に変換（空の場合も対応）
     const playerMonsters: MonsterType[] = [];
     const enemyMonsters: MonsterType[] = [];
     
@@ -232,6 +234,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
       }
     });
     
+    // 🔧 モンスターが0体でも編成完了可能
     // 編成内容を保存して戻る（ゲーム開始はしない）
     onClose(
       { master: playerMaster, monsters: playerMonsters },
@@ -530,6 +533,11 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     return `${Math.min(totalHeight + padding, window.innerHeight * 0.6)}px`;
   };
 
+  // 🔧 モンスター数の表示を追加
+  const getMonsterCount = (assignments: PositionAssignment[]) => {
+    return assignments.filter(a => a.type === 'monster' && a.id).length;
+  };
+
   return (
     <div className="min-h-screen bg-blue-50 p-2 sm:p-4">
       <div className="max-w-6xl mx-auto">
@@ -562,7 +570,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
             </div>
           </div>
           
-          {/* Cost Display - 1行にまとめる */}
+          {/* 🔧 Cost Display - モンスター数も表示 */}
           <div className="flex justify-center items-center gap-4 sm:gap-6 mb-4 sm:mb-6">
             <div className="bg-blue-100 rounded-lg px-3 sm:px-4 py-2">
               <span className="text-sm font-bold text-blue-800">
@@ -577,6 +585,9 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
                     fill={i < getTotalCost(playerAssignments) ? 'currentColor' : 'none'}
                   />
                 ))}
+              </div>
+              <div className="text-xs text-blue-600 mt-1">
+                モンスター: {getMonsterCount(playerAssignments)}/3
               </div>
             </div>
             
@@ -593,6 +604,9 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
                     fill={i < getTotalCost(enemyAssignments) ? 'currentColor' : 'none'}
                   />
                 ))}
+              </div>
+              <div className="text-xs text-red-600 mt-1">
+                モンスター: {getMonsterCount(enemyAssignments)}/3
               </div>
             </div>
           </div>
