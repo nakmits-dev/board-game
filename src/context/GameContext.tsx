@@ -155,14 +155,20 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
             // 🔧 マスターが倒された場合はクリスタル取得と進化を停止
             if (target.type !== 'master') {
-              // モンスターが倒された場合のみクリスタル取得と進化処理
-              // 🔧 クリスタル取得を即座に実行（アニメーションと同期）
+              // モンスターが倒された場合のみクリスタル取得処理
+              // 🔧 撃破された側がクリスタルを取得
               if (target.team === 'player') {
-                newEnemyCrystals = Math.min(8, newEnemyCrystals + target.cost);
-                animations.push({ id: 'enemy-crystal', type: 'crystal-gain' });
-              } else {
                 newPlayerCrystals = Math.min(8, newPlayerCrystals + target.cost);
-                animations.push({ id: 'player-crystal', type: 'crystal-gain' });
+                // 🔧 複数クリスタル取得時は個数分アニメーション追加
+                for (let i = 0; i < target.cost; i++) {
+                  animations.push({ id: 'player-crystal', type: 'crystal-gain' });
+                }
+              } else {
+                newEnemyCrystals = Math.min(8, newEnemyCrystals + target.cost);
+                // 🔧 複数クリスタル取得時は個数分アニメーション追加
+                for (let i = 0; i < target.cost; i++) {
+                  animations.push({ id: 'enemy-crystal', type: 'crystal-gain' });
+                }
               }
 
               // 進化処理（攻撃側のキャラクターが進化可能な場合）
@@ -300,13 +306,19 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           // 🔧 マスターが倒された場合はクリスタル取得と進化を停止
           if (target.type !== 'master') {
             // モンスターが倒された場合のみクリスタル取得処理
-            // 🔧 クリスタル取得を即座に実行（アニメーションと同期）
+            // 🔧 撃破された側がクリスタルを取得
             if (target.team === 'player') {
-              newEnemyCrystals = Math.min(8, newEnemyCrystals + target.cost);
-              animations.push({ id: 'enemy-crystal', type: 'crystal-gain' });
-            } else {
               newPlayerCrystals = Math.min(8, newPlayerCrystals + target.cost);
-              animations.push({ id: 'player-crystal', type: 'crystal-gain' });
+              // 🔧 複数クリスタル取得時は個数分アニメーション追加
+              for (let i = 0; i < target.cost; i++) {
+                animations.push({ id: 'player-crystal', type: 'crystal-gain' });
+              }
+            } else {
+              newEnemyCrystals = Math.min(8, newEnemyCrystals + target.cost);
+              // 🔧 複数クリスタル取得時は個数分アニメーション追加
+              for (let i = 0; i < target.cost; i++) {
+                animations.push({ id: 'enemy-crystal', type: 'crystal-gain' });
+              }
             }
           }
         }
@@ -654,7 +666,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 export const useGame = (): GameContextType => {
   const context = useContext(GameContext);
   if (context === undefined) {
-    throw new error('useGame must be used within a GameProvider');
+    throw new Error('useGame must be used within a GameProvider');
   }
   return context;
 };
