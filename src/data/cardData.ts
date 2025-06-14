@@ -128,10 +128,10 @@ export const monsterData: Record<string, MonsterCard> = {
   },
   'yellow-dragon': {
     name: 'イエロードラゴン',
-    hp: 3,
+    hp: 4,
     attack: 1,
     defense: 0,
-    actions: 3,
+    actions: 2,
     image: 'https://firebasestorage.googleapis.com/v0/b/board-game-5164b.firebasestorage.app/o/cardImg%2F%E3%82%A4%E3%82%A8%E3%83%AD%E3%83%BC%E3%83%88%E3%82%99%E3%83%A9%E3%82%B3%E3%82%99%E3%83%B3.png?alt=media&token=3336ee4b-1641-4d24-bcd0-b115d481f55c',
     skillId: '',
     cost: 3
