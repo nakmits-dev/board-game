@@ -7,6 +7,20 @@ export interface Position {
   y: number;
 }
 
+// 🔧 ボード管理用の型定義
+export interface BoardCell {
+  position: Position;
+  character?: Character;
+  isValidPlacement?: boolean;
+  team?: Team;
+}
+
+export interface BoardState {
+  width: number;
+  height: number;
+  cells: BoardCell[][];
+}
+
 export interface SkillEffect {
   type: 'defense' | 'actions' | 'evolve';
   value?: number;
@@ -86,24 +100,50 @@ export interface AnimationSequence {
   type: 'move' | 'attack' | 'damage' | 'heal' | 'ko' | 'crystal-gain' | 'turn-start' | 'evolve';
 }
 
+// 🔧 座標ベースのゲーム状態管理
 export interface GameState {
+  // ボード管理
+  board: BoardState;
+  
+  // キャラクター管理（座標ベース）
   characters: Character[];
+  
+  // ゲーム進行
   currentTurn: number;
+  gamePhase: 'preparation' | 'action' | 'result';
+  currentTeam: Team;
+  
+  // 選択状態
   selectedCharacter: Character | null;
   selectedAction: ActionType;
   selectedSkill: Skill | null;
-  gamePhase: 'preparation' | 'action' | 'result';
+  pendingAction: PendingAction;
+  
+  // ターン管理
   turnOrder: Character[];
   actionPoints: number;
   maxActionPoints: number;
-  currentTeam: Team;
-  pendingAction: PendingAction;
+  
+  // リソース管理
   playerCrystals: number;
   enemyCrystals: number;
+  
+  // アニメーション管理
   animationTarget?: { id: string; type: 'move' | 'attack' | 'damage' | 'heal' | 'ko' | 'crystal-gain' | 'turn-start' | 'evolve' } | null;
   pendingAnimations: AnimationSequence[];
+  
+  // デッキ管理
   savedDecks?: {
     host?: { master: keyof typeof import('../data/cardData').masterData; monsters: MonsterType[] };
     guest?: { master: keyof typeof import('../data/cardData').masterData; monsters: MonsterType[] };
   };
+}
+
+// 🔧 座標ベースのユーティリティ型
+export interface CoordinateUtils {
+  isValidPosition: (position: Position) => boolean;
+  getAdjacentPositions: (position: Position) => Position[];
+  getDistance: (pos1: Position, pos2: Position) => number;
+  arePositionsEqual: (pos1: Position, pos2: Position) => boolean;
+  getCharacterAt: (position: Position) => Character | undefined;
 }

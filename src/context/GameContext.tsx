@@ -1,8 +1,19 @@
 import React, { createContext, useContext, useReducer, ReactNode, useEffect } from 'react';
-import { GameState, Character, Position, ActionType, Skill, Team, AnimationSequence, MonsterType } from '../types/gameTypes';
+import { GameState, Character, Position, ActionType, Skill, Team, AnimationSequence, MonsterType, BoardState } from '../types/gameTypes';
 import { createInitialGameState, getEvolvedMonsterType, monsterData } from '../data/initialGameState';
 import { skillData } from '../data/skillData';
 import { masterData } from '../data/cardData';
+import { 
+  isValidPosition, 
+  arePositionsEqual, 
+  getDistance, 
+  getAdjacentPositions,
+  createEmptyBoard,
+  updateBoardWithCharacters,
+  getCharacterAt as getBoardCharacterAt,
+  BOARD_WIDTH,
+  BOARD_HEIGHT
+} from '../utils/boardUtils';
 
 type GameAction =
   | { type: 'SELECT_CHARACTER'; character: Character | null }
@@ -24,7 +35,8 @@ type GameAction =
   | { type: 'EVOLVE_CHARACTER'; characterId: string }
   | { type: 'CHECK_GAME_END' }
   | { type: 'SURRENDER'; team: Team }
-  | { type: 'UPDATE_CRYSTALS'; playerCrystals: number; enemyCrystals: number };
+  | { type: 'UPDATE_CRYSTALS'; playerCrystals: number; enemyCrystals: number }
+  | { type: 'UPDATE_BOARD'; characters: Character[] };
 
 interface GameContextType {
   state: GameState;
@@ -36,6 +48,7 @@ interface GameContextType {
   isPositionValid: (position: Position) => boolean;
   getAdjacentPositions: (position: Position) => Position[];
   getDistance: (pos1: Position, pos2: Position) => number;
+  getAllBoardPositions: () => Position[];
   savedDecks: {
     host?: { master: keyof typeof masterData; monsters: MonsterType[] };
     guest?: { master: keyof typeof masterData; monsters: MonsterType[] };
@@ -46,48 +59,17 @@ const GameContext = createContext<GameContextType | undefined>(undefined);
 
 const ANIMATION_DURATION = 300;
 
-// 🔧 ボード管理用のユーティリティ関数
-const BOARD_WIDTH = 3;
-const BOARD_HEIGHT = 4;
-
-const isPositionValid = (position: Position): boolean => {
-  return position.x >= 0 && position.x < BOARD_WIDTH && 
-         position.y >= 0 && position.y < BOARD_HEIGHT;
-};
-
-const getAdjacentPositions = (position: Position): Position[] => {
-  const adjacent: Position[] = [];
-  
-  for (let dx = -1; dx <= 1; dx++) {
-    for (let dy = -1; dy <= 1; dy++) {
-      if (dx === 0 && dy === 0) continue; // 自分自身は除外
-      
-      const newPos: Position = {
-        x: position.x + dx,
-        y: position.y + dy
-      };
-      
-      if (isPositionValid(newPos)) {
-        adjacent.push(newPos);
-      }
-    }
-  }
-  
-  return adjacent;
-};
-
-const getDistance = (pos1: Position, pos2: Position): number => {
-  const dx = Math.abs(pos1.x - pos2.x);
-  const dy = Math.abs(pos1.y - pos2.y);
-  return Math.max(dx, dy); // チェビシェフ距離（8方向移動）
-};
-
-const arePositionsEqual = (pos1: Position, pos2: Position): boolean => {
-  return pos1.x === pos2.x && pos1.y === pos2.y;
-};
-
 function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
+    case 'UPDATE_BOARD': {
+      const newBoard = updateBoardWithCharacters(state.board, action.characters);
+      return {
+        ...state,
+        board: newBoard,
+        characters: action.characters,
+      };
+    }
+
     case 'SELECT_CHARACTER': {
       if (!action.character) {
         return {
@@ -233,8 +215,11 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         }
       }
 
+      const newBoard = updateBoardWithCharacters(state.board, newCharacters);
+
       return {
         ...state,
+        board: newBoard,
         characters: newCharacters,
         selectedCharacter: null,
         selectedAction: null,
@@ -271,8 +256,11 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         return char;
       });
 
+      const newBoard = updateBoardWithCharacters(state.board, updatedCharacters);
+
       return {
         ...state,
+        board: newBoard,
         characters: updatedCharacters,
       };
     }
@@ -375,8 +363,11 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         return char;
       });
 
+      const newBoard = updateBoardWithCharacters(state.board, newCharacters);
+
       return {
         ...state,
+        board: newBoard,
         characters: newCharacters,
         selectedCharacter: null,
         selectedAction: null,
@@ -390,9 +381,11 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
     case 'REMOVE_DEFEATED_CHARACTERS': {
       const updatedCharacters = state.characters.filter(char => char.id !== action.targetId);
+      const newBoard = updateBoardWithCharacters(state.board, updatedCharacters);
 
       return {
         ...state,
+        board: newBoard,
         characters: updatedCharacters,
       };
     }
@@ -467,8 +460,11 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         animations.push({ id: 'enemy-crystal-1', type: 'crystal-gain' });
       }
 
+      const newBoard = updateBoardWithCharacters(state.board, refreshedCharacters);
+
       return {
         ...state,
+        board: newBoard,
         characters: refreshedCharacters,
         currentTeam: newCurrentTeam,
         currentTurn: newCurrentTurn,
@@ -488,14 +484,19 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       // 開始チームを決定
       const startingTeam = action.startingTeam || 'player';
       
+      const refreshedCharacters = newState.characters.map(char => ({
+        ...char,
+        remainingActions: char.team === startingTeam ? char.actions : 0,
+      }));
+
+      const newBoard = updateBoardWithCharacters(newState.board, refreshedCharacters);
+      
       return {
         ...newState,
+        board: newBoard,
+        characters: refreshedCharacters,
         gamePhase: 'action',
         currentTeam: startingTeam,
-        characters: newState.characters.map(char => ({
-          ...char,
-          remainingActions: char.team === startingTeam ? char.actions : 0,
-        })),
         pendingAnimations: [{ id: startingTeam, type: 'turn-start' }],
         savedDecks: {
           host: action.hostDeck,
@@ -508,9 +509,11 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       if (state.gamePhase !== 'preparation' && state.gamePhase !== 'result') return state;
       
       const newState = createInitialGameState(action.hostDeck, action.guestDeck);
+      const newBoard = updateBoardWithCharacters(state.board, newState.characters);
       
       return {
         ...state,
+        board: newBoard,
         characters: newState.characters,
         savedDecks: {
           host: action.hostDeck,
@@ -531,9 +534,11 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 
     case 'RESET_GAME': {
       const newState = createInitialGameState(state.savedDecks?.host, state.savedDecks?.guest);
+      const newBoard = updateBoardWithCharacters(newState.board, newState.characters);
       
       return {
         ...newState,
+        board: newBoard,
         savedDecks: state.savedDecks,
       };
     }
@@ -650,7 +655,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (state.selectedCharacter.team !== state.currentTeam) return false;
 
     // 座標が有効範囲内かチェック
-    if (!isPositionValid(position)) return false;
+    if (!isValidPosition(position)) return false;
 
     // 隣接する位置かチェック（8方向移動）
     const distance = getDistance(state.selectedCharacter.position, position);
@@ -712,6 +717,17 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     );
   };
 
+  // 🔧 全ボード座標を取得
+  const getAllBoardPositions = (): Position[] => {
+    const positions: Position[] = [];
+    for (let y = 0; y < BOARD_HEIGHT; y++) {
+      for (let x = 0; x < BOARD_WIDTH; x++) {
+        positions.push({ x, y });
+      }
+    }
+    return positions;
+  };
+
   return (
     <GameContext.Provider 
       value={{ 
@@ -721,9 +737,10 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         isValidAttack, 
         isValidSkillTarget,
         getCharacterAt,
-        isPositionValid,
+        isPositionValid: isValidPosition,
         getAdjacentPositions,
         getDistance,
+        getAllBoardPositions,
         savedDecks: state.savedDecks || savedDecks
       }}
     >

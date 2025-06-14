@@ -1,6 +1,7 @@
-import { Character, GameState, Position, Team, MonsterType, MasterCard } from '../types/gameTypes';
+import { Character, GameState, Position, Team, MonsterType, MasterCard, BoardState } from '../types/gameTypes';
 import { monsterData, masterData } from './cardData';
 import { skillData } from './skillData';
+import { createEmptyBoard, updateBoardWithCharacters, PLACEMENT_POSITIONS } from '../utils/boardUtils';
 
 const generateId = (): string => {
   return Math.random().toString(36).substring(2, 9);
@@ -120,24 +121,7 @@ const generateTeamWithCost8 = (): { master: keyof typeof masterData; monsters: M
 };
 
 // 🔧 統一された配置座標定義（チーム編成と対戦画面で完全一致）
-const TEAM_POSITIONS = {
-  player: {
-    master: { x: 1, y: 3 },
-    monsters: [
-      { x: 0, y: 3 }, // モンスター1（左）
-      { x: 2, y: 3 }, // モンスター2（右）  
-      { x: 1, y: 2 }  // モンスター3（前）
-    ]
-  },
-  enemy: {
-    master: { x: 1, y: 0 },
-    monsters: [
-      { x: 0, y: 0 }, // モンスター1（左）
-      { x: 2, y: 0 }, // モンスター2（右）
-      { x: 1, y: 1 }  // モンスター3（前）
-    ]
-  }
-} as const;
+const TEAM_POSITIONS = PLACEMENT_POSITIONS;
 
 export { createMonster, createMaster, getEvolvedMonsterType, monsterData, generateTeamWithCost8, TEAM_POSITIONS };
 
@@ -146,6 +130,9 @@ export const createInitialGameState = (
   guestDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }
 ): GameState => {
   const characters: Character[] = [];
+  
+  // 🔧 空のボードを作成
+  const board = createEmptyBoard();
 
   // デッキが指定されている場合のみキャラクターを配置
   if (hostDeck && guestDeck) {
@@ -189,7 +176,13 @@ export const createInitialGameState = (
     });
   }
 
+  // 🔧 ボードにキャラクターを配置
+  const updatedBoard = updateBoardWithCharacters(board, characters);
+
   return {
+    // 🔧 ボード状態を追加
+    board: updatedBoard,
+    
     characters,
     currentTurn: 0,
     selectedCharacter: null,
