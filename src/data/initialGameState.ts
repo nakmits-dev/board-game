@@ -1,4 +1,4 @@
-import { Character, GameState, Position, Team, MonsterType, MasterCard, BoardState } from '../types/gameTypes';
+import { Character, GameState, Position, Team, MonsterType, MasterCard, BoardState, BoardCell } from '../types/gameTypes';
 import { monsterData, masterData } from './cardData';
 import { skillData } from './skillData';
 import { createEmptyBoard, updateBoardWithCharacters, PLACEMENT_POSITIONS } from '../utils/boardUtils';
@@ -123,38 +123,40 @@ const generateTeamWithCost8 = (): { master: keyof typeof masterData; monsters: M
 // 🔧 統一された配置座標定義（チーム編成と対戦画面で完全一致）
 const TEAM_POSITIONS = PLACEMENT_POSITIONS;
 
+// 🔧 ボードからキャラクターを抽出する関数
+const extractCharactersFromBoard = (board: BoardCell[][]): Character[] => {
+  const characters: Character[] = [];
+  
+  for (let y = 0; y < board.length; y++) {
+    for (let x = 0; x < board[y].length; x++) {
+      const cell = board[y][x];
+      if (cell.character) {
+        characters.push(cell.character);
+      }
+    }
+  }
+  
+  return characters;
+};
+
 export { createMonster, createMaster, getEvolvedMonsterType, monsterData, generateTeamWithCost8, TEAM_POSITIONS };
 
 export const createInitialGameState = (
-  hostDeck?: { master: keyof typeof masterData; monsters: MonsterType[] },
-  guestDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }
+  hostBoard?: BoardCell[][],
+  guestBoard?: BoardCell[][]
 ): GameState => {
-  const characters: Character[] = [];
+  let characters: Character[] = [];
   
   // 🔧 空のボードを作成
   const board = createEmptyBoard();
 
-  // デッキが指定されている場合のみキャラクターを配置
-  if (hostDeck && guestDeck) {
-    // 🔧 プレイヤーチーム配置（座標完全一致）
-    characters.push(createMaster(hostDeck.master, TEAM_POSITIONS.player.master, 'player'));
+  // ボードが指定されている場合のみキャラクターを配置
+  if (hostBoard && guestBoard) {
+    // 🔧 ボードからキャラクターを抽出
+    const hostCharacters = extractCharactersFromBoard(hostBoard);
+    const guestCharacters = extractCharactersFromBoard(guestBoard);
     
-    // 🔧 モンスターを配列順序通りに配置（欠番があっても位置を維持）
-    hostDeck.monsters.forEach((monster, index) => {
-      if (index < TEAM_POSITIONS.player.monsters.length && monster) {
-        characters.push(createMonster(monster, TEAM_POSITIONS.player.monsters[index], 'player'));
-      }
-    });
-
-    // 🔧 敵チーム配置（座標完全一致）
-    characters.push(createMaster(guestDeck.master, TEAM_POSITIONS.enemy.master, 'enemy'));
-    
-    // 🔧 モンスターを配列順序通りに配置（欠番があっても位置を維持）
-    guestDeck.monsters.forEach((monster, index) => {
-      if (index < TEAM_POSITIONS.enemy.monsters.length && monster) {
-        characters.push(createMonster(monster, TEAM_POSITIONS.enemy.monsters[index], 'enemy'));
-      }
-    });
+    characters = [...hostCharacters, ...guestCharacters];
   } else {
     // デフォルト編成
     const defaultHostDeck = { master: 'blue' as keyof typeof masterData, monsters: ['wolf', 'bear', 'golem'] as MonsterType[] };

@@ -13,12 +13,19 @@ export interface BoardCell {
   character?: Character;
   isValidPlacement?: boolean;
   team?: Team;
+  cellType?: 'master' | 'monster' | 'empty';
 }
 
 export interface BoardState {
   width: number;
   height: number;
   cells: BoardCell[][];
+}
+
+// 🔧 ボード編成用の型定義
+export interface BoardComposition {
+  playerBoard: BoardCell[][];
+  enemyBoard: BoardCell[][];
 }
 
 export interface SkillEffect {
@@ -100,12 +107,12 @@ export interface AnimationSequence {
   type: 'move' | 'attack' | 'damage' | 'heal' | 'ko' | 'crystal-gain' | 'turn-start' | 'evolve';
 }
 
-// 🔧 座標ベースのゲーム状態管理
+// 🔧 完全なボードベースのゲーム状態管理
 export interface GameState {
-  // ボード管理
+  // ボード管理（メイン）
   board: BoardState;
   
-  // キャラクター管理（座標ベース）
+  // キャラクター管理（ボードと同期）
   characters: Character[];
   
   // ゲーム進行
@@ -132,11 +139,8 @@ export interface GameState {
   animationTarget?: { id: string; type: 'move' | 'attack' | 'damage' | 'heal' | 'ko' | 'crystal-gain' | 'turn-start' | 'evolve' } | null;
   pendingAnimations: AnimationSequence[];
   
-  // デッキ管理
-  savedDecks?: {
-    host?: { master: keyof typeof import('../data/cardData').masterData; monsters: MonsterType[] };
-    guest?: { master: keyof typeof import('../data/cardData').masterData; monsters: MonsterType[] };
-  };
+  // ボード編成管理（deckの代わり）
+  savedBoard?: BoardComposition;
 }
 
 // 🔧 座標ベースのユーティリティ型

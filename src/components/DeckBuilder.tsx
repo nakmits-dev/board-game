@@ -1,262 +1,237 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MonsterType, MasterCard, Position } from '../types/gameTypes';
+import { MonsterType, MasterCard, Position, BoardCell, BoardState } from '../types/gameTypes';
 import { monsterData, masterData, generateTeamWithCost8 } from '../data/cardData';
-import { PLACEMENT_POSITIONS } from '../utils/boardUtils';
+import { 
+  PLACEMENT_POSITIONS, 
+  createEmptyBoard, 
+  updateBoardWithCharacters,
+  arePositionsEqual,
+  isValidPlacementPosition,
+  getTeamForPosition,
+  BOARD_WIDTH,
+  BOARD_HEIGHT
+} from '../utils/boardUtils';
 import { skillData } from '../data/skillData';
 import { Shield, Sword, Sparkle, Heart, Crown, Gitlab as GitLab, Play, X, Filter, Star, Shuffle, ArrowLeft, Trash2, Eye, EyeOff, HelpCircle } from 'lucide-react';
 import CharacterCard from './CharacterCard';
 
 interface DeckBuilderProps {
   onStartGame: (
-    hostDeck: { master: keyof typeof masterData; monsters: MonsterType[] },
-    guestDeck: { master: keyof typeof masterData; monsters: MonsterType[] }
+    hostBoard: BoardCell[][],
+    guestBoard: BoardCell[][]
   ) => void;
   onClose: (
-    hostDeck?: { master: keyof typeof masterData; monsters: MonsterType[] },
-    guestDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }
+    hostBoard?: BoardCell[][],
+    guestBoard?: BoardCell[][]
   ) => void;
-  initialHostDeck?: { master: keyof typeof masterData; monsters: MonsterType[] };
-  initialGuestDeck?: { master: keyof typeof masterData; monsters: MonsterType[] };
-}
-
-// 🔧 純粋な座標ベース配置情報（インデックス不要）
-interface PositionAssignment {
-  position: Position;
-  type: 'master' | 'monster';
-  id?: string;
+  initialHostBoard?: BoardCell[][];
+  initialGuestBoard?: BoardCell[][];
 }
 
 const DeckBuilder: React.FC<DeckBuilderProps> = ({ 
   onStartGame, 
   onClose, 
-  initialHostDeck, 
-  initialGuestDeck 
+  initialHostBoard, 
+  initialGuestBoard 
 }) => {
   const [selectedPosition, setSelectedPosition] = useState<Position | null>(null);
   const [costFilter, setCostFilter] = useState<number | null>(null);
   const [secretMode, setSecretMode] = useState(false);
   const cardSelectionRef = useRef<HTMLDivElement>(null);
   
-  // 🔧 座標ベースのユーティリティ関数
-  const arePositionsEqual = (pos1: Position, pos2: Position): boolean => {
-    return pos1.x === pos2.x && pos1.y === pos2.y;
-  };
-
-  const getTeamForPosition = (position: Position): 'player' | 'enemy' => {
-    return position.y >= 2 ? 'player' : 'enemy';
-  };
-
-  // 🔧 配置可能な座標かどうかを判定
-  const isValidPlacementPosition = (position: Position): boolean => {
-    // プレイヤーチームの配置可能座標
-    const playerPositions = [
-      PLACEMENT_POSITIONS.player.master,
-      ...PLACEMENT_POSITIONS.player.monsters
-    ];
-    
-    // 敵チームの配置可能座標
-    const enemyPositions = [
-      PLACEMENT_POSITIONS.enemy.master,
-      ...PLACEMENT_POSITIONS.enemy.monsters
-    ];
-    
-    const allValidPositions = [...playerPositions, ...enemyPositions];
-    
-    return allValidPositions.some(validPos => arePositionsEqual(validPos, position));
-  };
-
-  // 🔧 純粋な座標ベースで配置情報を作成
-  const createEmptyAssignments = (isPlayer: boolean = true): PositionAssignment[] => {
-    const positions = isPlayer ? PLACEMENT_POSITIONS.player : PLACEMENT_POSITIONS.enemy;
-    
-    return [
-      { position: positions.master, type: 'master' },
-      { position: positions.monsters[0], type: 'monster' },
-      { position: positions.monsters[1], type: 'monster' },
-      { position: positions.monsters[2], type: 'monster' },
-    ];
-  };
-
-  // 🔧 既存の編成から座標ベースで初期状態を作成
-  const createAssignmentsFromDeck = (
-    deck: { master: keyof typeof masterData; monsters: MonsterType[] },
-    isPlayer: boolean = true
-  ): PositionAssignment[] => {
-    const positions = createEmptyAssignments(isPlayer);
-
-    return positions.map((pos) => {
-      if (pos.type === 'master') {
-        return { ...pos, id: deck.master };
-      } else {
-        // 🔧 座標で直接マッピング（インデックス不要）
-        const monsterPositions = isPlayer ? PLACEMENT_POSITIONS.player.monsters : PLACEMENT_POSITIONS.enemy.monsters;
-        const positionIndex = monsterPositions.findIndex(monsterPos => 
-          arePositionsEqual(monsterPos, pos.position)
-        );
-        
-        if (positionIndex < deck.monsters.length && deck.monsters[positionIndex]) {
-          return { ...pos, id: deck.monsters[positionIndex] };
-        }
-        return pos;
-      }
-    });
-  };
-
-  // 初期状態を設定（プロップスから受け取った編成を使用）
-  const getInitialState = () => {
-    if (initialHostDeck && initialGuestDeck) {
-      // 既存の編成がある場合はそれを使用
-      return {
-        player: createAssignmentsFromDeck(initialHostDeck, true),
-        enemy: createAssignmentsFromDeck(initialGuestDeck, false)
-      };
-    } else {
-      // 新規の場合はオールクリア状態
-      return {
-        player: createEmptyAssignments(true),
-        enemy: createEmptyAssignments(false)
-      };
-    }
-  };
-
-  const [playerAssignments, setPlayerAssignments] = useState<PositionAssignment[]>(() => getInitialState().player);
-  const [enemyAssignments, setEnemyAssignments] = useState<PositionAssignment[]>(() => getInitialState().enemy);
+  // 🔧 完全なボードベース管理
+  const [playerBoard, setPlayerBoard] = useState<BoardCell[][]>(() => {
+    if (initialHostBoard) return initialHostBoard;
+    return createEmptyBoard().cells;
+  });
   
+  const [enemyBoard, setEnemyBoard] = useState<BoardCell[][]>(() => {
+    if (initialGuestBoard) return initialGuestBoard;
+    return createEmptyBoard().cells;
+  });
+
   // プロップスが変更された場合に状態を更新
   useEffect(() => {
-    const newState = getInitialState();
-    setPlayerAssignments(newState.player);
-    setEnemyAssignments(newState.enemy);
-  }, [initialHostDeck, initialGuestDeck]);
+    if (initialHostBoard) setPlayerBoard(initialHostBoard);
+    if (initialGuestBoard) setEnemyBoard(initialGuestBoard);
+  }, [initialHostBoard, initialGuestBoard]);
   
-  const getTotalCost = (assignments: PositionAssignment[]) => {
-    return assignments.reduce((total, assignment) => {
-      if (!assignment.id) return total;
-      if (assignment.type === 'master') {
-        return total + masterData[assignment.id as keyof typeof masterData].cost;
-      } else {
-        return total + monsterData[assignment.id as MonsterType].cost;
+  // 🔧 ボードベースのコスト計算
+  const getBoardTotalCost = (board: BoardCell[][]): number => {
+    let totalCost = 0;
+    
+    for (let y = 0; y < BOARD_HEIGHT; y++) {
+      for (let x = 0; x < BOARD_WIDTH; x++) {
+        const cell = board[y][x];
+        if (cell.character) {
+          totalCost += cell.character.cost;
+        }
       }
-    }, 0);
-  };
-
-  // 🔧 座標ベースの配置情報取得
-  const getAssignmentAt = (position: Position, assignments: PositionAssignment[]) => {
-    return assignments.find(a => arePositionsEqual(a.position, position));
-  };
-
-  const getAssignmentsForPosition = (position: Position) => {
-    return getTeamForPosition(position) === 'player' ? playerAssignments : enemyAssignments;
-  };
-
-  const setAssignmentsForPosition = (position: Position, assignments: PositionAssignment[]) => {
-    if (getTeamForPosition(position) === 'player') {
-      setPlayerAssignments(assignments);
-    } else {
-      setEnemyAssignments(assignments);
     }
+    
+    return totalCost;
   };
 
-  const canAssign = (id: string, type: 'master' | 'monster') => {
+  // 🔧 ボードベースのキャラクター取得
+  const getCharacterAtPosition = (board: BoardCell[][], position: Position): Character | undefined => {
+    if (position.y < 0 || position.y >= BOARD_HEIGHT || position.x < 0 || position.x >= BOARD_WIDTH) {
+      return undefined;
+    }
+    return board[position.y][position.x].character;
+  };
+
+  // 🔧 ボードベースのキャラクター配置
+  const placeCharacterOnBoard = (
+    board: BoardCell[][], 
+    position: Position, 
+    character: Character | undefined
+  ): BoardCell[][] => {
+    const newBoard = board.map(row => [...row]);
+    
+    if (position.y >= 0 && position.y < BOARD_HEIGHT && position.x >= 0 && position.x < BOARD_WIDTH) {
+      newBoard[position.y][position.x] = {
+        ...newBoard[position.y][position.x],
+        character,
+        isValidPlacement: isValidPlacementPosition(position),
+        team: character?.team || getTeamForPosition(position) || undefined,
+        cellType: character ? character.type : 'empty'
+      };
+    }
+    
+    return newBoard;
+  };
+
+  // 🔧 ボードベースの配置可能判定
+  const canPlaceCharacter = (id: string, type: 'master' | 'monster'): boolean => {
     if (!selectedPosition) return false;
     
-    const assignments = getAssignmentsForPosition(selectedPosition);
-    const assignment = getAssignmentAt(selectedPosition, assignments);
-    if (!assignment || assignment.type !== type) return false;
+    const team = getTeamForPosition(selectedPosition);
+    if (!team) return false;
+    
+    const board = team === 'player' ? playerBoard : enemyBoard;
     
     // 選択中のチーム内で既に同じカードが配置されているかチェック
-    const alreadyAssigned = assignments.some(a => a.id === id);
-    if (alreadyAssigned) return false;
+    const alreadyPlaced = board.some(row => 
+      row.some(cell => cell.character?.id === id)
+    );
+    if (alreadyPlaced) return false;
     
     // コスト計算
-    const currentCost = getTotalCost(assignments);
+    const currentCost = getBoardTotalCost(board);
     const cardCost = type === 'master' 
       ? masterData[id as keyof typeof masterData].cost 
       : monsterData[id as MonsterType].cost;
     
-    // 既に配置されているカードがある場合、そのコストを引く
-    if (assignment.id) {
-      const existingCost = type === 'master'
-        ? masterData[assignment.id as keyof typeof masterData].cost
-        : monsterData[assignment.id as MonsterType].cost;
-      return currentCost - existingCost + cardCost <= 8;
+    // 既に配置されているキャラクターがある場合、そのコストを引く
+    const existingCharacter = getCharacterAtPosition(board, selectedPosition);
+    if (existingCharacter) {
+      return currentCost - existingCharacter.cost + cardCost <= 8;
     }
     
     return currentCost + cardCost <= 8;
   };
 
-  const assignCard = (id: string, type: 'master' | 'monster') => {
-    if (!canAssign(id, type) || !selectedPosition) return;
+  // 🔧 ボードベースのキャラクター配置実行
+  const placeCharacter = (id: string, type: 'master' | 'monster') => {
+    if (!canPlaceCharacter(id, type) || !selectedPosition) return;
     
-    const assignments = getAssignmentsForPosition(selectedPosition);
-    const newAssignments = assignments.map(assignment => {
-      if (arePositionsEqual(assignment.position, selectedPosition)) {
-        return { ...assignment, id };
-      }
-      return assignment;
-    });
+    const team = getTeamForPosition(selectedPosition);
+    if (!team) return;
     
-    setAssignmentsForPosition(selectedPosition, newAssignments);
+    // キャラクター作成
+    const cardData = type === 'master' ? masterData[id as keyof typeof masterData] : monsterData[id as MonsterType];
+    const character = createCharacterForCard(type, id, cardData);
+    character.position = selectedPosition;
+    character.team = team;
+    
+    if (team === 'player') {
+      setPlayerBoard(placeCharacterOnBoard(playerBoard, selectedPosition, character));
+    } else {
+      setEnemyBoard(placeCharacterOnBoard(enemyBoard, selectedPosition, character));
+    }
+    
     setSelectedPosition(null);
   };
 
-  const clearCard = (position: Position) => {
-    const assignments = getAssignmentsForPosition(position);
-    const newAssignments = assignments.map(assignment => {
-      if (arePositionsEqual(assignment.position, position)) {
-        const { id, ...rest } = assignment;
-        return rest;
-      }
-      return assignment;
-    });
+  // 🔧 ボードベースのキャラクター削除
+  const removeCharacter = (position: Position) => {
+    const team = getTeamForPosition(position);
+    if (!team) return;
     
-    setAssignmentsForPosition(position, newAssignments);
+    if (team === 'player') {
+      setPlayerBoard(placeCharacterOnBoard(playerBoard, position, undefined));
+    } else {
+      setEnemyBoard(placeCharacterOnBoard(enemyBoard, position, undefined));
+    }
   };
 
-  const canStartGame = () => {
+  // 🔧 ボードベースの完了判定
+  const canStartGame = (): boolean => {
     // 両チームにマスターが配置されているかチェック
-    const playerMaster = playerAssignments.find(a => a.type === 'master')?.id;
-    const enemyMaster = enemyAssignments.find(a => a.type === 'master')?.id;
+    const playerMaster = getCharacterAtPosition(playerBoard, PLACEMENT_POSITIONS.player.master);
+    const enemyMaster = getCharacterAtPosition(enemyBoard, PLACEMENT_POSITIONS.enemy.master);
     
-    return !!playerMaster && !!enemyMaster;
+    return !!(playerMaster?.type === 'master' && enemyMaster?.type === 'master');
   };
 
-  // 🔧 純粋な座標ベースでの編成完了処理
+  // 🔧 ボードベースの編成完了処理
   const handleComplete = () => {
     if (!canStartGame()) return;
     
-    const playerMaster = playerAssignments.find(a => a.type === 'master')?.id as keyof typeof masterData;
-    const enemyMaster = enemyAssignments.find(a => a.type === 'master')?.id as keyof typeof masterData;
+    // ボード情報をそのまま渡す
+    onClose(playerBoard, enemyBoard);
+  };
+
+  // 🔧 ボードベースのランダム選択
+  const handleRandomSelection = () => {
+    const playerTeam = generateTeamWithCost8();
+    const enemyTeam = generateTeamWithCost8();
     
-    // 🔧 座標順でモンスターを取得（座標の順序で配列を作成）
-    const playerMonsters: MonsterType[] = [];
-    const enemyMonsters: MonsterType[] = [];
+    // 新しいボードを作成
+    let newPlayerBoard = createEmptyBoard().cells;
+    let newEnemyBoard = createEmptyBoard().cells;
     
-    // プレイヤーモンスターを座標順で取得
-    PLACEMENT_POSITIONS.player.monsters.forEach((monsterPos, index) => {
-      const assignment = playerAssignments.find(a => 
-        a.type === 'monster' && arePositionsEqual(a.position, monsterPos)
-      );
-      if (assignment?.id) {
-        playerMonsters[index] = assignment.id as MonsterType;
+    // プレイヤーマスター配置
+    const playerMasterChar = createCharacterForCard('master', playerTeam.master, masterData[playerTeam.master]);
+    playerMasterChar.position = PLACEMENT_POSITIONS.player.master;
+    playerMasterChar.team = 'player';
+    newPlayerBoard = placeCharacterOnBoard(newPlayerBoard, PLACEMENT_POSITIONS.player.master, playerMasterChar);
+    
+    // プレイヤーモンスター配置
+    playerTeam.monsters.forEach((monster, index) => {
+      if (index < PLACEMENT_POSITIONS.player.monsters.length) {
+        const monsterChar = createCharacterForCard('monster', monster, monsterData[monster]);
+        monsterChar.position = PLACEMENT_POSITIONS.player.monsters[index];
+        monsterChar.team = 'player';
+        newPlayerBoard = placeCharacterOnBoard(newPlayerBoard, PLACEMENT_POSITIONS.player.monsters[index], monsterChar);
       }
     });
     
-    // 敵モンスターを座標順で取得
-    PLACEMENT_POSITIONS.enemy.monsters.forEach((monsterPos, index) => {
-      const assignment = enemyAssignments.find(a => 
-        a.type === 'monster' && arePositionsEqual(a.position, monsterPos)
-      );
-      if (assignment?.id) {
-        enemyMonsters[index] = assignment.id as MonsterType;
+    // 敵マスター配置
+    const enemyMasterChar = createCharacterForCard('master', enemyTeam.master, masterData[enemyTeam.master]);
+    enemyMasterChar.position = PLACEMENT_POSITIONS.enemy.master;
+    enemyMasterChar.team = 'enemy';
+    newEnemyBoard = placeCharacterOnBoard(newEnemyBoard, PLACEMENT_POSITIONS.enemy.master, enemyMasterChar);
+    
+    // 敵モンスター配置
+    enemyTeam.monsters.forEach((monster, index) => {
+      if (index < PLACEMENT_POSITIONS.enemy.monsters.length) {
+        const monsterChar = createCharacterForCard('monster', monster, monsterData[monster]);
+        monsterChar.position = PLACEMENT_POSITIONS.enemy.monsters[index];
+        monsterChar.team = 'enemy';
+        newEnemyBoard = placeCharacterOnBoard(newEnemyBoard, PLACEMENT_POSITIONS.enemy.monsters[index], monsterChar);
       }
     });
     
-    // 編成内容を保存して戻る（ゲーム開始はしない）
-    onClose(
-      { master: playerMaster, monsters: playerMonsters.filter(Boolean) }, // undefinedを除去
-      { master: enemyMaster, monsters: enemyMonsters.filter(Boolean) }   // undefinedを除去
-    );
+    setPlayerBoard(newPlayerBoard);
+    setEnemyBoard(newEnemyBoard);
+  };
+
+  // 🔧 ボードベースのオールクリア
+  const handleClearAll = () => {
+    setPlayerBoard(createEmptyBoard().cells);
+    setEnemyBoard(createEmptyBoard().cells);
+    setSelectedPosition(null);
   };
 
   // 進化前のモンスターのみを取得する関数
@@ -272,38 +247,9 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     ) as MonsterType[];
   };
 
-  // ランダム選択機能（モンスター3体、合計コスト8）
-  const handleRandomSelection = () => {
-    const playerTeam = generateTeamWithCost8();
-    const enemyTeam = generateTeamWithCost8();
-    
-    // 🔧 座標ベースでプレイヤーチーム設定
-    setPlayerAssignments([
-      { position: PLACEMENT_POSITIONS.player.master, type: 'master', id: playerTeam.master },
-      { position: PLACEMENT_POSITIONS.player.monsters[0], type: 'monster', id: playerTeam.monsters[0] },
-      { position: PLACEMENT_POSITIONS.player.monsters[1], type: 'monster', id: playerTeam.monsters[1] },
-      { position: PLACEMENT_POSITIONS.player.monsters[2], type: 'monster', id: playerTeam.monsters[2] },
-    ]);
-    
-    // 🔧 座標ベースで敵チーム設定
-    setEnemyAssignments([
-      { position: PLACEMENT_POSITIONS.enemy.master, type: 'master', id: enemyTeam.master },
-      { position: PLACEMENT_POSITIONS.enemy.monsters[0], type: 'monster', id: enemyTeam.monsters[0] },
-      { position: PLACEMENT_POSITIONS.enemy.monsters[1], type: 'monster', id: enemyTeam.monsters[1] },
-      { position: PLACEMENT_POSITIONS.enemy.monsters[2], type: 'monster', id: enemyTeam.monsters[2] },
-    ]);
-  };
-
-  // オールクリア機能
-  const handleClearAll = () => {
-    setPlayerAssignments(createEmptyAssignments(true));
-    setEnemyAssignments(createEmptyAssignments(false));
-    setSelectedPosition(null);
-  };
-
   const baseMonsters = getBaseMonsters();
 
-  // 🔧 座標ベースのボードセル描画
+  // 🔧 ボードベースのセル描画
   const renderBoardCell = (position: Position) => {
     // 配置可能な座標でない場合は空のセルを返す
     if (!isValidPlacementPosition(position)) {
@@ -315,27 +261,22 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
       );
     }
 
-    const isPlayerTeam = getTeamForPosition(position) === 'player';
-    const assignments = getAssignmentsForPosition(position);
-    const assignment = getAssignmentAt(position, assignments);
+    const team = getTeamForPosition(position);
+    if (!team) return null;
+    
+    const board = team === 'player' ? playerBoard : enemyBoard;
+    const character = getCharacterAtPosition(board, position);
     const isSelected = selectedPosition && arePositionsEqual(selectedPosition, position);
     
-    if (!assignment) return null;
+    const hasCharacter = !!character;
     
-    const hasCard = !!assignment.id;
-    const cardData = hasCard 
-      ? assignment.type === 'master' 
-        ? masterData[assignment.id as keyof typeof masterData]
-        : monsterData[assignment.id as MonsterType]
-      : null;
-
     // シークレットモードの場合、全てのマスを隠す
-    const shouldHideCard = secretMode;
+    const shouldHideCharacter = secretMode && hasCharacter;
 
     let cellClassName = "w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center relative border transition-all duration-200";
     
-    if (hasCard) {
-      cellClassName += isPlayerTeam 
+    if (hasCharacter) {
+      cellClassName += team === 'player' 
         ? " border-blue-100" 
         : " border-red-100";
     } else {
@@ -347,9 +288,9 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
       cellClassName += " ring-2 ring-yellow-300 bg-yellow-50/30";
     }
 
-    if (!hasCard) {
+    if (!hasCharacter) {
       // 選択可能なマスを青と赤で分ける
-      if (isPlayerTeam) {
+      if (team === 'player') {
         cellClassName += " ring-1 ring-blue-400/50 bg-blue-400/10 cursor-pointer hover:bg-blue-400/20";
       } else {
         cellClassName += " ring-1 ring-red-400/50 bg-red-400/10 cursor-pointer hover:bg-red-400/20";
@@ -364,48 +305,48 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
         className={cellClassName}
         onClick={() => setSelectedPosition(position)}
       >
-        {shouldHideCard ? (
+        {shouldHideCharacter ? (
           // シークレットモード時は全てのマスを？マークで隠す
           <div className="text-center">
             <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-lg overflow-hidden ${
-              isPlayerTeam
+              team === 'player'
                 ? 'ring-1 ring-blue-400 shadow-md shadow-blue-400/30'
                 : 'ring-1 ring-red-400 shadow-md shadow-red-400/30'
             } bg-gray-800 flex items-center justify-center`}>
-              <HelpCircle size={24} className={`${isPlayerTeam ? 'text-blue-400' : 'text-red-400'} sm:w-8 sm:h-8`} />
-              <div className={`absolute inset-0 ${isPlayerTeam ? 'bg-blue-500' : 'bg-red-500'} bg-opacity-10`}></div>
+              <HelpCircle size={24} className={`${team === 'player' ? 'text-blue-400' : 'text-red-400'} sm:w-8 sm:h-8`} />
+              <div className={`absolute inset-0 ${team === 'player' ? 'bg-blue-500' : 'bg-red-500'} bg-opacity-10`}></div>
             </div>
           </div>
-        ) : hasCard && cardData ? (
+        ) : hasCharacter && character ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <div className={`relative w-12 h-12 sm:w-16 sm:h-16 rounded-lg overflow-hidden ${
-              isPlayerTeam
+              team === 'player'
                 ? 'ring-1 ring-blue-400 shadow-md shadow-blue-400/30' 
                 : 'ring-1 ring-red-400 shadow-md shadow-red-400/30'
             }`}>
               <img 
-                src={cardData.image} 
-                alt={cardData.name} 
+                src={character.image} 
+                alt={character.name} 
                 className="w-full h-full object-cover"
                 draggable={false}
               />
               <div className={`absolute inset-0 ${
-                isPlayerTeam ? 'bg-blue-500' : 'bg-red-500'
+                team === 'player' ? 'bg-blue-500' : 'bg-red-500'
               } bg-opacity-10`}></div>
               
               {/* Stats overlay */}
               <div className="absolute bottom-0 inset-x-0 flex justify-center gap-0.5 p-0.5">
-                {cardData.attack >= 2 && (
+                {character.attack >= 2 && (
                   <div className="w-3 h-3 sm:w-4 sm:h-4 bg-red-500/80 rounded flex items-center justify-center">
                     <Sword size={8} className="text-white sm:w-[10px] sm:h-[10px]" />
                   </div>
                 )}
-                {cardData.defense >= 1 && (
+                {character.defense >= 1 && (
                   <div className="w-3 h-3 sm:w-4 sm:h-4 bg-blue-500/80 rounded flex items-center justify-center">
                     <Shield size={8} className="text-white sm:w-[10px] sm:h-[10px]" />
                   </div>
                 )}
-                {cardData.actions >= 2 && (
+                {character.actions >= 2 && (
                   <div className="w-3 h-3 sm:w-4 sm:h-4 bg-yellow-500/80 rounded flex items-center justify-center">
                     <Sparkle size={8} className="text-white sm:w-[10px] sm:h-[10px]" />
                   </div>
@@ -415,11 +356,11 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
             
             {/* HP表示 */}
             <div className="flex gap-0.5 mt-1">
-              {Array.from({ length: cardData.hp }, (_, i) => (
+              {Array.from({ length: character.hp }, (_, i) => (
                 <div
                   key={i}
                   className={`w-2 h-2 sm:w-3 sm:h-3 flex items-center justify-center ${
-                    isPlayerTeam
+                    team === 'player'
                       ? 'text-blue-500/90'
                       : 'text-red-500/90'
                   }`}
@@ -432,14 +373,19 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
         ) : (
           <div className="text-center">
             <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center mb-1 ${
-              assignment.type === 'master' 
+              // 配置位置によってアイコンを決定
+              arePositionsEqual(position, PLACEMENT_POSITIONS.player.master) || arePositionsEqual(position, PLACEMENT_POSITIONS.enemy.master)
                 ? 'bg-amber-100 text-amber-600' 
                 : 'bg-slate-100 text-slate-600'
             }`}>
-              {assignment.type === 'master' ? <Crown size={12} className="sm:w-4 sm:h-4" /> : <GitLab size={12} className="sm:w-4 sm:h-4" />}
+              {arePositionsEqual(position, PLACEMENT_POSITIONS.player.master) || arePositionsEqual(position, PLACEMENT_POSITIONS.enemy.master) 
+                ? <Crown size={12} className="sm:w-4 sm:h-4" /> 
+                : <GitLab size={12} className="sm:w-4 sm:h-4" />}
             </div>
             <span className="text-xs text-gray-500 hidden sm:block">
-              {assignment.type === 'master' ? 'マスター' : 'モンスター'}
+              {arePositionsEqual(position, PLACEMENT_POSITIONS.player.master) || arePositionsEqual(position, PLACEMENT_POSITIONS.enemy.master) 
+                ? 'マスター' 
+                : 'モンスター'}
             </span>
           </div>
         )}
@@ -449,9 +395,6 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
 
   // 🔧 座標ベースのボード描画（3x4グリッド）
   const renderBoard = () => {
-    const BOARD_WIDTH = 3;
-    const BOARD_HEIGHT = 4;
-    
     return (
       <div className="grid grid-rows-4 gap-1">
         {/* 各行を座標で管理 */}
@@ -471,7 +414,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     const skill = data.skillId ? skillData[data.skillId] : undefined;
     
     return {
-      id: id,
+      id: `${type}-${id}-${Date.now()}-${Math.random()}`,
       name: data.name,
       type: type,
       team: 'player' as const,
@@ -496,8 +439,9 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     };
   };
 
-  const selectedAssignment = selectedPosition ? getAssignmentAt(selectedPosition, getAssignmentsForPosition(selectedPosition)) : null;
   const selectedTeam = selectedPosition ? getTeamForPosition(selectedPosition) : null;
+  const selectedBoard = selectedTeam === 'player' ? playerBoard : enemyBoard;
+  const selectedCharacter = selectedPosition ? getCharacterAtPosition(selectedBoard, selectedPosition) : null;
 
   // フィルタリング関数
   const getFilteredCards = (type: 'master' | 'monster') => {
@@ -543,9 +487,13 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
 
   // カード選択エリアの高さを動的に計算
   const getCardSelectionHeight = () => {
-    if (!selectedPosition || !selectedAssignment) return 'auto';
+    if (!selectedPosition) return 'auto';
     
-    const filteredCards = selectedAssignment.type === 'master' 
+    const selectedCellType = arePositionsEqual(selectedPosition, PLACEMENT_POSITIONS.player.master) || 
+                            arePositionsEqual(selectedPosition, PLACEMENT_POSITIONS.enemy.master) 
+                            ? 'master' : 'monster';
+    
+    const filteredCards = selectedCellType === 'master' 
       ? getFilteredCards('master')
       : getFilteredCards('monster');
     
@@ -595,15 +543,15 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
           <div className="flex justify-center items-center gap-4 sm:gap-6 mb-4 sm:mb-6">
             <div className="bg-blue-100 rounded-lg px-3 sm:px-4 py-2">
               <span className="text-sm font-bold text-blue-800">
-                青チーム: {getTotalCost(playerAssignments)}/8
+                青チーム: {getBoardTotalCost(playerBoard)}/8
               </span>
               <div className="flex items-center gap-1 mt-1">
                 {Array(8).fill('').map((_, i) => (
                   <Star 
                     key={i} 
                     size={10} 
-                    className={`sm:w-3 sm:h-3 ${i < getTotalCost(playerAssignments) ? 'text-blue-500' : 'text-gray-300'}`} 
-                    fill={i < getTotalCost(playerAssignments) ? 'currentColor' : 'none'}
+                    className={`sm:w-3 sm:h-3 ${i < getBoardTotalCost(playerBoard) ? 'text-blue-500' : 'text-gray-300'}`} 
+                    fill={i < getBoardTotalCost(playerBoard) ? 'currentColor' : 'none'}
                   />
                 ))}
               </div>
@@ -611,15 +559,15 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
             
             <div className="bg-red-100 rounded-lg px-3 sm:px-4 py-2">
               <span className="text-sm font-bold text-red-800">
-                赤チーム: {getTotalCost(enemyAssignments)}/8
+                赤チーム: {getBoardTotalCost(enemyBoard)}/8
               </span>
               <div className="flex items-center gap-1 mt-1">
                 {Array(8).fill('').map((_, i) => (
                   <Star 
                     key={i} 
                     size={10} 
-                    className={`sm:w-3 sm:h-3 ${i < getTotalCost(enemyAssignments) ? 'text-red-500' : 'text-gray-300'}`} 
-                    fill={i < getTotalCost(enemyAssignments) ? 'currentColor' : 'none'}
+                    className={`sm:w-3 sm:h-3 ${i < getBoardTotalCost(enemyBoard) ? 'text-red-500' : 'text-gray-300'}`} 
+                    fill={i < getBoardTotalCost(enemyBoard) ? 'currentColor' : 'none'}
                   />
                 ))}
               </div>
@@ -671,11 +619,15 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
           {selectedPosition && (
             <div className="mt-4 text-center">
               <p className={`font-medium text-sm sm:text-base ${selectedTeam === 'player' ? 'text-blue-600' : 'text-red-600'}`}>
-                {selectedTeam === 'player' ? '青' : '赤'}チーム - {selectedAssignment?.type === 'master' ? 'マスター' : 'モンスター'}を選択してください
+                {selectedTeam === 'player' ? '青' : '赤'}チーム - {
+                  arePositionsEqual(selectedPosition, PLACEMENT_POSITIONS.player.master) || 
+                  arePositionsEqual(selectedPosition, PLACEMENT_POSITIONS.enemy.master) 
+                    ? 'マスター' : 'モンスター'
+                }を選択してください
               </p>
-              {selectedAssignment?.id && (
+              {selectedCharacter && (
                 <button
-                  onClick={() => clearCard(selectedPosition)}
+                  onClick={() => removeCharacter(selectedPosition)}
                   className="mt-2 px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-sm rounded-lg transition-colors"
                 >
                   クリア
@@ -686,14 +638,16 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
         </div>
 
         {/* Card Selection */}
-        {selectedPosition && selectedAssignment && (
+        {selectedPosition && (
           <div 
             className="bg-white rounded-xl shadow-lg p-4 sm:p-6"
             style={{ minHeight: getCardSelectionHeight() }}
           >
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
               <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-2 sm:mb-0">
-                {selectedAssignment.type === 'master' ? 'マスター' : 'モンスター'}選択
+                {arePositionsEqual(selectedPosition, PLACEMENT_POSITIONS.player.master) || 
+                 arePositionsEqual(selectedPosition, PLACEMENT_POSITIONS.enemy.master) 
+                  ? 'マスター' : 'モンスター'}選択
                 <span className={`ml-2 text-sm ${selectedTeam === 'player' ? 'text-blue-600' : 'text-red-600'}`}>
                   ({selectedTeam === 'player' ? '青' : '赤'}チーム)
                 </span>
@@ -714,7 +668,11 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
                   >
                     全て
                   </button>
-                  {getAvailableCosts(selectedAssignment.type).map(cost => (
+                  {getAvailableCosts(
+                    arePositionsEqual(selectedPosition, PLACEMENT_POSITIONS.player.master) || 
+                    arePositionsEqual(selectedPosition, PLACEMENT_POSITIONS.enemy.master) 
+                      ? 'master' : 'monster'
+                  ).map(cost => (
                     <button
                       key={cost}
                       onClick={() => handleFilterChange(cost)}
@@ -738,10 +696,11 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
                 ref={cardSelectionRef}
                 className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl"
               >
-                {selectedAssignment.type === 'master' 
+                {(arePositionsEqual(selectedPosition, PLACEMENT_POSITIONS.player.master) || 
+                  arePositionsEqual(selectedPosition, PLACEMENT_POSITIONS.enemy.master))
                   ? getFilteredCards('master').map(([id, data]) => {
                       const character = createCharacterForCard('master', id, data);
-                      const canSelect = canAssign(id, 'master');
+                      const canSelect = canPlaceCharacter(id, 'master');
                       
                       return (
                         <div
@@ -751,7 +710,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
                               ? 'opacity-100'
                               : 'opacity-50 cursor-not-allowed'
                           }`}
-                          onClick={() => canSelect ? assignCard(id, 'master') : undefined}
+                          onClick={() => canSelect ? placeCharacter(id, 'master') : undefined}
                         >
                           <CharacterCard
                             character={character}
@@ -766,7 +725,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
                   : getFilteredCards('monster').map(monster => {
                       const data = monsterData[monster];
                       const character = createCharacterForCard('monster', monster, data);
-                      const canSelect = canAssign(monster, 'monster');
+                      const canSelect = canPlaceCharacter(monster, 'monster');
                       
                       return (
                         <div
@@ -776,7 +735,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
                               ? 'opacity-100'
                               : 'opacity-50 cursor-not-allowed'
                           }`}
-                          onClick={() => canSelect ? assignCard(monster, 'monster') : undefined}
+                          onClick={() => canSelect ? placeCharacter(monster, 'monster') : undefined}
                         >
                           <CharacterCard
                             character={character}

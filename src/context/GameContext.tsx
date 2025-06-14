@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, ReactNode, useEffect } from 'react';
-import { GameState, Character, Position, ActionType, Skill, Team, AnimationSequence, MonsterType, BoardState } from '../types/gameTypes';
+import { GameState, Character, Position, ActionType, Skill, Team, AnimationSequence, MonsterType, BoardState, BoardCell } from '../types/gameTypes';
 import { createInitialGameState, getEvolvedMonsterType, monsterData } from '../data/initialGameState';
 import { skillData } from '../data/skillData';
 import { masterData } from '../data/cardData';
@@ -25,10 +25,10 @@ type GameAction =
   | { type: 'USE_SKILL'; targetId: string }
   | { type: 'END_TURN' }
   | { type: 'FORCE_END_TURN' }
-  | { type: 'START_LOCAL_GAME'; hostDeck: { master: keyof typeof masterData; monsters: MonsterType[] }; guestDeck: { master: keyof typeof masterData; monsters: MonsterType[] }; startingTeam?: 'player' | 'enemy' }
+  | { type: 'START_LOCAL_GAME'; hostBoard: BoardCell[][]; guestBoard: BoardCell[][]; startingTeam?: 'player' | 'enemy' }
   | { type: 'RESET_GAME' }
-  | { type: 'UPDATE_PREVIEW'; hostDeck?: { master: keyof typeof masterData; monsters: MonsterType[] }; guestDeck?: { master: keyof typeof masterData; monsters: MonsterType[] } }
-  | { type: 'SET_SAVED_DECKS'; hostDeck: { master: keyof typeof masterData; monsters: MonsterType[] }; guestDeck: { master: keyof typeof masterData; monsters: MonsterType[] } }
+  | { type: 'UPDATE_PREVIEW'; hostBoard?: BoardCell[][]; guestBoard?: BoardCell[][] }
+  | { type: 'SET_SAVED_BOARD'; hostBoard: BoardCell[][]; guestBoard: BoardCell[][] }
   | { type: 'SET_ANIMATION_TARGET'; target: { id: string; type: 'move' | 'attack' | 'damage' | 'heal' | 'ko' | 'crystal-gain' | 'turn-start' | 'evolve' } | null }
   | { type: 'SET_PENDING_ANIMATIONS'; animations: AnimationSequence[] }
   | { type: 'REMOVE_DEFEATED_CHARACTERS'; targetId: string; killerTeam?: Team }
@@ -49,9 +49,9 @@ interface GameContextType {
   getAdjacentPositions: (position: Position) => Position[];
   getDistance: (pos1: Position, pos2: Position) => number;
   getAllBoardPositions: () => Position[];
-  savedDecks: {
-    host?: { master: keyof typeof masterData; monsters: MonsterType[] };
-    guest?: { master: keyof typeof masterData; monsters: MonsterType[] };
+  savedBoard: {
+    host?: BoardCell[][];
+    guest?: BoardCell[][];
   };
 }
 
@@ -479,7 +479,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     }
 
     case 'START_LOCAL_GAME': {
-      const newState = createInitialGameState(action.hostDeck, action.guestDeck);
+      const newState = createInitialGameState(action.hostBoard, action.guestBoard);
       
       // 開始チームを決定
       const startingTeam = action.startingTeam || 'player';
@@ -498,9 +498,9 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         gamePhase: 'action',
         currentTeam: startingTeam,
         pendingAnimations: [{ id: startingTeam, type: 'turn-start' }],
-        savedDecks: {
-          host: action.hostDeck,
-          guest: action.guestDeck
+        savedBoard: {
+          host: action.hostBoard,
+          guest: action.guestBoard
         },
       };
     }
@@ -508,38 +508,38 @@ function gameReducer(state: GameState, action: GameAction): GameState {
     case 'UPDATE_PREVIEW': {
       if (state.gamePhase !== 'preparation' && state.gamePhase !== 'result') return state;
       
-      const newState = createInitialGameState(action.hostDeck, action.guestDeck);
+      const newState = createInitialGameState(action.hostBoard, action.guestBoard);
       const newBoard = updateBoardWithCharacters(state.board, newState.characters);
       
       return {
         ...state,
         board: newBoard,
         characters: newState.characters,
-        savedDecks: {
-          host: action.hostDeck,
-          guest: action.guestDeck
+        savedBoard: {
+          host: action.hostBoard,
+          guest: action.guestBoard
         }
       };
     }
 
-    case 'SET_SAVED_DECKS': {
+    case 'SET_SAVED_BOARD': {
       return {
         ...state,
-        savedDecks: {
-          host: action.hostDeck,
-          guest: action.guestDeck
+        savedBoard: {
+          host: action.hostBoard,
+          guest: action.guestBoard
         }
       };
     }
 
     case 'RESET_GAME': {
-      const newState = createInitialGameState(state.savedDecks?.host, state.savedDecks?.guest);
+      const newState = createInitialGameState(state.savedBoard?.host, state.savedBoard?.guest);
       const newBoard = updateBoardWithCharacters(newState.board, newState.characters);
       
       return {
         ...newState,
         board: newBoard,
-        savedDecks: state.savedDecks,
+        savedBoard: state.savedBoard,
       };
     }
 
@@ -551,27 +551,21 @@ function gameReducer(state: GameState, action: GameAction): GameState {
 export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(gameReducer, createInitialGameState());
   
-  // 🔧 デフォルトデッキを設定（初期化時のみ）
-  const [savedDecks, setSavedDecks] = React.useState<{
-    host?: { master: keyof typeof masterData; monsters: MonsterType[] };
-    guest?: { master: keyof typeof masterData; monsters: MonsterType[] };
-  }>({
-    host: { master: 'blue', monsters: ['wolf', 'bear', 'golem'] },
-    guest: { master: 'red', monsters: ['bear', 'wolf', 'golem'] }
-  });
+  // 🔧 デフォルトボードを設定（初期化時のみ）
+  const [savedBoard, setSavedBoard] = React.useState<{
+    host?: BoardCell[][];
+    guest?: BoardCell[][];
+  }>({});
 
-  // 🔧 初期化時にデフォルトデッキを設定（1回のみ）
+  // 🔧 初期化時にデフォルトボードを設定（1回のみ）
   React.useEffect(() => {
-    dispatch({ 
-      type: 'SET_SAVED_DECKS', 
-      hostDeck: savedDecks.host!, 
-      guestDeck: savedDecks.guest! 
-    });
-    dispatch({ 
-      type: 'UPDATE_PREVIEW', 
-      hostDeck: savedDecks.host, 
-      guestDeck: savedDecks.guest 
-    });
+    if (!savedBoard.host || !savedBoard.guest) {
+      const defaultBoard = createEmptyBoard();
+      setSavedBoard({
+        host: defaultBoard.cells,
+        guest: defaultBoard.cells
+      });
+    }
   }, []); // 空の依存配列で初回のみ実行
 
   useEffect(() => {
@@ -741,7 +735,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         getAdjacentPositions,
         getDistance,
         getAllBoardPositions,
-        savedDecks: state.savedDecks || savedDecks
+        savedBoard: state.savedBoard || savedBoard
       }}
     >
       {children}
