@@ -24,7 +24,8 @@ type GameAction =
   | { type: 'EVOLVE_CHARACTER'; characterId: string }
   | { type: 'CHECK_GAME_END' }
   | { type: 'SURRENDER'; team: Team }
-  | { type: 'UPDATE_CRYSTALS'; playerCrystals: number; enemyCrystals: number };
+  | { type: 'UPDATE_CRYSTALS'; playerCrystals: number; enemyCrystals: number }
+  | { type: 'SET_CHARACTERS'; characters: Character[] };
 
 interface GameContextType {
   state: GameState;
@@ -41,6 +42,13 @@ const ANIMATION_DURATION = 300;
 
 function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
+    case 'SET_CHARACTERS': {
+      return {
+        ...state,
+        characters: action.characters,
+      };
+    }
+
     case 'SELECT_CHARACTER': {
       if (!action.character) {
         return {
@@ -489,20 +497,13 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     if (deckState.hostDeck && deckState.guestDeck && (state.gamePhase === 'preparation' || state.gamePhase === 'result')) {
       const newGameState = createInitialGameState(deckState.hostDeck, deckState.guestDeck);
-      // 現在のゲーム状態を保持しつつキャラクターのみ更新
+      
+      // 適切にreducerを通してキャラクターを更新
+      dispatch({ type: 'SET_CHARACTERS', characters: newGameState.characters });
       dispatch({ type: 'SET_PENDING_ANIMATIONS', animations: [] });
       dispatch({ type: 'SET_ANIMATION_TARGET', target: null });
-      
-      // キャラクター配置を更新
-      const updatedState = {
-        ...state,
-        characters: newGameState.characters,
-      };
-      
-      // 状態を直接更新（reducerを通さない）
-      Object.assign(state, updatedState);
     }
-  }, [deckState.hostDeck, deckState.guestDeck]);
+  }, [deckState.hostDeck, deckState.guestDeck, state.gamePhase]);
 
   useEffect(() => {
     if (state.pendingAnimations.length > 0) {
@@ -646,6 +647,11 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const getCharacterAt = (position: Position): Character | undefined => {
+    // 🔧 state.charactersがundefinedの場合の安全な処理
+    if (!state.characters) {
+      return undefined;
+    }
+    
     return state.characters.find(
       char => char.position.x === position.x && char.position.y === position.y
     );
