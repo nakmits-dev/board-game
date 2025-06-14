@@ -152,7 +152,6 @@ export const createInitialGameState = (
     // 🔧 統一された座標を使用してホストチーム配置
     characters.push(createMaster(hostDeck.master, TEAM_POSITIONS.player.master, 'player'));
     
-    // 🔧 モンスターは配列の順番通りに配置（空のマスは作成しない）
     hostDeck.monsters.forEach((monster, index) => {
       if (index < TEAM_POSITIONS.player.monsters.length) {
         characters.push(createMonster(monster, TEAM_POSITIONS.player.monsters[index], 'player'));
@@ -162,7 +161,6 @@ export const createInitialGameState = (
     // 🔧 統一された座標を使用してゲストチーム配置
     characters.push(createMaster(guestDeck.master, TEAM_POSITIONS.enemy.master, 'enemy'));
     
-    // 🔧 モンスターは配列の順番通りに配置（空のマスは作成しない）
     guestDeck.monsters.forEach((monster, index) => {
       if (index < TEAM_POSITIONS.enemy.monsters.length) {
         characters.push(createMonster(monster, TEAM_POSITIONS.enemy.monsters[index], 'enemy'));

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MonsterType, MasterCard, Position } from '../types/gameTypes';
 import { monsterData, masterData, generateTeamWithCost8 } from '../data/cardData';
+import { TEAM_POSITIONS } from '../data/initialGameState';
 import { skillData } from '../data/skillData';
 import { Shield, Sword, Sparkle, Heart, Crown, Gitlab as GitLab, Play, X, Filter, Star, Shuffle, ArrowLeft, Trash2, Eye, EyeOff, HelpCircle } from 'lucide-react';
 import CharacterCard from './CharacterCard';
@@ -35,40 +36,31 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
   const [secretMode, setSecretMode] = useState(false);
   const cardSelectionRef = useRef<HTMLDivElement>(null);
   
-  // 🔧 対戦画面と完全一致する座標定義
-  const VALID_POSITIONS = {
-    player: [
-      { position: { x: 1, y: 3 }, type: 'master' as const },  // プレイヤーマスター
-      { position: { x: 0, y: 3 }, type: 'monster' as const }, // プレイヤーモンスター1
-      { position: { x: 2, y: 3 }, type: 'monster' as const }, // プレイヤーモンスター2
-      { position: { x: 1, y: 2 }, type: 'monster' as const }, // プレイヤーモンスター3
-    ],
-    enemy: [
-      { position: { x: 1, y: 0 }, type: 'master' as const },  // 敵マスター
-      { position: { x: 0, y: 0 }, type: 'monster' as const }, // 敵モンスター1
-      { position: { x: 2, y: 0 }, type: 'monster' as const }, // 敵モンスター2
-      { position: { x: 1, y: 1 }, type: 'monster' as const }, // 敵モンスター3
-    ]
-  };
-
-  // 🔧 空の初期状態を作成（空のマスも含む）
+  // 🔧 統一された座標を使用して空の初期状態を作成
   const createEmptyAssignments = (isPlayer: boolean = true): PositionAssignment[] => {
-    return isPlayer ? [...VALID_POSITIONS.player] : [...VALID_POSITIONS.enemy];
+    const positions = isPlayer ? TEAM_POSITIONS.player : TEAM_POSITIONS.enemy;
+    
+    return [
+      { position: positions.master, type: 'master' },
+      { position: positions.monsters[0], type: 'monster' },
+      { position: positions.monsters[1], type: 'monster' },
+      { position: positions.monsters[2], type: 'monster' },
+    ];
   };
 
-  // 🔧 既存の編成から初期状態を作成
+  // 既存の編成から初期状態を作成する関数
   const createAssignmentsFromDeck = (
     deck: { master: keyof typeof masterData; monsters: MonsterType[] },
     isPlayer: boolean = true
   ): PositionAssignment[] => {
-    const validPositions = isPlayer ? VALID_POSITIONS.player : VALID_POSITIONS.enemy;
-    
-    return validPositions.map((pos) => {
+    const positions = createEmptyAssignments(isPlayer);
+
+    return positions.map((pos) => {
       if (pos.type === 'master') {
         return { ...pos, id: deck.master };
       } else {
-        // 🔧 モンスター配列のインデックス順で配置
-        const monsterPositions = validPositions.filter(p => p.type === 'monster');
+        // モンスターの配置順序を正しく設定
+        const monsterPositions = positions.filter(p => p.type === 'monster');
         const currentMonsterIndex = monsterPositions.findIndex(p => 
           p.position.x === pos.position.x && p.position.y === pos.position.y
         );
@@ -76,20 +68,21 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
         if (currentMonsterIndex < deck.monsters.length) {
           return { ...pos, id: deck.monsters[currentMonsterIndex] };
         }
-        // 🔧 モンスターがない場合は空のマスとして返す
         return pos;
       }
     });
   };
 
-  // 初期状態を設定
+  // 初期状態を設定（プロップスから受け取った編成を使用）
   const getInitialState = () => {
     if (initialHostDeck && initialGuestDeck) {
+      // 既存の編成がある場合はそれを使用
       return {
         player: createAssignmentsFromDeck(initialHostDeck, true),
         enemy: createAssignmentsFromDeck(initialGuestDeck, false)
       };
     } else {
+      // 新規の場合はオールクリア状態
       return {
         player: createEmptyAssignments(true),
         enemy: createEmptyAssignments(false)
@@ -100,6 +93,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
   const [playerAssignments, setPlayerAssignments] = useState<PositionAssignment[]>(() => getInitialState().player);
   const [enemyAssignments, setEnemyAssignments] = useState<PositionAssignment[]>(() => getInitialState().enemy);
   
+  // プロップスが変更された場合に状態を更新
   useEffect(() => {
     const newState = getInitialState();
     setPlayerAssignments(newState.player);
@@ -117,20 +111,12 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     }, 0);
   };
 
-  // 🔧 XY座標で配置を検索
   const getAssignmentAt = (position: Position, assignments: PositionAssignment[]) => {
     return assignments.find(a => a.position.x === position.x && a.position.y === position.y);
   };
 
-  // 🔧 XY座標でチームを判定
   const getTeamForPosition = (position: Position): 'player' | 'enemy' => {
     return position.y >= 2 ? 'player' : 'enemy';
-  };
-
-  // 🔧 XY座標で配置可能かチェック
-  const isValidPosition = (position: Position): boolean => {
-    const allValidPositions = [...VALID_POSITIONS.player, ...VALID_POSITIONS.enemy];
-    return allValidPositions.some(p => p.position.x === position.x && p.position.y === position.y);
   };
 
   const getAssignmentsForPosition = (position: Position) => {
@@ -152,14 +138,17 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     const assignment = getAssignmentAt(selectedPosition, assignments);
     if (!assignment || assignment.type !== type) return false;
     
+    // 選択中のチーム内で既に同じカードが配置されているかチェック
     const alreadyAssigned = assignments.some(a => a.id === id);
     if (alreadyAssigned) return false;
     
+    // コスト計算
     const currentCost = getTotalCost(assignments);
     const cardCost = type === 'master' 
       ? masterData[id as keyof typeof masterData].cost 
       : monsterData[id as MonsterType].cost;
     
+    // 既に配置されているカードがある場合、そのコストを引く
     if (assignment.id) {
       const existingCost = type === 'master'
         ? masterData[assignment.id as keyof typeof masterData].cost
@@ -199,53 +188,35 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
   };
 
   const canStartGame = () => {
+    // 両チームにマスターが配置されているかチェック
     const playerMaster = playerAssignments.find(a => a.type === 'master')?.id;
     const enemyMaster = enemyAssignments.find(a => a.type === 'master')?.id;
     
     return !!playerMaster && !!enemyMaster;
   };
 
-  // 🔧 完了ボタン押下時の反映ロジック修正（前詰めを防ぐ）
   const handleComplete = () => {
     if (!canStartGame()) return;
     
     const playerMaster = playerAssignments.find(a => a.type === 'master')?.id as keyof typeof masterData;
     const enemyMaster = enemyAssignments.find(a => a.type === 'master')?.id as keyof typeof masterData;
     
-    // 🔧 座標とインデックスの対応を固定（前詰めしない）
-    const createMonsterArray = (assignments: PositionAssignment[], validPositions: typeof VALID_POSITIONS.player) => {
-      const monsters: (MonsterType | undefined)[] = [];
-      
-      // 配置順序: [0,3], [2,3], [1,2] または [0,0], [2,0], [1,1]
-      const monsterPositions = validPositions.filter(pos => pos.type === 'monster');
-      
-      monsterPositions.forEach((pos, index) => {
-        const assignment = assignments.find(a => 
-          a.position.x === pos.position.x && 
-          a.position.y === pos.position.y
-        );
-        
-        // 🔧 空のマスの場合はundefinedを配列に入れる（前詰めしない）
-        monsters[index] = assignment?.id as MonsterType | undefined;
-      });
-      
-      // 🔧 undefinedを除外して最終的な配列を作成
-      return monsters.filter((monster): monster is MonsterType => monster !== undefined);
-    };
+    const playerMonsters = playerAssignments
+      .filter(a => a.type === 'monster' && a.id)
+      .map(a => a.id as MonsterType);
     
-    const playerMonsters = createMonsterArray(playerAssignments, VALID_POSITIONS.player);
-    const enemyMonsters = createMonsterArray(enemyAssignments, VALID_POSITIONS.enemy);
+    const enemyMonsters = enemyAssignments
+      .filter(a => a.type === 'monster' && a.id)
+      .map(a => a.id as MonsterType);
     
-    console.log('🔧 完了時のデッキ情報:');
-    console.log('プレイヤー:', { master: playerMaster, monsters: playerMonsters });
-    console.log('敵:', { master: enemyMaster, monsters: enemyMonsters });
-    
+    // 編成内容を保存して戻る（ゲーム開始はしない）
     onClose(
       { master: playerMaster, monsters: playerMonsters },
       { master: enemyMaster, monsters: enemyMonsters }
     );
   };
 
+  // 進化前のモンスターのみを取得する関数
   const getBaseMonsters = (): MonsterType[] => {
     const evolutionTargets = new Set(
       Object.values(monsterData)
@@ -258,28 +229,29 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     ) as MonsterType[];
   };
 
-  // 🔧 ランダム選択時も正しい順序で配置
+  // ランダム選択機能（モンスター3体、合計コスト8）
   const handleRandomSelection = () => {
     const playerTeam = generateTeamWithCost8();
     const enemyTeam = generateTeamWithCost8();
     
-    // プレイヤーチーム設定
+    // 🔧 統一された座標を使用してプレイヤーチーム設定
     setPlayerAssignments([
-      { position: { x: 1, y: 3 }, type: 'master', id: playerTeam.master },
-      { position: { x: 0, y: 3 }, type: 'monster', id: playerTeam.monsters[0] },
-      { position: { x: 2, y: 3 }, type: 'monster', id: playerTeam.monsters[1] },
-      { position: { x: 1, y: 2 }, type: 'monster', id: playerTeam.monsters[2] },
+      { position: TEAM_POSITIONS.player.master, type: 'master', id: playerTeam.master },
+      { position: TEAM_POSITIONS.player.monsters[0], type: 'monster', id: playerTeam.monsters[0] },
+      { position: TEAM_POSITIONS.player.monsters[1], type: 'monster', id: playerTeam.monsters[1] },
+      { position: TEAM_POSITIONS.player.monsters[2], type: 'monster', id: playerTeam.monsters[2] },
     ]);
     
-    // 敵チーム設定
+    // 🔧 統一された座標を使用して敵チーム設定
     setEnemyAssignments([
-      { position: { x: 1, y: 0 }, type: 'master', id: enemyTeam.master },
-      { position: { x: 0, y: 0 }, type: 'monster', id: enemyTeam.monsters[0] },
-      { position: { x: 2, y: 0 }, type: 'monster', id: enemyTeam.monsters[1] },
-      { position: { x: 1, y: 1 }, type: 'monster', id: enemyTeam.monsters[2] },
+      { position: TEAM_POSITIONS.enemy.master, type: 'master', id: enemyTeam.master },
+      { position: TEAM_POSITIONS.enemy.monsters[0], type: 'monster', id: enemyTeam.monsters[0] },
+      { position: TEAM_POSITIONS.enemy.monsters[1], type: 'monster', id: enemyTeam.monsters[1] },
+      { position: TEAM_POSITIONS.enemy.monsters[2], type: 'monster', id: enemyTeam.monsters[2] },
     ]);
   };
 
+  // オールクリア機能
   const handleClearAll = () => {
     setPlayerAssignments(createEmptyAssignments(true));
     setEnemyAssignments(createEmptyAssignments(false));
@@ -288,30 +260,22 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
 
   const baseMonsters = getBaseMonsters();
 
-  // 🔧 XY座標ベースでボードセルをレンダリング（空のマスも含む）
   const renderBoardCell = (position: Position) => {
-    // 配置可能なポジションかどうかをチェック
-    if (!isValidPosition(position)) {
-      return (
-        <div
-          key={`${position.x}-${position.y}`}
-          className="w-16 h-16 sm:w-20 sm:h-20 border border-slate-200 bg-slate-50"
-        />
-      );
-    }
-
     const isPlayerTeam = getTeamForPosition(position) === 'player';
     const assignments = getAssignmentsForPosition(position);
     const assignment = getAssignmentAt(position, assignments);
     const isSelected = selectedPosition?.x === position.x && selectedPosition?.y === position.y;
     
-    const hasCard = !!assignment?.id;
+    if (!assignment) return null;
+    
+    const hasCard = !!assignment.id;
     const cardData = hasCard 
       ? assignment.type === 'master' 
         ? masterData[assignment.id as keyof typeof masterData]
         : monsterData[assignment.id as MonsterType]
       : null;
 
+    // シークレットモードの場合、全てのマスを隠す
     const shouldHideCard = secretMode;
 
     let cellClassName = "w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center relative border transition-all duration-200";
@@ -324,11 +288,13 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
       cellClassName += " border-slate-100";
     }
 
+    // 選択状態の枠色を統一（青チームも赤チームも黄色）
     if (isSelected) {
       cellClassName += " ring-2 ring-yellow-300 bg-yellow-50/30";
     }
 
     if (!hasCard) {
+      // 選択可能なマスを青と赤で分ける
       if (isPlayerTeam) {
         cellClassName += " ring-1 ring-blue-400/50 bg-blue-400/10 cursor-pointer hover:bg-blue-400/20";
       } else {
@@ -345,6 +311,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
         onClick={() => setSelectedPosition(position)}
       >
         {shouldHideCard ? (
+          // シークレットモード時は全てのマスを？マークで隠す
           <div className="text-center">
             <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-lg overflow-hidden ${
               isPlayerTeam
@@ -372,6 +339,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
                 isPlayerTeam ? 'bg-blue-500' : 'bg-red-500'
               } bg-opacity-10`}></div>
               
+              {/* Stats overlay */}
               <div className="absolute bottom-0 inset-x-0 flex justify-center gap-0.5 p-0.5">
                 {cardData.attack >= 2 && (
                   <div className="w-3 h-3 sm:w-4 sm:h-4 bg-red-500/80 rounded flex items-center justify-center">
@@ -391,6 +359,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
               </div>
             </div>
             
+            {/* HP表示 */}
             <div className="flex gap-0.5 mt-1">
               {Array.from({ length: cardData.hp }, (_, i) => (
                 <div
@@ -407,17 +376,16 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
             </div>
           </div>
         ) : (
-          // 🔧 空のマスの表示（配置可能なポジション）
           <div className="text-center">
             <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center mb-1 ${
-              assignment?.type === 'master' 
+              assignment.type === 'master' 
                 ? 'bg-amber-100 text-amber-600' 
                 : 'bg-slate-100 text-slate-600'
             }`}>
-              {assignment?.type === 'master' ? <Crown size={12} className="sm:w-4 sm:h-4" /> : <GitLab size={12} className="sm:w-4 sm:h-4" />}
+              {assignment.type === 'master' ? <Crown size={12} className="sm:w-4 sm:h-4" /> : <GitLab size={12} className="sm:w-4 sm:h-4" />}
             </div>
             <span className="text-xs text-gray-500 hidden sm:block">
-              {assignment?.type === 'master' ? 'マスター' : 'モンスター'}
+              {assignment.type === 'master' ? 'マスター' : 'モンスター'}
             </span>
           </div>
         )}
@@ -426,6 +394,8 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
   };
 
   const createCharacterForCard = (type: 'master' | 'monster', id: string, data: any) => {
+    const skill = data.skillId ? skillData[data.skillId] : undefined;
+    
     return {
       id: id,
       name: data.name,
@@ -455,6 +425,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
   const selectedAssignment = selectedPosition ? getAssignmentAt(selectedPosition, getAssignmentsForPosition(selectedPosition)) : null;
   const selectedTeam = selectedPosition ? getTeamForPosition(selectedPosition) : null;
 
+  // フィルタリング関数
   const getFilteredCards = (type: 'master' | 'monster') => {
     if (type === 'master') {
       return Object.entries(masterData).filter(([id, data]) => 
@@ -467,6 +438,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     }
   };
 
+  // 利用可能なコストを取得
   const getAvailableCosts = (type: 'master' | 'monster') => {
     if (type === 'master') {
       return [...new Set(Object.values(masterData).map(data => data.cost))].sort();
@@ -475,14 +447,17 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     }
   };
 
+  // 🔧 フィルタ変更時にリセット（毎回リセット）
   const handleFilterChange = (newFilter: number | null) => {
     setCostFilter(newFilter);
     
+    // スクロール位置をトップにリセット
     if (cardSelectionRef.current) {
       cardSelectionRef.current.scrollTop = 0;
     }
   };
 
+  // 🔧 ポジション選択時にフィルターをリセット
   useEffect(() => {
     if (selectedPosition) {
       setCostFilter(null);
@@ -492,6 +467,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     }
   }, [selectedPosition]);
 
+  // カード選択エリアの高さを動的に計算
   const getCardSelectionHeight = () => {
     if (!selectedPosition || !selectedAssignment) return 'auto';
     
@@ -501,16 +477,12 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     
     const cardsPerRow = window.innerWidth >= 1024 ? 3 : window.innerWidth >= 640 ? 2 : 1;
     const rows = Math.ceil(filteredCards.length / cardsPerRow);
-    const cardHeight = 400;
-    const gap = 16;
+    const cardHeight = 400; // CharacterCardの高さ
+    const gap = 16; // gap-4
     const totalHeight = rows * cardHeight + (rows - 1) * gap;
-    const padding = 48;
+    const padding = 48; // p-6の上下パディング
     
     return `${Math.min(totalHeight + padding, window.innerHeight * 0.6)}px`;
-  };
-
-  const getMonsterCount = (assignments: PositionAssignment[]) => {
-    return assignments.filter(a => a.type === 'monster' && a.id).length;
   };
 
   return (
@@ -527,6 +499,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
             </button>
             <h1 className="text-2xl sm:text-3xl font-bold text-blue-900">チーム編成</h1>
             <div className="flex items-center gap-2">
+              {/* シークレットモード切り替えボタン */}
               <button
                 onClick={() => setSecretMode(!secretMode)}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
@@ -544,7 +517,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
             </div>
           </div>
           
-          {/* 🔧 コスト表示 */}
+          {/* Cost Display - 1行にまとめる */}
           <div className="flex justify-center items-center gap-4 sm:gap-6 mb-4 sm:mb-6">
             <div className="bg-blue-100 rounded-lg px-3 sm:px-4 py-2">
               <span className="text-sm font-bold text-blue-800">
@@ -559,9 +532,6 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
                     fill={i < getTotalCost(playerAssignments) ? 'currentColor' : 'none'}
                   />
                 ))}
-              </div>
-              <div className="text-xs text-blue-600 mt-1">
-                モンスター: {getMonsterCount(playerAssignments)}/3
               </div>
             </div>
             
@@ -579,12 +549,10 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
                   />
                 ))}
               </div>
-              <div className="text-xs text-red-600 mt-1">
-                モンスター: {getMonsterCount(enemyAssignments)}/3
-              </div>
             </div>
           </div>
           
+          {/* ボタン配置 */}
           <div className="flex justify-center gap-2">
             <button
               onClick={handleClearAll}
@@ -617,21 +585,35 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
           </div>
         </div>
 
-        {/* 🔧 XY座標ベースのボードレイアウト */}
+        {/* Board Layout */}
         <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-4 sm:mb-6">
-          <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-4 text-center">
-            ボード編成 (座標固定配置)
-          </h2>
+          <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-4 text-center">ボード編成</h2>
           <div className="flex justify-center">
             <div className="bg-white rounded-xl p-2 sm:p-4 border border-blue-100">
               <div className="grid grid-rows-4 gap-1">
-                {[0, 1, 2, 3].map(y => (
-                  <div key={`row-${y}`} className="grid grid-cols-3 gap-1">
-                    {[0, 1, 2].map(x => 
-                      renderBoardCell({ x, y })
-                    )}
-                  </div>
-                ))}
+                {/* Enemy area */}
+                <div className="grid grid-cols-3 gap-1">
+                  {[0, 1, 2].map(x => 
+                    renderBoardCell({ x, y: 0 })
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-1">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20"></div>
+                  {renderBoardCell({ x: 1, y: 1 })}
+                  <div className="w-16 h-16 sm:w-20 sm:h-20"></div>
+                </div>
+                
+                {/* Player area */}
+                <div className="grid grid-cols-3 gap-1">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20"></div>
+                  {renderBoardCell({ x: 1, y: 2 })}
+                  <div className="w-16 h-16 sm:w-20 sm:h-20"></div>
+                </div>
+                <div className="grid grid-cols-3 gap-1">
+                  {[0, 1, 2].map(x => 
+                    renderBoardCell({ x, y: 3 })
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -639,7 +621,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
           {selectedPosition && (
             <div className="mt-4 text-center">
               <p className={`font-medium text-sm sm:text-base ${selectedTeam === 'player' ? 'text-blue-600' : 'text-red-600'}`}>
-                {selectedTeam === 'player' ? '青' : '赤'}チーム - 座標({selectedPosition.x},{selectedPosition.y}) - {selectedAssignment?.type === 'master' ? 'マスター' : 'モンスター'}を選択してください
+                {selectedTeam === 'player' ? '青' : '赤'}チーム - {selectedAssignment?.type === 'master' ? 'マスター' : 'モンスター'}を選択してください
               </p>
               {selectedAssignment?.id && (
                 <button
@@ -663,10 +645,11 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
               <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-2 sm:mb-0">
                 {selectedAssignment.type === 'master' ? 'マスター' : 'モンスター'}選択
                 <span className={`ml-2 text-sm ${selectedTeam === 'player' ? 'text-blue-600' : 'text-red-600'}`}>
-                  ({selectedTeam === 'player' ? '青' : '赤'}チーム - 座標({selectedPosition.x},{selectedPosition.y}))
+                  ({selectedTeam === 'player' ? '青' : '赤'}チーム)
                 </span>
               </h2>
               
+              {/* コストフィルタ */}
               <div className="flex items-center gap-2">
                 <Filter size={16} className="text-gray-600" />
                 <span className="text-sm text-gray-600">コスト:</span>
