@@ -65,7 +65,7 @@ const ANIMATION_DURATION = 300;
 function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
     case 'SAVE_GAME_STATE': {
-      // 🔧 現在の状態を履歴に保存（最大5手まで）
+      // 🔧 現在の状態を履歴に保存（制限なし - 全て戻れるように）
       const newHistory = [...state.gameHistory, {
         characters: [...state.characters],
         playerCrystals: state.playerCrystals,
@@ -76,7 +76,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           ...state.board,
           cells: state.board.cells.map(row => [...row])
         }
-      }].slice(-5); // 最大5手まで保持
+      }]; // 🔧 制限を削除して全履歴を保持
 
       return {
         ...state,
@@ -215,7 +215,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         }
       };
 
-      const newHistory = [...state.gameHistory, stateToSave].slice(-5);
+      const newHistory = [...state.gameHistory, stateToSave]; // 🔧 制限を削除
 
       const character = state.selectedCharacter;
       let newCharacters = [...state.characters];
@@ -366,7 +366,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         }
       };
 
-      const newHistory = [...state.gameHistory, stateToSave].slice(-5);
+      const newHistory = [...state.gameHistory, stateToSave]; // 🔧 制限を削除
 
       const skill = state.selectedSkill;
       let newCharacters = [...state.characters];
@@ -524,7 +524,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         }
       };
 
-      const newHistory = [...state.gameHistory, stateToSave].slice(-5);
+      const newHistory = [...state.gameHistory, stateToSave]; // 🔧 制限を削除
 
       const newCurrentTeam: Team = state.currentTeam === 'player' ? 'enemy' : 'player';
       

@@ -121,8 +121,6 @@ const TurnOrder: React.FC = () => {
     }
   };
 
-  if (gamePhase === 'preparation' || gamePhase === 'result') return null;
-
   return (
     <div className="bg-white p-4 rounded-xl shadow-lg border border-blue-100">
       <div className="flex flex-col gap-3">
@@ -135,36 +133,38 @@ const TurnOrder: React.FC = () => {
               {currentTeam === 'player' ? '青チーム' : '赤チーム'}
             </h3>
             
-            {/* ストップボタンのみ */}
-            <button
-              onClick={togglePause}
-              className={`p-1.5 rounded transition-colors ${
-                isPaused 
-                  ? 'bg-green-100 text-green-600 hover:bg-green-200' 
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-              title={isPaused ? '再開' : '一時停止'}
-            >
-              {isPaused ? <Play size={14} /> : <Pause size={14} />}
-            </button>
+            {/* 🔧 タイマーコントロール - 再生ボタンと待ったボタンを並べる */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={togglePause}
+                className={`p-1.5 rounded transition-colors ${
+                  isPaused 
+                    ? 'bg-green-100 text-green-600 hover:bg-green-200' 
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+                title={isPaused ? '再開' : '一時停止'}
+              >
+                {isPaused ? <Play size={14} /> : <Pause size={14} />}
+              </button>
+              
+              {/* 🔧 待ったボタン - 再生ボタンの右に配置 */}
+              <button
+                onClick={handleUndo}
+                disabled={!canUndo}
+                className={`p-1.5 rounded transition-colors ${
+                  canUndo
+                    ? 'bg-orange-100 text-orange-600 hover:bg-orange-200'
+                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                }`}
+                title={`待った（${state.gameHistory.length}手戻せます）`}
+              >
+                <Hand size={14} />
+              </button>
+            </div>
           </div>
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2">
-            {/* 🔧 待ったボタン - 手のアイコンに変更 */}
-            <button
-              onClick={handleUndo}
-              disabled={!canUndo}
-              className={`p-2 rounded transition-colors ${
-                canUndo
-                  ? 'bg-orange-100 text-orange-600 hover:bg-orange-200'
-                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-              }`}
-              title="待った（1手戻る）"
-            >
-              <Hand size={14} />
-            </button>
-            
             <button
               onClick={handleSurrender}
               className={`px-3 py-2 font-bold rounded transform transition text-sm sm:text-base ${
@@ -197,6 +197,13 @@ const TurnOrder: React.FC = () => {
             style={{ width: `${getProgressPercentage()}%` }}
           />
         </div>
+        
+        {/* 一時停止表示のみ */}
+        {isPaused && (
+          <div className="text-center text-xs text-gray-500">
+            ⏸️ 一時停止中
+          </div>
+        )}
       </div>
     </div>
   );
