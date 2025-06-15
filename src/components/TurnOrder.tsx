@@ -113,7 +113,7 @@ const TurnOrder: React.FC = () => {
     setShowSurrenderConfirm(false);
   };
 
-  // 🔧 待った機能
+  // 🔧 待った機能（非表示だが機能は残す）
   const handleUndo = () => {
     if (canUndo) {
       dispatch({ type: 'UNDO_LAST_ACTION' });
@@ -133,7 +133,7 @@ const TurnOrder: React.FC = () => {
               {currentTeam === 'player' ? '青チーム' : '赤チーム'}
             </h3>
             
-            {/* 🔧 タイマーコントロール - 再生ボタンと待ったボタンを並べる */}
+            {/* 🔧 タイマーコントロール - 再生ボタンのみ表示 */}
             <div className="flex items-center gap-1">
               <button
                 onClick={togglePause}
@@ -147,19 +147,21 @@ const TurnOrder: React.FC = () => {
                 {isPaused ? <Play size={14} /> : <Pause size={14} />}
               </button>
               
-              {/* 🔧 待ったボタン - 再生ボタンの右に配置 */}
-              <button
-                onClick={handleUndo}
-                disabled={!canUndo}
-                className={`p-1.5 rounded transition-colors ${
-                  canUndo
-                    ? 'bg-orange-100 text-orange-600 hover:bg-orange-200'
-                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                }`}
-                title={`待った（${state.gameHistory.length}手戻せます）`}
-              >
-                <Hand size={14} />
-              </button>
+              {/* 🔧 待ったボタン - 非表示（機能は残す） */}
+              {false && (
+                <button
+                  onClick={handleUndo}
+                  disabled={!canUndo}
+                  className={`p-1.5 rounded transition-colors ${
+                    canUndo
+                      ? 'bg-orange-100 text-orange-600 hover:bg-orange-200'
+                      : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  }`}
+                  title={`待った（${state.gameHistory.length}手戻せます）`}
+                >
+                  <Hand size={14} />
+                </button>
+              )}
             </div>
           </div>
 
