@@ -28,6 +28,16 @@ export interface BoardComposition {
   enemyBoard: BoardCell[][];
 }
 
+// 🔧 ゲーム履歴用の型定義
+export interface GameHistoryState {
+  characters: Character[];
+  playerCrystals: number;
+  enemyCrystals: number;
+  currentTeam: Team;
+  currentTurn: number;
+  board: BoardState;
+}
+
 export interface SkillEffect {
   type: 'defense' | 'actions' | 'evolve';
   value?: number;
@@ -141,6 +151,9 @@ export interface GameState {
   
   // ボード編成管理（deckの代わり）
   savedBoard?: BoardComposition;
+  
+  // 🔧 待った機能用のゲーム履歴
+  gameHistory: GameHistoryState[];
 }
 
 // 🔧 座標ベースのユーティリティ型

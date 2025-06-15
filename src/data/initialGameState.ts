@@ -200,5 +200,6 @@ export const createInitialGameState = (
     enemyCrystals: 0,
     pendingAnimations: [],
     animationTarget: null,
+    gameHistory: [] // 🔧 待った機能用の履歴を初期化
   };
 };

@@ -36,7 +36,9 @@ type GameAction =
   | { type: 'CHECK_GAME_END' }
   | { type: 'SURRENDER'; team: Team }
   | { type: 'UPDATE_CRYSTALS'; playerCrystals: number; enemyCrystals: number }
-  | { type: 'UPDATE_BOARD'; characters: Character[] };
+  | { type: 'UPDATE_BOARD'; characters: Character[] }
+  | { type: 'UNDO_LAST_ACTION' }
+  | { type: 'SAVE_GAME_STATE' };
 
 interface GameContextType {
   state: GameState;
@@ -49,6 +51,7 @@ interface GameContextType {
   getAdjacentPositions: (position: Position) => Position[];
   getDistance: (pos1: Position, pos2: Position) => number;
   getAllBoardPositions: () => Position[];
+  canUndo: boolean;
   savedBoard: {
     host?: BoardCell[][];
     guest?: BoardCell[][];
@@ -61,6 +64,51 @@ const ANIMATION_DURATION = 300;
 
 function gameReducer(state: GameState, action: GameAction): GameState {
   switch (action.type) {
+    case 'SAVE_GAME_STATE': {
+      // 🔧 現在の状態を履歴に保存（最大5手まで）
+      const newHistory = [...state.gameHistory, {
+        characters: [...state.characters],
+        playerCrystals: state.playerCrystals,
+        enemyCrystals: state.enemyCrystals,
+        currentTeam: state.currentTeam,
+        currentTurn: state.currentTurn,
+        board: {
+          ...state.board,
+          cells: state.board.cells.map(row => [...row])
+        }
+      }].slice(-5); // 最大5手まで保持
+
+      return {
+        ...state,
+        gameHistory: newHistory
+      };
+    }
+
+    case 'UNDO_LAST_ACTION': {
+      // 🔧 履歴がない場合は何もしない
+      if (state.gameHistory.length === 0) return state;
+
+      const previousState = state.gameHistory[state.gameHistory.length - 1];
+      const newHistory = state.gameHistory.slice(0, -1);
+
+      return {
+        ...state,
+        characters: previousState.characters,
+        playerCrystals: previousState.playerCrystals,
+        enemyCrystals: previousState.enemyCrystals,
+        currentTeam: previousState.currentTeam,
+        currentTurn: previousState.currentTurn,
+        board: previousState.board,
+        gameHistory: newHistory,
+        selectedCharacter: null,
+        selectedAction: null,
+        selectedSkill: null,
+        pendingAction: { type: null },
+        animationTarget: null,
+        pendingAnimations: []
+      };
+    }
+
     case 'UPDATE_BOARD': {
       const newBoard = updateBoardWithCharacters(state.board, action.characters);
       return {
@@ -154,6 +202,21 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         return state;
       }
 
+      // 🔧 アクション実行前に状態を保存
+      const stateToSave = {
+        characters: [...state.characters],
+        playerCrystals: state.playerCrystals,
+        enemyCrystals: state.enemyCrystals,
+        currentTeam: state.currentTeam,
+        currentTurn: state.currentTurn,
+        board: {
+          ...state.board,
+          cells: state.board.cells.map(row => [...row])
+        }
+      };
+
+      const newHistory = [...state.gameHistory, stateToSave].slice(-5);
+
       const character = state.selectedCharacter;
       let newCharacters = [...state.characters];
       let animations: AnimationSequence[] = [];
@@ -226,6 +289,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         selectedSkill: null,
         pendingAction: { type: null },
         pendingAnimations: animations,
+        gameHistory: newHistory
       };
     }
 
@@ -288,6 +352,21 @@ function gameReducer(state: GameState, action: GameAction): GameState {
       
       const target = state.characters.find(char => char.id === action.targetId);
       if (!target) return state;
+
+      // 🔧 スキル使用前に状態を保存
+      const stateToSave = {
+        characters: [...state.characters],
+        playerCrystals: state.playerCrystals,
+        enemyCrystals: state.enemyCrystals,
+        currentTeam: state.currentTeam,
+        currentTurn: state.currentTurn,
+        board: {
+          ...state.board,
+          cells: state.board.cells.map(row => [...row])
+        }
+      };
+
+      const newHistory = [...state.gameHistory, stateToSave].slice(-5);
 
       const skill = state.selectedSkill;
       let newCharacters = [...state.characters];
@@ -376,6 +455,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         pendingAnimations: animations,
         playerCrystals: newPlayerCrystals,
         enemyCrystals: newEnemyCrystals,
+        gameHistory: newHistory
       };
     }
 
@@ -398,6 +478,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         return {
           ...state,
           gamePhase: 'result',
+          gameHistory: [] // ゲーム終了時は履歴をクリア
         };
       }
 
@@ -422,13 +503,28 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         pendingAction: { type: null },
         animationTarget: null,
         pendingAnimations: [],
-        // マスターは削除しない（勝敗判定は別途行う）
+        gameHistory: [] // ゲーム終了時は履歴をクリア
       };
     }
 
     case 'END_TURN':
     case 'FORCE_END_TURN': {
       if (state.gamePhase === 'preparation') return state;
+
+      // 🔧 ターン終了時に状態を保存
+      const stateToSave = {
+        characters: [...state.characters],
+        playerCrystals: state.playerCrystals,
+        enemyCrystals: state.enemyCrystals,
+        currentTeam: state.currentTeam,
+        currentTurn: state.currentTurn,
+        board: {
+          ...state.board,
+          cells: state.board.cells.map(row => [...row])
+        }
+      };
+
+      const newHistory = [...state.gameHistory, stateToSave].slice(-5);
 
       const newCurrentTeam: Team = state.currentTeam === 'player' ? 'enemy' : 'player';
       
@@ -475,6 +571,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         pendingAnimations: animations,
         playerCrystals: newPlayerCrystals,
         enemyCrystals: newEnemyCrystals,
+        gameHistory: newHistory
       };
     }
 
@@ -502,6 +599,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           host: action.hostBoard,
           guest: action.guestBoard
         },
+        gameHistory: [] // 新しいゲーム開始時は履歴をクリア
       };
     }
 
@@ -540,6 +638,7 @@ function gameReducer(state: GameState, action: GameAction): GameState {
         ...newState,
         board: newBoard,
         savedBoard: state.savedBoard,
+        gameHistory: [] // リセット時は履歴をクリア
       };
     }
 
@@ -749,6 +848,9 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return positions;
   };
 
+  // 🔧 待った機能の可否判定
+  const canUndo = state.gamePhase === 'action' && state.gameHistory.length > 0;
+
   return (
     <GameContext.Provider 
       value={{ 
@@ -762,6 +864,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         getAdjacentPositions,
         getDistance,
         getAllBoardPositions,
+        canUndo,
         savedBoard: state.savedBoard || { host: undefined, guest: undefined }
       }}
     >

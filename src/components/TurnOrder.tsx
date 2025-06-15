@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useGame } from '../context/GameContext';
-import { Flag, Play, Pause } from 'lucide-react';
+import { Flag, Play, Pause, RotateCcw } from 'lucide-react';
 
 const TurnOrder: React.FC = () => {
-  const { state, dispatch } = useGame();
+  const { state, dispatch, canUndo } = useGame();
   const { currentTeam, gamePhase } = state;
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
   
@@ -97,6 +97,14 @@ const TurnOrder: React.FC = () => {
     return currentTeam === 'player' ? 'bg-blue-500' : 'bg-red-500';
   };
 
+  // 🔧 待った機能
+  const handleUndo = () => {
+    if (canUndo) {
+      dispatch({ type: 'UNDO_LAST_ACTION' });
+      setShowSurrenderConfirm(false);
+    }
+  };
+
   if (gamePhase === 'preparation' || gamePhase === 'result') return null;
 
   const handleSurrender = () => {
@@ -141,6 +149,20 @@ const TurnOrder: React.FC = () => {
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2">
+            {/* 🔧 待ったボタン */}
+            <button
+              onClick={handleUndo}
+              disabled={!canUndo}
+              className={`p-2 rounded transition-colors ${
+                canUndo
+                  ? 'bg-orange-100 text-orange-600 hover:bg-orange-200'
+                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              }`}
+              title="待った（1手戻る）"
+            >
+              <RotateCcw size={14} />
+            </button>
+            
             <button
               onClick={handleSurrender}
               className={`px-3 py-2 font-bold rounded transform transition text-sm sm:text-base ${
