@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useGame } from '../context/GameContext';
-import { Flag, Play, Pause, RotateCcw } from 'lucide-react';
+import { Flag, Play, Pause, Hand } from 'lucide-react';
 
 const TurnOrder: React.FC = () => {
   const { state, dispatch, canUndo } = useGame();
@@ -97,14 +97,6 @@ const TurnOrder: React.FC = () => {
     return currentTeam === 'player' ? 'bg-blue-500' : 'bg-red-500';
   };
 
-  // 🔧 待った機能
-  const handleUndo = () => {
-    if (canUndo) {
-      dispatch({ type: 'UNDO_LAST_ACTION' });
-      setShowSurrenderConfirm(false);
-    }
-  };
-
   if (gamePhase === 'preparation' || gamePhase === 'result') return null;
 
   const handleSurrender = () => {
@@ -120,6 +112,16 @@ const TurnOrder: React.FC = () => {
     dispatch({ type: 'END_TURN' });
     setShowSurrenderConfirm(false);
   };
+
+  // 🔧 待った機能
+  const handleUndo = () => {
+    if (canUndo) {
+      dispatch({ type: 'UNDO_LAST_ACTION' });
+      setShowSurrenderConfirm(false);
+    }
+  };
+
+  if (gamePhase === 'preparation' || gamePhase === 'result') return null;
 
   return (
     <div className="bg-white p-4 rounded-xl shadow-lg border border-blue-100">
@@ -149,7 +151,7 @@ const TurnOrder: React.FC = () => {
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2">
-            {/* 🔧 待ったボタン */}
+            {/* 🔧 待ったボタン - 手のアイコンに変更 */}
             <button
               onClick={handleUndo}
               disabled={!canUndo}
@@ -160,7 +162,7 @@ const TurnOrder: React.FC = () => {
               }`}
               title="待った（1手戻る）"
             >
-              <RotateCcw size={14} />
+              <Hand size={14} />
             </button>
             
             <button
