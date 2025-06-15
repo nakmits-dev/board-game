@@ -197,13 +197,6 @@ const TurnOrder: React.FC = () => {
             style={{ width: `${getProgressPercentage()}%` }}
           />
         </div>
-        
-        {/* 一時停止表示のみ */}
-        {isPaused && (
-          <div className="text-center text-xs text-gray-500">
-            ⏸️ 一時停止中
-          </div>
-        )}
       </div>
     </div>
   );
