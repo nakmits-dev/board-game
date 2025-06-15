@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, ChevronLeft, ChevronRight, Smartphone, Monitor, Zap, Crown, Gitlab as GitLab, Heart, Sword, Shield, Sparkle, Diamond, Star } from 'lucide-react';
 
 interface TutorialProps {
@@ -8,6 +8,7 @@ interface TutorialProps {
 const Tutorial: React.FC<TutorialProps> = ({ onClose }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null); // 🔧 コンテンツエリアの参照を追加
 
   // デバイス判定
   useEffect(() => {
@@ -19,6 +20,13 @@ const Tutorial: React.FC<TutorialProps> = ({ onClose }) => {
     window.addEventListener('resize', checkDevice);
     return () => window.removeEventListener('resize', checkDevice);
   }, []);
+
+  // 🔧 ステップ変更時にスクロールをリセット
+  useEffect(() => {
+    if (contentRef.current) {
+      contentRef.current.scrollTop = 0;
+    }
+  }, [currentStep]);
 
   const tutorialSteps = [
     {
@@ -433,7 +441,10 @@ const Tutorial: React.FC<TutorialProps> = ({ onClose }) => {
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div 
+          ref={contentRef} // 🔧 参照を追加
+          className="flex-1 overflow-y-auto p-6"
+        >
           <h3 className="text-2xl font-bold text-gray-800 mb-4">
             {tutorialSteps[currentStep].title}
           </h3>
