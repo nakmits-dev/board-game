@@ -31,8 +31,13 @@ const GameContent = () => {
     if (hostBoard && guestBoard) {
       dispatch({ type: 'SET_SAVED_BOARD', hostBoard, guestBoard });
       
-      // 準備画面でのプレビューを更新
-      dispatch({ type: 'UPDATE_PREVIEW', hostBoard, guestBoard });
+      // 🔧 結果画面からの場合は準備画面に戻る
+      if (gamePhase === 'result') {
+        dispatch({ type: 'RESET_TO_PREPARATION' });
+      } else {
+        // 準備画面でのプレビューを更新
+        dispatch({ type: 'UPDATE_PREVIEW', hostBoard, guestBoard });
+      }
     }
     setShowDeckBuilder(false);
   };
@@ -53,7 +58,6 @@ const GameContent = () => {
       return;
     }
     
-    // 🔧 結果画面からの場合は即座にゲーム開始（リセット不要）
     // 🎲 毎回ランダムに開始チームを決定
     const actualStartingTeam: 'player' | 'enemy' = Math.random() < 0.5 ? 'player' : 'enemy';
     

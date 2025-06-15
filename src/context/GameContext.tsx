@@ -27,6 +27,7 @@ type GameAction =
   | { type: 'FORCE_END_TURN' }
   | { type: 'START_LOCAL_GAME'; hostBoard: BoardCell[][]; guestBoard: BoardCell[][]; startingTeam?: 'player' | 'enemy' }
   | { type: 'RESET_GAME' }
+  | { type: 'RESET_TO_PREPARATION' }
   | { type: 'UPDATE_PREVIEW'; hostBoard?: BoardCell[][]; guestBoard?: BoardCell[][] }
   | { type: 'SET_SAVED_BOARD'; hostBoard: BoardCell[][]; guestBoard: BoardCell[][] }
   | { type: 'SET_ANIMATION_TARGET'; target: { id: string; type: 'move' | 'attack' | 'damage' | 'heal' | 'ko' | 'crystal-gain' | 'turn-start' | 'evolve' } | null }
@@ -627,6 +628,20 @@ function gameReducer(state: GameState, action: GameAction): GameState {
           host: action.hostBoard,
           guest: action.guestBoard
         }
+      };
+    }
+
+    case 'RESET_TO_PREPARATION': {
+      // 🔧 結果画面から準備画面に戻る（勝者通知などをリセット）
+      const newState = createInitialGameState(state.savedBoard?.host, state.savedBoard?.guest);
+      const newBoard = updateBoardWithCharacters(newState.board, newState.characters);
+      
+      return {
+        ...newState,
+        board: newBoard,
+        gamePhase: 'preparation', // 🔧 準備画面に戻す
+        savedBoard: state.savedBoard,
+        gameHistory: [] // 履歴をクリア
       };
     }
 
