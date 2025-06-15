@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MonsterType, MasterCard, Position, BoardCell, BoardState } from '../types/gameTypes';
+import { MonsterType, MasterCard, Position, BoardCell, BoardState, Character } from '../types/gameTypes';
 import { monsterData, masterData, generateTeamWithCost8 } from '../data/cardData';
 import { 
   PLACEMENT_POSITIONS, 
@@ -101,6 +101,33 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     return newBoard;
   };
 
+  // 🔧 同チーム内での重複チェック（カードの種類で判定）
+  const isCardAlreadyPlaced = (board: BoardCell[][], cardId: string, type: 'master' | 'monster'): boolean => {
+    for (let y = 0; y < BOARD_HEIGHT; y++) {
+      for (let x = 0; x < BOARD_WIDTH; x++) {
+        const cell = board[y][x];
+        if (cell.character) {
+          if (type === 'master') {
+            // マスターの場合は masterType で判定
+            if (cell.character.type === 'master' && 
+                'masterType' in cell.character && 
+                cell.character.masterType === masterData[cardId as keyof typeof masterData].type) {
+              return true;
+            }
+          } else {
+            // モンスターの場合は monsterType で判定
+            if (cell.character.type === 'monster' && 
+                'monsterType' in cell.character && 
+                cell.character.monsterType === cardId) {
+              return true;
+            }
+          }
+        }
+      }
+    }
+    return false;
+  };
+
   // 🔧 ボードベースの配置可能判定
   const canPlaceCharacter = (id: string, type: 'master' | 'monster'): boolean => {
     if (!selectedPosition) return false;
@@ -110,10 +137,8 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     
     const board = team === 'player' ? playerBoard : enemyBoard;
     
-    // 選択中のチーム内で既に同じカードが配置されているかチェック
-    const alreadyPlaced = board.some(row => 
-      row.some(cell => cell.character?.id === id)
-    );
+    // 🔧 同チーム内で既に同じカードが配置されているかチェック
+    const alreadyPlaced = isCardAlreadyPlaced(board, id, type);
     if (alreadyPlaced) return false;
     
     // コスト計算
@@ -539,6 +564,18 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
             </div>
           </div>
           
+          {/* シークレットモードの説明 */}
+          {secretMode && (
+            <div className="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+              <div className="flex items-center gap-2 text-purple-800">
+                <EyeOff size={16} />
+                <span className="text-sm font-medium">
+                  シークレットモード: お互いの編成が？マークで隠されます
+                </span>
+              </div>
+            </div>
+          )}
+          
           {/* Cost Display - 1行にまとめる */}
           <div className="flex justify-center items-center gap-4 sm:gap-6 mb-4 sm:mb-6">
             <div className="bg-blue-100 rounded-lg px-3 sm:px-4 py-2">
@@ -719,6 +756,13 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
                             guestCrystals={0}
                             variant="panel"
                           />
+                          {!canSelect && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-2xl">
+                              <span className="text-white font-bold text-sm bg-red-600 px-3 py-1 rounded-lg">
+                                配置済み
+                              </span>
+                            </div>
+                          )}
                         </div>
                       );
                     })
@@ -744,6 +788,13 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
                             guestCrystals={0}
                             variant="panel"
                           />
+                          {!canSelect && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-2xl">
+                              <span className="text-white font-bold text-sm bg-red-600 px-3 py-1 rounded-lg">
+                                配置済み
+                              </span>
+                            </div>
+                          )}
                         </div>
                       );
                     })
