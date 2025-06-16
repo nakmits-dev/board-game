@@ -128,7 +128,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
     return false;
   };
 
-  // 🔧 ボードベースの配置可能判定
+  // 🔧 ボードベースの配置可能判定（コストオーバーと重複を正しく判定）
   const canPlaceCharacter = (id: string, type: 'master' | 'monster'): boolean => {
     if (!selectedPosition) return false;
     
@@ -759,7 +759,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
                           {!canSelect && (
                             <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-2xl">
                               <span className="text-white font-bold text-sm bg-red-600 px-3 py-1 rounded-lg">
-                                配置済み
+                                {isCardAlreadyPlaced(selectedBoard, id, 'master') ? '配置済み' : 'コストオーバー'}
                               </span>
                             </div>
                           )}
@@ -791,7 +791,7 @@ const DeckBuilder: React.FC<DeckBuilderProps> = ({
                           {!canSelect && (
                             <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-2xl">
                               <span className="text-white font-bold text-sm bg-red-600 px-3 py-1 rounded-lg">
-                                配置済み
+                                {isCardAlreadyPlaced(selectedBoard, monster, 'monster') ? '配置済み' : 'コストオーバー'}
                               </span>
                             </div>
                           )}

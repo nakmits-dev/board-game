@@ -1,5 +1,3 @@
-import { MonsterCard, MasterCard, MonsterType } from '../types/gameTypes';
-
 export const monsterData: Record<string, MonsterCard> = {
   'wolf': {
     name: 'ウルフ',
@@ -128,7 +126,7 @@ export const monsterData: Record<string, MonsterCard> = {
   },
   'yellow-dragon': {
     name: 'イエロードラゴン',
-    hp: 3,
+    hp: 2,
     attack: 1,
     defense: 0,
     actions: 3,
