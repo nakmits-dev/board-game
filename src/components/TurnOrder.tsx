@@ -177,7 +177,7 @@ const TurnOrder: React.FC = () => {
             >
               <div className="flex items-center gap-1.5">
                 <Flag size={16} />
-                <span>{showSurrenderConfirm ? '降参する' : '降参'}</span>
+                <span>降参</span>
               </div>
             </button>
             
